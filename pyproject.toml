@@ -1,0 +1,49 @@
+# pyproject.toml — Learnyx v1.0
+# Лінтер: Ruff | Форматер: Black
+# Python 3.11+ | Django / Python Backend
+
+# ───────────────────────────────────────────
+# Ruff — лінтер
+# ───────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*/migrations/*",   # автогенерований код Django
+    "manage.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle — помилки стилю
+    "F",   # pyflakes — невикористані імпорти, змінні
+    "I",   # isort — порядок імпортів
+    "N",   # pep8-naming — правила іменування
+    "UP",  # pyupgrade — застарілий синтаксис Python
+]
+
+ignore = [
+    "E501",  # довжина рядка контролюється Black
+]
+
+# ───────────────────────────────────────────
+# Black — форматер
+# ───────────────────────────────────────────
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | __pycache__
+  | migrations
+)/
+'''
