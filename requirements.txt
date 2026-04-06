@@ -5,3 +5,5 @@ tzdata==2025.3        # часові зони
 djangorestframework==3.15.2
 psycopg2-binary
 python-dotenv
+djangorestframework-simplejwt  # JWT автентифікація
+drf-spectacular                # Swagger / OpenAPI
