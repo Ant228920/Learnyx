@@ -1,0 +1,57 @@
+# EditorConfig — https://editorconfig.org
+# Learnyx v1.0 | Стек: Python/Django + React + PostgreSQL
+
+root = true
+
+# ───────────────────────────────────────────
+# Загальні правила для всіх файлів
+# ───────────────────────────────────────────
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# ───────────────────────────────────────────
+# Python / Django — Backend
+# ───────────────────────────────────────────
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+# ───────────────────────────────────────────
+# JavaScript / React — Frontend
+# ───────────────────────────────────────────
+[*.{js,jsx}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# ───────────────────────────────────────────
+# HTML / CSS
+# ───────────────────────────────────────────
+[*.{html,css}]
+indent_style = space
+indent_size = 2
+
+# ───────────────────────────────────────────
+# JSON / YAML — конфіги та залежності
+# ───────────────────────────────────────────
+[*.{json,yaml,yml}]
+indent_style = space
+indent_size = 2
+
+# ───────────────────────────────────────────
+# Markdown — документація
+# ───────────────────────────────────────────
+[*.md]
+trim_trailing_whitespace = false
+insert_final_newline = true
+
+# ───────────────────────────────────────────
+# Конфігураційні файли
+# ───────────────────────────────────────────
+[*.{toml,ini,cfg}]
+indent_style = space
+indent_size = 4
