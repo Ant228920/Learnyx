@@ -1,0 +1,1066 @@
+openapi: 3.0.3
+info:
+  title: Learnyx API
+  version: 1.0.0
+  description: |
+    REST API для платформи онлайн-репетиторства Learnyx.
+    Система управляє заняттями, учнями, викладачами, пакетами уроків та системою бонусів (Learning Cashback).
+  contact:
+    name: Backend Developer
+    email: babunbogdan@gmail.com
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development Server
+
+tags:
+  - name: Auth
+    description: Реєстрація, авторизація та управління токенами
+  - name: Users
+    description: Профілі користувачів (Student, Teacher, Manager)
+  - name: Slots
+    description: Управління часовими слотами викладача
+  - name: Lessons
+    description: Бронювання та управління заняттями
+  - name: Packages
+    description: Пакети занять та облік балансу
+  - name: Journal
+    description: Журнал успішності (оцінки, ДЗ, відвідуваність)
+  - name: Bonus
+    description: Learning Cashback та бонусний баланс
+  - name: Requests
+    description: Заявки до менеджера
+
+paths:
+
+  # ───────────────────────────────────────────
+  # AUTH
+  # ───────────────────────────────────────────
+
+  /auth/register/:
+    post:
+      tags: [Auth]
+      summary: Подача заявки на реєстрацію
+      description: Учень або викладач подає заявку. Менеджер активує акаунт вручну.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: "student@example.com"
+              password: "SecurePass123"
+              first_name: "Іван"
+              last_name: "Петренко"
+              phone: "+380991234567"
+              role: "student"
+      responses:
+        '201':
+          description: Заявку подано, очікує підтвердження менеджера
+          content:
+            application/json:
+              example:
+                id: 1
+                email: "student@example.com"
+                is_approved: false
+                message: "Заявку прийнято. Очікуйте підтвердження менеджера."
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Email вже зареєстрований
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "EMAIL_ALREADY_EXISTS"
+                message: "Користувач з таким email вже існує"
+                path: "/api/v1/auth/register/"
+
+  /auth/login/:
+    post:
+      tags: [Auth]
+      summary: Авторизація користувача (JWT)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "student@example.com"
+              password: "SecurePass123"
+      responses:
+        '200':
+          description: Успішна авторизація
+          content:
+            application/json:
+              example:
+                access: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refresh: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  id: 1
+                  email: "student@example.com"
+                  role: "student"
+                  full_name: "Іван Петренко"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          description: Невірний email або пароль
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "INVALID_CREDENTIALS"
+                message: "Невірний email або пароль"
+                path: "/api/v1/auth/login/"
+
+  /auth/token/refresh/:
+    post:
+      tags: [Auth]
+      summary: Оновлення access токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              refresh: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Новий access токен
+          content:
+            application/json:
+              example:
+                access: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Refresh токен недійсний або прострочений
+
+  # ───────────────────────────────────────────
+  # USERS
+  # ───────────────────────────────────────────
+
+  /users/me/:
+    get:
+      tags: [Users]
+      summary: Отримати профіль поточного користувача
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Профіль користувача
+          content:
+            application/json:
+              example:
+                id: 1
+                email: "student@example.com"
+                first_name: "Іван"
+                last_name: "Петренко"
+                role: "student"
+                phone: "+380991234567"
+                is_approved: true
+                level: "11 клас (НМТ)"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/students/:
+    get:
+      tags: [Users]
+      summary: Список учнів (для менеджера/викладача)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: level_id
+          in: query
+          schema:
+            type: integer
+          description: Фільтр за рівнем підготовки
+        - name: is_approved
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Список учнів
+          content:
+            application/json:
+              example:
+                count: 2
+                results:
+                  - id: 1
+                    full_name: "Іван Петренко"
+                    level: "11 клас (НМТ)"
+                    is_approved: true
+                  - id: 2
+                    full_name: "Марія Коваль"
+                    level: "Дорослий"
+                    is_approved: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /users/students/{id}/:
+    get:
+      tags: [Users]
+      summary: Деталі конкретного учня
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Деталі учня
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/teachers/:
+    get:
+      tags: [Users]
+      summary: Список викладачів
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: discipline_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Список викладачів
+          content:
+            application/json:
+              example:
+                count: 1
+                results:
+                  - id: 1
+                    full_name: "Олена Сидоренко"
+                    discipline: "Математика"
+                    level: "Експерт"
+                    salary: 500.00
+
+  /users/approve/{id}/:
+    patch:
+      tags: [Users]
+      summary: Підтвердження реєстрації користувача менеджером
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              is_approved: true
+      responses:
+        '200':
+          description: Акаунт підтверджено
+          content:
+            application/json:
+              example:
+                id: 3
+                email: "teacher@example.com"
+                is_approved: true
+                message: "Акаунт успішно підтверджено"
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ───────────────────────────────────────────
+  # SLOTS
+  # ───────────────────────────────────────────
+
+  /slots/:
+    get:
+      tags: [Slots]
+      summary: Отримати слоти викладача
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: teacher_id
+          in: query
+          schema:
+            type: integer
+        - name: is_booked
+          in: query
+          schema:
+            type: boolean
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2026-04-10"
+      responses:
+        '200':
+          description: Список слотів
+          content:
+            application/json:
+              example:
+                count: 3
+                results:
+                  - id: 1
+                    teacher_id: 1
+                    start_time: "2026-04-10T10:00:00Z"
+                    end_time: "2026-04-10T11:00:00Z"
+                    is_booked: false
+                  - id: 2
+                    teacher_id: 1
+                    start_time: "2026-04-10T12:00:00Z"
+                    end_time: "2026-04-10T13:00:00Z"
+                    is_booked: true
+
+    post:
+      tags: [Slots]
+      summary: Створити часовий слот (викладач)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SlotCreateRequest'
+            example:
+              start_time: "2026-04-10T10:00:00Z"
+              end_time: "2026-04-10T11:00:00Z"
+      responses:
+        '201':
+          description: Слот створено
+          content:
+            application/json:
+              example:
+                id: 5
+                teacher_id: 1
+                start_time: "2026-04-10T10:00:00Z"
+                end_time: "2026-04-10T11:00:00Z"
+                is_booked: false
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Конфлікт часу — слот перетинається з існуючим
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "SLOT_TIME_CONFLICT"
+                message: "Часовий слот перетинається з вже існуючим"
+                path: "/api/v1/slots/"
+
+  /slots/{id}/:
+    delete:
+      tags: [Slots]
+      summary: Видалити слот (тільки незаброньований)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Слот видалено
+        '409':
+          description: Неможливо видалити — слот вже заброньований
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "SLOT_ALREADY_BOOKED"
+                message: "Неможливо видалити заброньований слот"
+                path: "/api/v1/slots/2/"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ───────────────────────────────────────────
+  # LESSONS
+  # ───────────────────────────────────────────
+
+  /lessons/:
+    get:
+      tags: [Lessons]
+      summary: Список занять поточного користувача
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, conducted, missed, cancelled]
+        - name: package_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Список занять
+          content:
+            application/json:
+              example:
+                count: 2
+                results:
+                  - id: 1
+                    slot_id: 3
+                    student_id: 1
+                    package_id: 2
+                    status: "scheduled"
+                    meting_link: "https://meet.google.com/abc-defg-hij"
+                    start_time: "2026-04-10T10:00:00Z"
+
+    post:
+      tags: [Lessons]
+      summary: Забронювати заняття (менеджер призначає учня на слот)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonCreateRequest'
+            example:
+              slot_id: 3
+              student_id: 1
+              package_id: 2
+              curriculum_lesson_id: 5
+              meting_link: "https://meet.google.com/abc-defg-hij"
+      responses:
+        '201':
+          description: Заняття заброньовано
+          content:
+            application/json:
+              example:
+                id: 10
+                slot_id: 3
+                student_id: 1
+                package_id: 2
+                status: "scheduled"
+                meting_link: "https://meet.google.com/abc-defg-hij"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Пакет не активний або баланс вичерпано
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "PACKAGE_BALANCE_EMPTY"
+                message: "У пакеті не залишилось занять"
+                path: "/api/v1/lessons/"
+
+  /lessons/{id}/complete/:
+    patch:
+      tags: [Lessons]
+      summary: Завершити заняття — списати урок з пакету
+      description: |
+        Змінює статус на 'conducted'. Автоматично зменшує balance у Package на 1.
+        Якщо balance = 0 — пакет деактивується. Перевіряється право на Learning Cashback.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              status: "conducted"
+      responses:
+        '200':
+          description: Заняття завершено, баланс списано
+          content:
+            application/json:
+              example:
+                id: 10
+                status: "conducted"
+                package_balance_remaining: 7
+                message: "Заняття завершено. Залишилось занять у пакеті: 7"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Заняття вже завершено або скасовано
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "LESSON_ALREADY_COMPLETED"
+                message: "Статус заняття вже є фінальним і не може бути змінений"
+                path: "/api/v1/lessons/10/complete/"
+
+  /lessons/{id}/cancel/:
+    patch:
+      tags: [Lessons]
+      summary: Скасувати заняття
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              status: "cancelled"
+              reason: "Учень захворів"
+      responses:
+        '200':
+          description: Заняття скасовано
+        '409':
+          description: Заняття вже проведено — скасування неможливе
+
+  /lessons/{id}/miss/:
+    patch:
+      tags: [Lessons]
+      summary: Позначити заняття як пропущене
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Заняття позначено як пропущене, застосовано штрафні правила
+
+  # ───────────────────────────────────────────
+  # PACKAGES
+  # ───────────────────────────────────────────
+
+  /packages/:
+    get:
+      tags: [Packages]
+      summary: Список пакетів занять учня
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: student_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, completed, expired]
+      responses:
+        '200':
+          description: Список пакетів
+          content:
+            application/json:
+              example:
+                count: 1
+                results:
+                  - id: 2
+                    student_id: 1
+                    course_id: 3
+                    discipline: "Математика"
+                    total_lessons: 12
+                    balance: 8
+                    final_price: 2400.00
+                    discount: 10.00
+                    status: "active"
+                    purchased_at: "2026-03-15T09:00:00Z"
+
+    post:
+      tags: [Packages]
+      summary: Активувати пакет занять (менеджер)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageCreateRequest'
+            example:
+              student_id: 1
+              course_id: 3
+              discipline_id: 1
+              total_lessons: 12
+              final_price: 2400.00
+              discount: 10.00
+              completed_id: null
+      responses:
+        '201':
+          description: Пакет активовано
+          content:
+            application/json:
+              example:
+                id: 5
+                student_id: 1
+                course_id: 3
+                total_lessons: 12
+                balance: 12
+                final_price: 2400.00
+                status: "active"
+                purchased_at: "2026-04-06T10:00:00Z"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: У учня вже є активний пакет з цього курсу
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "PACKAGE_ALREADY_ACTIVE"
+                message: "У учня вже є активний пакет з цього предмету"
+                path: "/api/v1/packages/"
+
+  /packages/{id}/:
+    get:
+      tags: [Packages]
+      summary: Деталі пакету
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Деталі пакету
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ───────────────────────────────────────────
+  # JOURNAL
+  # ───────────────────────────────────────────
+
+  /journal/:
+    get:
+      tags: [Journal]
+      summary: Журнал успішності учня
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: student_id
+          in: query
+          schema:
+            type: integer
+        - name: lesson_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Записи журналу
+          content:
+            application/json:
+              example:
+                count: 2
+                results:
+                  - id: 1
+                    lesson_id: 10
+                    is_present: true
+                    activity_grade: 9
+                    homework_grade: 8
+                    teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+                    homework_answer_url: "https://drive.google.com/..."
+
+  /journal/{lesson_id}/:
+    post:
+      tags: [Journal]
+      summary: Заповнити журнал після заняття (викладач)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: lesson_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JournalCreateRequest'
+            example:
+              is_present: true
+              activity_grade: 9
+              teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+              homework_grade: 8
+              homework_answer_url: "https://drive.google.com/file/abc"
+      responses:
+        '201':
+          description: Запис у журнал додано
+          content:
+            application/json:
+              example:
+                id: 15
+                lesson_id: 10
+                is_present: true
+                activity_grade: 9
+                homework_grade: 8
+                teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Журнал для цього заняття вже заповнений
+          content:
+            application/json:
+              example:
+                timestamp: "2026-04-06T10:00:00Z"
+                errorCode: "JOURNAL_ALREADY_EXISTS"
+                message: "Запис для цього заняття вже існує"
+                path: "/api/v1/journal/10/"
+
+  # ───────────────────────────────────────────
+  # BONUS
+  # ───────────────────────────────────────────
+
+  /bonus/balance/{student_id}/:
+    get:
+      tags: [Bonus]
+      summary: Отримати бонусний баланс учня (Learning Cashback)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: student_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Бонусний баланс
+          content:
+            application/json:
+              example:
+                student_id: 1
+                bonus_balance: 240.00
+                potential_cashback: 120.00
+                expires_at: "2026-10-06T00:00:00Z"
+                cashback_rules:
+                  - range: "85-89%"
+                    bonus: "5%"
+                  - range: "90-94%"
+                    bonus: "10%"
+                  - range: "95-100%"
+                    bonus: "15%"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /bonus/calculate/{package_id}/:
+    post:
+      tags: [Bonus]
+      summary: Розрахувати та нарахувати cashback після завершення курсу
+      description: |
+        Розраховує успішність учня (середній бал ДЗ + активність).
+        85-89% → 5%, 90-94% → 10%, 95-100% → 15%.
+        Якщо < 85% — бонус не нараховується.
+        Бонус покриває до 30% вартості наступного пакету, діє 180 днів.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: package_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cashback розраховано
+          content:
+            application/json:
+              example:
+                student_id: 1
+                average_score: 92.5
+                cashback_percent: 10
+                cashback_amount: 240.00
+                bonus_balance_total: 240.00
+                message: "Нараховано 10% cashback — 240 грн на бонусний баланс"
+        '409':
+          description: Курс ще не завершено або cashback вже нараховано
+
+  # ───────────────────────────────────────────
+  # REQUESTS
+  # ───────────────────────────────────────────
+
+  /requests/:
+    get:
+      tags: [Requests]
+      summary: Список заявок (менеджер бачить всі, інші — свої)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, in_progress, closed]
+      responses:
+        '200':
+          description: Список заявок
+          content:
+            application/json:
+              example:
+                count: 1
+                results:
+                  - id: 1
+                    user_id: 1
+                    manager_id: null
+                    title: "Прошу перенести заняття з 10.04 на 11.04"
+                    status: "new"
+
+    post:
+      tags: [Requests]
+      summary: Подати заявку до менеджера
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              title: "Прошу перенести заняття з 10.04 на 11.04"
+      responses:
+        '201':
+          description: Заявку подано
+          content:
+            application/json:
+              example:
+                id: 5
+                user_id: 1
+                title: "Прошу перенести заняття з 10.04 на 11.04"
+                status: "new"
+
+  /requests/{id}/process/:
+    patch:
+      tags: [Requests]
+      summary: Взяти заявку в роботу або закрити (менеджер)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              status: "in_progress"
+              manager_id: 2
+      responses:
+        '200':
+          description: Статус заявки оновлено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ───────────────────────────────────────────
+# COMPONENTS
+# ───────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен. Отримується через POST /auth/login/
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, first_name, last_name, role]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [student, teacher]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    SlotCreateRequest:
+      type: object
+      required: [start_time, end_time]
+      properties:
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+
+    LessonCreateRequest:
+      type: object
+      required: [slot_id, student_id, package_id]
+      properties:
+        slot_id:
+          type: integer
+        student_id:
+          type: integer
+        package_id:
+          type: integer
+        curriculum_lesson_id:
+          type: integer
+        meting_link:
+          type: string
+          format: uri
+
+    PackageCreateRequest:
+      type: object
+      required: [student_id, course_id, discipline_id, total_lessons, final_price]
+      properties:
+        student_id:
+          type: integer
+        course_id:
+          type: integer
+        discipline_id:
+          type: integer
+        total_lessons:
+          type: integer
+          minimum: 1
+        final_price:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+          default: 0.00
+        completed_id:
+          type: integer
+          nullable: true
+
+    JournalCreateRequest:
+      type: object
+      required: [is_present]
+      properties:
+        is_present:
+          type: boolean
+        activity_grade:
+          type: integer
+          minimum: 1
+          maximum: 12
+        teacher_homework_task:
+          type: string
+        homework_grade:
+          type: integer
+          minimum: 1
+          maximum: 12
+        homework_answer_url:
+          type: string
+          format: uri
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        errorCode:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+
+  responses:
+    ValidationError:
+      description: Помилка валідації вхідних даних
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            timestamp: "2026-04-06T10:00:00Z"
+            errorCode: "VALIDATION_ERROR"
+            message: "Помилка валідації"
+            path: "/api/v1/..."
+            details:
+              - "email: Введіть коректний email"
+              - "password: Мінімум 8 символів"
+
+    Unauthorized:
+      description: Токен відсутній або недійсний
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            timestamp: "2026-04-06T10:00:00Z"
+            errorCode: "UNAUTHORIZED"
+            message: "Авторизація обов'язкова"
+            path: "/api/v1/..."
+
+    Forbidden:
+      description: Недостатньо прав для виконання дії
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            timestamp: "2026-04-06T10:00:00Z"
+            errorCode: "FORBIDDEN"
+            message: "У вас немає прав для виконання цієї дії"
+            path: "/api/v1/..."
+
+    NotFound:
+      description: Ресурс не знайдено
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            timestamp: "2026-04-06T10:00:00Z"
+            errorCode: "NOT_FOUND"
+            message: "Запитуваний ресурс не знайдено"
+            path: "/api/v1/..."
