@@ -1,9 +1,9 @@
-asgiref==3.11.1
-Django==6.0.3
-sqlparse==0.5.5
-tzdata==2025.3
+asgiref==3.11.1       # ASGI-сервер, залежність Django
+Django==6.0.3         # основний веб-фреймворк
+sqlparse==0.5.5       # парсер SQL, залежність Django
+tzdata==2025.3        # часові зони
 djangorestframework==3.15.2
 psycopg2-binary
 python-dotenv
-djangorestframework-simplejwt
-drf-spectacular
+djangorestframework-simplejwt  # JWT автентифікація
+drf-spectacular                # Swagger / OpenAPI
