@@ -1,0 +1,844 @@
+{
+  "info": {
+    "name": "Learnyx API",
+    "description": "REST API для платформи онлайн-репетиторства Learnyx. Система управляє заняттями, учнями, викладачами, пакетами уроків та системою бонусів (Learning Cashback).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Реєстрація, авторизація та управління токенами",
+      "item": [
+        {
+          "name": "Подача заявки на реєстрацію",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register/",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@example.com\",\n  \"password\": \"SecurePass123\",\n  \"first_name\": \"Іван\",\n  \"last_name\": \"Петренко\",\n  \"phone\": \"+380991234567\",\n  \"role\": \"student\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Учень або викладач подає заявку. Менеджер активує акаунт вручну.\n\nExpected: 201 Created\nErrors: 400 (Невалідний формат email), 409 (Email вже зареєстрований)"
+          },
+          "response": [
+            {
+              "name": "201 Created — Заявку подано",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 1,\n  \"email\": \"student@example.com\",\n  \"is_approved\": false,\n  \"message\": \"Заявку прийнято. Очікуйте підтвердження менеджера.\"\n}"
+            },
+            {
+              "name": "409 Conflict — Email вже існує",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-04-06T10:00:00Z\",\n  \"errorCode\": \"EMAIL_ALREADY_EXISTS\",\n  \"message\": \"Користувач з таким email вже існує\",\n  \"path\": \"/api/v1/auth/register/\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Авторизація користувача (Login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', response.access);",
+                  "    pm.test('Token saved', () => pm.expect(response.access).to.be.a('string'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login/",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@example.com\",\n  \"password\": \"SecurePass123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Авторизація через email/password. Повертає JWT access + refresh токени.\n\nExpected: 200 OK\nErrors: 400 (Невалідний формат), 401 (Невірний email або пароль)"
+          },
+          "response": [
+            {
+              "name": "200 OK — Успішна авторизація",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"access\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"refresh\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"user\": {\n    \"id\": 1,\n    \"email\": \"student@example.com\",\n    \"role\": \"student\",\n    \"full_name\": \"Іван Петренко\"\n  }\n}"
+            },
+            {
+              "name": "401 Unauthorized — Невірний пароль",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-04-06T10:00:00Z\",\n  \"errorCode\": \"INVALID_CREDENTIALS\",\n  \"message\": \"Невірний email або пароль\",\n  \"path\": \"/api/v1/auth/login/\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Оновлення access токена",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/token/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "token", "refresh", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Оновлення access токена через refresh токен.\n\nExpected: 200 OK\nErrors: 401 (Refresh токен недійсний або прострочений)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Профілі користувачів (Student, Teacher, Manager)",
+      "item": [
+        {
+          "name": "Отримати профіль поточного користувача",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me", ""]
+            },
+            "description": "Повертає профіль авторизованого користувача.\n\nExpected: 200 OK\nErrors: 401 (Токен відсутній або недійсний)"
+          },
+          "response": [
+            {
+              "name": "200 OK — Профіль користувача",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"email\": \"student@example.com\",\n  \"first_name\": \"Іван\",\n  \"last_name\": \"Петренко\",\n  \"role\": \"student\",\n  \"phone\": \"+380991234567\",\n  \"is_approved\": true,\n  \"level\": \"11 клас (НМТ)\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Список учнів",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/students/",
+              "host": ["{{base_url}}"],
+              "path": ["users", "students", ""],
+              "query": [
+                {
+                  "key": "level_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "is_approved",
+                  "value": "true",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Список учнів (для менеджера/викладача).\n\nExpected: 200 OK\nErrors: 401, 403 (Недостатньо прав)"
+          }
+        },
+        {
+          "name": "Список викладачів",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/teachers/",
+              "host": ["{{base_url}}"],
+              "path": ["users", "teachers", ""]
+            },
+            "description": "Список викладачів.\n\nExpected: 200 OK"
+          }
+        },
+        {
+          "name": "Підтвердження реєстрації (менеджер)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/approve/3/",
+              "host": ["{{base_url}}"],
+              "path": ["users", "approve", "3", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_approved\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Менеджер підтверджує реєстрацію користувача.\n\nExpected: 200 OK\nErrors: 403 (Не менеджер), 404 (Користувач не знайдений)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Slots",
+      "description": "Управління часовими слотами викладача",
+      "item": [
+        {
+          "name": "Отримати слоти викладача",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/slots/",
+              "host": ["{{base_url}}"],
+              "path": ["slots", ""],
+              "query": [
+                {
+                  "key": "teacher_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "is_booked",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "date",
+                  "value": "2026-04-10",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Список слотів з можливістю фільтрації.\n\nExpected: 200 OK"
+          }
+        },
+        {
+          "name": "Створити часовий слот",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/slots/",
+              "host": ["{{base_url}}"],
+              "path": ["slots", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_time\": \"2026-04-10T10:00:00Z\",\n  \"end_time\": \"2026-04-10T11:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Викладач створює вільний слот у своєму розкладі.\n\nExpected: 201 Created\nErrors: 400 (Невалідні дані), 409 (Конфлікт часу)"
+          },
+          "response": [
+            {
+              "name": "201 Created — Слот створено",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"id\": 5,\n  \"teacher_id\": 1,\n  \"start_time\": \"2026-04-10T10:00:00Z\",\n  \"end_time\": \"2026-04-10T11:00:00Z\",\n  \"is_booked\": false\n}"
+            },
+            {
+              "name": "409 Conflict — Конфлікт слотів",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"timestamp\": \"2026-04-06T10:00:00Z\",\n  \"errorCode\": \"SLOT_TIME_CONFLICT\",\n  \"message\": \"Часовий слот перетинається з вже існуючим\",\n  \"path\": \"/api/v1/slots/\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Видалити слот",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/slots/5/",
+              "host": ["{{base_url}}"],
+              "path": ["slots", "5", ""]
+            },
+            "description": "Видалення незабронйованого слоту.\n\nExpected: 204 No Content\nErrors: 404 (Слот не знайдено), 409 (Слот вже заброньований)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lessons",
+      "description": "Бронювання та управління заняттями",
+      "item": [
+        {
+          "name": "Список занять",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/",
+              "host": ["{{base_url}}"],
+              "path": ["lessons", ""],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "scheduled",
+                  "disabled": true
+                },
+                {
+                  "key": "package_id",
+                  "value": "2",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Список занять поточного користувача з фільтрацією.\n\nExpected: 200 OK\nErrors: 401"
+          }
+        },
+        {
+          "name": "Забронювати заняття",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/",
+              "host": ["{{base_url}}"],
+              "path": ["lessons", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slot_id\": 3,\n  \"student_id\": 1,\n  \"package_id\": 2,\n  \"curriculum_lesson_id\": 5,\n  \"meting_link\": \"https://meet.google.com/abc-defg-hij\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Менеджер призначає учня на слот.\n\nExpected: 201 Created\nErrors: 400, 404 (Слот не знайдено), 409 (Баланс пакету вичерпано)"
+          },
+          "response": [
+            {
+              "name": "201 Created — Заняття заброньовано",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"id\": 10,\n  \"slot_id\": 3,\n  \"student_id\": 1,\n  \"package_id\": 2,\n  \"status\": \"scheduled\",\n  \"meting_link\": \"https://meet.google.com/abc-defg-hij\"\n}"
+            },
+            {
+              "name": "409 Conflict — Баланс вичерпано",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"timestamp\": \"2026-04-06T14:30:00Z\",\n  \"errorCode\": \"INSUFFICIENT_PACKAGE_BALANCE\",\n  \"message\": \"Неможливо забронювати урок: у вашому пакеті залишилося 0 занять.\",\n  \"path\": \"/api/v1/lessons\",\n  \"details\": [\n    {\n      \"field\": \"packageId\",\n      \"issue\": \"Баланс вичерпано\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Завершити заняття",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/10/complete/",
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "10", "complete", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"conducted\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Завершення заняття — автоматично списує 1 урок з балансу пакету.\n\nExpected: 200 OK\nErrors: 404, 409 (Заняття вже завершено)"
+          },
+          "response": [
+            {
+              "name": "200 OK — Заняття завершено",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 10,\n  \"status\": \"conducted\",\n  \"package_balance_remaining\": 7,\n  \"message\": \"Заняття завершено. Залишилось занять у пакеті: 7\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Скасувати заняття",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/10/cancel/",
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "10", "cancel", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelled\",\n  \"reason\": \"Учень захворів\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Скасування заняття.\n\nExpected: 200 OK\nErrors: 409 (Заняття вже проведено)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Packages",
+      "description": "Пакети занять та облік балансу",
+      "item": [
+        {
+          "name": "Список пакетів",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/packages/",
+              "host": ["{{base_url}}"],
+              "path": ["packages", ""],
+              "query": [
+                {
+                  "key": "student_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Список пакетів занять учня.\n\nExpected: 200 OK"
+          }
+        },
+        {
+          "name": "Активувати пакет занять",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/packages/",
+              "host": ["{{base_url}}"],
+              "path": ["packages", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student_id\": 1,\n  \"course_id\": 3,\n  \"discipline_id\": 1,\n  \"total_lessons\": 12,\n  \"final_price\": 2400.00,\n  \"discount\": 10.00,\n  \"completed_id\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Менеджер активує пакет занять для учня.\n\nExpected: 201 Created\nErrors: 400, 409 (У учня вже є активний пакет з цього курсу)"
+          },
+          "response": [
+            {
+              "name": "201 Created — Пакет активовано",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"id\": 5,\n  \"student_id\": 1,\n  \"course_id\": 3,\n  \"total_lessons\": 12,\n  \"balance\": 12,\n  \"final_price\": 2400.00,\n  \"status\": \"active\",\n  \"purchased_at\": \"2026-04-06T10:00:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Journal",
+      "description": "Журнал успішності (оцінки, ДЗ, відвідуваність)",
+      "item": [
+        {
+          "name": "Журнал успішності учня",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/journal/",
+              "host": ["{{base_url}}"],
+              "path": ["journal", ""],
+              "query": [
+                {
+                  "key": "student_id",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Записи журналу успішності.\n\nExpected: 200 OK"
+          }
+        },
+        {
+          "name": "Заповнити журнал після заняття",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/journal/10/",
+              "host": ["{{base_url}}"],
+              "path": ["journal", "10", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_present\": true,\n  \"activity_grade\": 9,\n  \"teacher_homework_task\": \"Розв'язати задачі 1-5 стор. 45\",\n  \"homework_grade\": 8,\n  \"homework_answer_url\": \"https://drive.google.com/file/abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Викладач заповнює журнал після заняття.\n\nExpected: 201 Created\nErrors: 400, 409 (Журнал вже заповнений)"
+          },
+          "response": [
+            {
+              "name": "201 Created — Запис додано",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"id\": 15,\n  \"lesson_id\": 10,\n  \"is_present\": true,\n  \"activity_grade\": 9,\n  \"homework_grade\": 8,\n  \"teacher_homework_task\": \"Розв'язати задачі 1-5 стор. 45\"\n}"
+            },
+            {
+              "name": "409 Conflict — Журнал вже заповнений",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"timestamp\": \"2026-04-06T10:00:00Z\",\n  \"errorCode\": \"JOURNAL_ALREADY_EXISTS\",\n  \"message\": \"Запис для цього заняття вже існує\",\n  \"path\": \"/api/v1/journal/10/\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bonus",
+      "description": "Learning Cashback та бонусний баланс",
+      "item": [
+        {
+          "name": "Бонусний баланс учня",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bonus/balance/1/",
+              "host": ["{{base_url}}"],
+              "path": ["bonus", "balance", "1", ""]
+            },
+            "description": "Отримати бонусний баланс учня (Learning Cashback).\n\nExpected: 200 OK\nErrors: 404"
+          },
+          "response": [
+            {
+              "name": "200 OK — Бонусний баланс",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"student_id\": 1,\n  \"bonus_balance\": 240.00,\n  \"potential_cashback\": 120.00,\n  \"expires_at\": \"2026-10-06T00:00:00Z\",\n  \"cashback_rules\": [\n    { \"range\": \"85-89%\", \"bonus\": \"5%\" },\n    { \"range\": \"90-94%\", \"bonus\": \"10%\" },\n    { \"range\": \"95-100%\", \"bonus\": \"15%\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Розрахувати cashback після курсу",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bonus/calculate/2/",
+              "host": ["{{base_url}}"],
+              "path": ["bonus", "calculate", "2", ""]
+            },
+            "description": "Розрахунок та нарахування Learning Cashback після завершення курсу.\n\n85-89% → 5%, 90-94% → 10%, 95-100% → 15%\n\nExpected: 200 OK\nErrors: 409 (Курс не завершено або cashback вже нараховано)"
+          },
+          "response": [
+            {
+              "name": "200 OK — Cashback нараховано",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"student_id\": 1,\n  \"average_score\": 92.5,\n  \"cashback_percent\": 10,\n  \"cashback_amount\": 240.00,\n  \"bonus_balance_total\": 240.00,\n  \"message\": \"Нараховано 10% cashback — 240 грн на бонусний баланс\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Requests",
+      "description": "Заявки до менеджера",
+      "item": [
+        {
+          "name": "Список заявок",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/requests/",
+              "host": ["{{base_url}}"],
+              "path": ["requests", ""],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "new",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Список заявок. Менеджер бачить всі, інші — лише свої.\n\nExpected: 200 OK"
+          }
+        },
+        {
+          "name": "Подати заявку до менеджера",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/requests/",
+              "host": ["{{base_url}}"],
+              "path": ["requests", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Прошу перенести заняття з 10.04 на 11.04\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Подача заявки учнем або викладачем до менеджера.\n\nExpected: 201 Created"
+          }
+        },
+        {
+          "name": "Взяти заявку в роботу (менеджер)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/requests/5/process/",
+              "host": ["{{base_url}}"],
+              "path": ["requests", "5", "process", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"manager_id\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Менеджер бере заявку в роботу або закриває її.\n\nExpected: 200 OK\nErrors: 403, 404"
+          }
+        }
+      ]
+    }
+  ]
+}
