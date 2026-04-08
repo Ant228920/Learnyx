@@ -103,8 +103,6 @@ Learnyx/
 ├── requirements.txt       # Залежності проєкту
 ├── README.md
 └── CONTRIBUTORS.md
-└── тощо...
-
 ```
 
 ---

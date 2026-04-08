@@ -4,3 +4,10 @@ __pycache__/
 db.sqlite3
 .env
 .idea/
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.eslintcache
+client/.env
