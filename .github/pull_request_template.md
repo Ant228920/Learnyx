@@ -11,11 +11,7 @@
 
 ---
 
-<<<<<<<< HEAD:.github/pull_request.md
-## ️ Тип зміни
-========
 ##  Тип зміни
->>>>>>>> 23937473db86a3cb45f2556227fb95fedb2be48a:.github/pull_request_template.md
 
 - [x] Feature — нова функціональність
 - [ ] Bug Fix — виправлення помилки
