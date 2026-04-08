@@ -34,7 +34,7 @@ Learnyx — веб-платформа для структурованого он
 - Python 3.11+ (pip включено)
 - PostgreSQL 14+
 
-> Всі Python-залежності (Django, DRF тощо) встановлюються автоматично через `pip install -r requirements.txt`
+> Всі Python-залежності (Django, DRF тощо) встановлюється автоматично через `pip install -r requirements.txt`
 
 ### Installation
 
