@@ -103,6 +103,8 @@ Learnyx/
 ├── requirements.txt       # Залежності проєкту
 ├── README.md
 └── CONTRIBUTORS.md
+└── тощо...
+
 ```
 
 ---
@@ -138,6 +140,6 @@ Learnyx/
 | GitHub | [Learnyx Repository](https://github.com/Ant228920/Learnyx) |
 | Jira Board | [Learnyx Backlog](https://learnyx123.atlassian.net/jira/software/projects/LEAR/boards/2/backlog) |
 | Business Requirements | [Notion — BRL](https://www.notion.so/Business-Requirements-List-328cc7cf61f3806f9db5c414bcaa5cef) |
-| API Docs | Swagger (в розробці) |
+| API Docs | [Swagger](https://www.notion.so/Swagger-OpenAPI-Specification-33acc7cf61f380a19b25f5235443bb35) |
 
 ---
