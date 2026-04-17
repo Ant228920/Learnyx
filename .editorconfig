@@ -1,0 +1,31 @@
+# Вказуємо, що це головний файл налаштувань для проєкту
+root = true
+
+# Базові правила для всіх файлів
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Правила для Backend (Python)
+# Стандарт PEP-8 вимагає рівно 4 пробіли
+[*.py]
+indent_style = space
+indent_size = 4
+
+# Правила для Frontend (JavaScript, TypeScript, HTML, CSS)
+# У фронтенді прийнято робити відступ у 2 пробіли
+[*.{js,jsx,ts,tsx,html,css,scss,json}]
+indent_style = space
+indent_size = 2
+
+# Конфігурації та розмітка (Markdown, YAML)
+[*.{yml,yaml,md}]
+indent_style = space
+indent_size = 2
+
+# Специфічне правило для файлів типу Makefile (якщо будете використовувати)
+# Там відступи працюють ТІЛЬКИ через Tab
+[Makefile]
+indent_style = tab
