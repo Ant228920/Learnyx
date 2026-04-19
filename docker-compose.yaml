@@ -1,0 +1,82 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────
+#  Learnyx – Docker Compose (Root)
+#  Запуск: docker-compose up --build
+#
+#  Сервіси:
+#    db       → PostgreSQL 16   (порт 5432)
+#    app      → Django backend  (порт 8000)
+#    pgadmin  → pgAdmin 4       (порт 5050)
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── 1. PostgreSQL ──────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: learnyx_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME}
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - learnyx_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 2. Django Backend ──────────────────────────────────────
+  app:
+    build:
+      context: ./server        # збираємо з папки server/
+      dockerfile: Dockerfile
+    container_name: learnyx_app
+    restart: unless-stopped
+    env_file:
+      - ./server/.env          # реальний .env лежить у server/
+    environment:
+      DB_HOST: db              # override: хост = назва сервісу
+      DB_PORT: 5432
+    volumes:
+      - ./server:/app          # hot-reload під час розробки
+    ports:
+      - "8000:8000"
+    networks:
+      - learnyx_network
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  # ── 3. pgAdmin ─────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: learnyx_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASS}
+    ports:
+      - "5050:80"
+    networks:
+      - learnyx_network
+    depends_on:
+      - db
+
+# ─────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+
+networks:
+  learnyx_network:
+    driver: bridge
