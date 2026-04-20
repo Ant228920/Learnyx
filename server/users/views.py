@@ -23,6 +23,6 @@ class LoginView(APIView):
             'user': {
                 'id': user.id,
                 'email': user.email,
-                'role': user.role,
+                'role': user.role_obj.name if user.role_obj else None,
             }
         }, status=status.HTTP_201_CREATED)

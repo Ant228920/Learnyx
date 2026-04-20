@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from users.models import User
+from django.contrib.auth import get_user_model
 
 
 class LoginSerializer(serializers.Serializer):
@@ -11,8 +12,12 @@ class LoginSerializer(serializers.Serializer):
         email = data.get('email')
         password = data.get('password')
 
-        user = authenticate(username=email, password=password)
-
+        User = get_user_model()
+        try:
+            user_obj = User.objects.get(email=email)
+            user = authenticate(username=user_obj.username, password=password)
+        except User.DoesNotExist:
+            user = None
         if not user:
             raise serializers.ValidationError(
                 "Невірний email або пароль."
