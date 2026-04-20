@@ -1,6 +1,4 @@
-"""
-Django settings for core project.
-"""
+
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -9,14 +7,11 @@ import os
 # ── Base ──────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Завантажуємо змінні з server/.env
 load_dotenv(BASE_DIR / '.env')
 
 # ── Security ──────────────────────────────────────────────────
 SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-insecure-key')
-
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
-
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
 
 # ── Installed Apps ────────────────────────────────────────────
@@ -27,26 +22,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
     'django_filters',
-
-    # Local apps
     'api',
     'inventory',
     'users',
 ]
-AUTH_USER_MODEL = 'users.User'
 
+AUTH_USER_MODEL = 'users.User'
 
 # ── Middleware ────────────────────────────────────────────────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',          # CORS — має бути вгорі
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -61,7 +52,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [],
-        'APP_DIRS': True,
+        'APP_APPS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
@@ -92,6 +83,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
 }
 
 # ── JWT ───────────────────────────────────────────────────────
@@ -111,7 +103,7 @@ SPECTACULAR_SETTINGS = {
 
 # ── CORS ──────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',   # React (Vite)
+    'http://localhost:5173',
     'http://localhost:3000',
 ]
 
@@ -131,23 +123,12 @@ USE_TZ = True
 
 # ── Static files ──────────────────────────────────────────────
 STATIC_URL = 'static/'
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# ── DRF Exception Handler ─────────────────────────────────────
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',  # ← додати
-}
 
 # ── Logging ───────────────────────────────────────────────────
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-
     'formatters': {
         'standard': {
             'format': '[{asctime}] {levelname} {name}: {message}',
@@ -155,37 +136,16 @@ LOGGING = {
             'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
-
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'standard',
         },
     },
-
     'loggers': {
-        # Всі логи Django
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        # Логи HTTP запитів — метод, шлях, статус код
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        # Логи нашого коду
-        'api': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'core': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
+        'django': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'django.request': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'api': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
+        'core': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
     },
 }
