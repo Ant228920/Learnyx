@@ -1,23 +1,31 @@
 import logging
-from datetime import datetime, timezone
+import secrets
+import string
 
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from api.models import RegistrationRequest
 from api.serializers import RegistrationRequestSerializer
+from users.models import User, Role, Student, Manager
 
 logger = logging.getLogger(__name__)
+
+
+def generate_password(length=10):
+    chars = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 class RegistrationRequestView(APIView):
     """
     POST /api/v1/requests/
     UC-08: Подача заявки на реєстрацію (Guest).
-    Доступно без авторизації.
     """
     permission_classes = [AllowAny]
 
@@ -26,32 +34,98 @@ class RegistrationRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         reg_request = serializer.save()
 
-        # Відправка email менеджеру через Django SMTP
         try:
             send_mail(
-                subject=f'Нова заявка на реєстрацію: {reg_request.full_name}',
+                subject=f'Нова заявка: {reg_request.full_name}',
                 message=(
-                    f'Нова заявка на реєстрацію:\n\n'
+                    f'Нова заявка:\n'
                     f'ПІБ: {reg_request.full_name}\n'
                     f'Email: {reg_request.email}\n'
-                    f'Телефон: {reg_request.phone}\n'
                     f'Роль: {reg_request.role}\n'
-                    f'Telegram: {reg_request.telegram_nickname or "-"}\n'
-                    f'Предмет: {reg_request.subject or "-"}\n'
-                    f'Рівень: {reg_request.level or "-"}\n'
                 ),
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[settings.MANAGER_EMAIL],
                 fail_silently=True,
             )
-            logger.info(f'Email sent for registration request {reg_request.id}')
         except Exception as e:
             logger.error(f'Failed to send email: {e}')
 
         return Response(
-            {
-                'message': 'Готово! Ваша заявка успішно відправлена менеджеру.',
-                'id': reg_request.id,
-            },
+            {'message': 'Готово! Ваша заявка успішно відправлена менеджеру.', 'id': reg_request.id},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ApproveRegistrationRequestView(APIView):
+    """
+    POST /api/v1/requests/{id}/approve/
+    UC-18: Менеджер апрувить заявку → створює User.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            reg_request = RegistrationRequest.objects.get(pk=pk)
+        except RegistrationRequest.DoesNotExist:
+            return Response({'message': 'Заявку не знайдено.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if reg_request.status == 'approved':
+            return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        password = generate_password()
+
+        try:
+            with transaction.atomic():
+                name_parts = reg_request.full_name.strip().split()
+                first_name = name_parts[0] if len(name_parts) > 0 else ''
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+
+                role_obj, _ = Role.objects.get_or_create(name=reg_request.role)
+
+                user = User.objects.create_user(
+                    username=reg_request.email,
+                    email=reg_request.email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone=reg_request.phone,
+                    nickname=reg_request.telegram_nickname,
+                    role_obj=role_obj,
+                    is_approved=True,
+                )
+
+                if reg_request.role == 'student':
+                    Student.objects.create(user=user)
+                elif reg_request.role == 'manager':
+                    Manager.objects.create(user=user)
+
+                reg_request.status = 'approved'
+                reg_request.save()
+
+        except Exception as e:
+            logger.error(f'Approve failed: {e}')
+            return Response(
+                {'message': f'Помилка створення акаунту: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        try:
+            send_mail(
+                subject='Ваш акаунт на Learnyx створено!',
+                message=(
+                    f'Вітаємо, {first_name}!\n\n'
+                    f'Логін: {reg_request.email}\n'
+                    f'Пароль: {password}\n\n'
+                    f'Змініть пароль після першого входу.'
+                ),
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[reg_request.email],
+                fail_silently=True,
+            )
+        except Exception as e:
+            logger.error(f'Failed to send welcome email: {e}')
+
+        return Response(
+            {'message': f'Акаунт для {reg_request.email} успішно створено.', 'user_id': user.id},
             status=status.HTTP_201_CREATED,
         )
