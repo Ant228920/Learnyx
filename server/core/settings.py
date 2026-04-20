@@ -149,3 +149,4 @@ LOGGING = {
         'core': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
     },
 }
+MANAGER_EMAIL = os.getenv('MANAGER_EMAIL', 'manager@learnyx.com')
