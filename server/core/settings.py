@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'inventory',
     'users',
 ]
+AUTH_USER_MODEL = 'users.User'
+
 
 # ── Middleware ────────────────────────────────────────────────
 MIDDLEWARE = [
