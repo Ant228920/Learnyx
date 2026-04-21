@@ -5,6 +5,8 @@ import string
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -13,6 +15,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from api.models import RegistrationRequest
 from api.serializers import RegistrationRequestSerializer
 from users.models import User, Role, Student, Manager
+from inventory.models import Package
 
 logger = logging.getLogger(__name__)
 
@@ -128,4 +131,44 @@ class ApproveRegistrationRequestView(APIView):
         return Response(
             {'message': f'Акаунт для {reg_request.email} успішно створено.', 'user_id': user.id},
             status=status.HTTP_201_CREATED,
+        )
+
+
+class ActivatePackageView(APIView):
+    """
+    POST /api/v1/packages/{id}/activate/
+    Таска 4: Активація пакету занять.
+    Якщо статус вже active — повертає 400.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            package = Package.objects.get(pk=pk)
+        except Package.DoesNotExist:
+            return Response({'message': 'Пакет не знайдено.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if package.status == 'active':
+            return Response(
+                {'message': 'Пакет вже активовано.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Активуємо пакет
+        package.status = 'active'
+        package.purchased_at = timezone.now()
+        package.save()
+
+        logger.info(f'Package {pk} activated by user {request.user.id}')
+
+        return Response(
+            {
+                'message': 'Пакет успішно активовано.',
+                'package_id': package.id,
+                'status': package.status,
+                'purchased_at': package.purchased_at,
+                'total_lessons': package.total_lessons,
+                'balance': package.balance,
+            },
+            status=status.HTTP_200_OK,
         )
