@@ -1,15 +1,25 @@
-asgiref==3.11.1                # ASGI-сервер, залежність Django
-Django==6.0.3                  # основний веб-фреймворк
-sqlparse==0.5.5                # парсер SQL, залежність Django
-tzdata==2025.3                 # часові зони
-
-djangorestframework==3.15.2    # DRF
-psycopg2-binary                # PostgreSQL адаптер
-python-dotenv                  # зчитування .env файлу
-djangorestframework-simplejwt  # JWT автентифікація
-drf-spectacular                # Swagger / OpenAPI
-django-cors-headers            # CORS для React фронтенду
-django-filter                  # фільтрація в DRF
-
-pytest==8.2.2                  # тестування
-pytest-django==4.8.0           # інтеграція pytest з Django
+asgiref==3.11.1
+attrs==26.1.0
+bcrypt==5.0.0
+Django==6.0.3
+djangorestframework==3.15.2
+djangorestframework_simplejwt==5.5.1
+drf-spectacular==0.29.0
+inflection==0.5.1
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+psycopg2-binary==2.9.11
+PyJWT==2.12.1
+python-dotenv==1.2.2
+PyYAML==6.0.3
+referencing==0.37.0
+rpds-py==0.30.0
+sqlparse==0.5.5
+tzdata==2025.3
+uritemplate==4.2.0
+django-cors-headers
+django-filter
+djangorestframework-simplejwt
+drf-spectacular
+bcrypt
+gunicorn==21.2.0
