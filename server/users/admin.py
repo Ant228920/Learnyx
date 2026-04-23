@@ -1,3 +1,4 @@
 from django.contrib import admin
+from .models import User, Student, Manager, Role, StudentLevel, TeacherLevel, Request, Review
 
-# Register your models here.
+admin.site.register([User, Student, Manager, Role, StudentLevel, TeacherLevel, Request, Review])
