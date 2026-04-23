@@ -1,24 +1,22 @@
 from django.contrib import admin
 from django.urls import path, include
-from api.health import health_check
-from django.urls import path, include
-
 from django.http import JsonResponse
 from datetime import datetime, timezone
 
+from api.health import health_check
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health", health_check, name="health_check"),
     
-    # Існуючі маршрути загального API
+    # Маршрути загального API
     path("api/", include("api.urls")),
     
-    # НОВИЙ РЯДОК: Підключаємо твій додаток з користувачами та апрувом
+    # Маршрути для користувачів, логіну та заявок
     path("api/", include("users.urls")),
 ]
 
-# --- Обробка помилок (твоя логіка) ---
+# ─── Обробка помилок (Custom Error Handlers) ──────────────────────
 
 def handler404(request, exception):
     return JsonResponse({

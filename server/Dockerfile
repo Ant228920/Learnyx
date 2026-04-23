@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Системні залежності для psycopg2 (ЗАЛИШАЄМО, це гарантує стабільність)
+# Системні залежності для psycopg2
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -29,7 +29,5 @@ COPY . .
 
 EXPOSE 8000
 
-# ЗМІНЕНО ТІЛЬКИ ЦЕ:
-# Замість runserver ставимо gunicorn. 
-# (Переконайся, що в requirements.txt є рядок gunicorn)
+# Використовуємо gunicorn для production-ready запуску
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000"]

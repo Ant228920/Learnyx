@@ -1,21 +1,24 @@
-from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import transaction
 from django.utils.crypto import get_random_string
-from django.core.mail import send_mail  # Додано імпорт для пошти
+from django.core.mail import send_mail
 from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Request, User, Role, Student
+from users.serializers import LoginSerializer
 
-# --- СЕРІАЛІЗАТОРИ (базові, щоб ViewSet працював) ---
+# --- СЕРІАЛІЗАТОРИ ---
 
 class RequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Request
         fields = '__all__'
 
-# --- В'ЮСЕТИ ---
+# --- В'ЮСЕТИ ТА API VIEWS ---
 
 class RequestViewSet(viewsets.ModelViewSet):
     """
@@ -29,38 +32,24 @@ class RequestViewSet(viewsets.ModelViewSet):
     def approve(self, request, pk=None):
         """
         Ендпоінт: POST /api/requests/{id}/approve/
-        Логіка:
-        1. Перевірка статусу запиту.
-        2. Генерація та хешування пароля (BCrypt).
-        3. Зміна статусу користувача та запиту.
-        4. Призначення ролі та створення профілю студента.
-        5. Відправка email з доступами.
-        Усе всередині transaction.atomic для безпеки даних (Rollback при помилці пошти).
         """
-        # Отримуємо об'єкт запиту (Request) по ID з URL
         req_obj = self.get_object()
 
-        # Якщо запит вже оброблений, видаємо помилку
         if req_obj.status == 'approved':
             return Response(
                 {"detail": "Цей запит вже був підтверджений раніше."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Визначаємо роль: беремо з запиту (POST body) або за замовчуванням 'Student'
         role_name = request.data.get('role', 'Student').capitalize()
 
         try:
-            # Використовуємо атомарну транзакцію: якщо щось впаде (навіть пошта), БД відкотиться
             with transaction.atomic():
                 
-                # 1. Працюємо з користувачем (User)
+                # 1. Працюємо з користувачем
                 user = req_obj.user
                 
-                # --- LEAR-76: Генерація та хешування пароля ---
-
-                # set_password автоматично захешує його за допомогою BCrypt 
-                # (оскільки ми налаштували його першим у settings.py)
+                # Генерація та хешування пароля
                 generated_password = get_random_string(length=12)
                 user.set_password(generated_password)
                 user.is_approved = True
@@ -79,29 +68,24 @@ class RequestViewSet(viewsets.ModelViewSet):
                 req_obj.save()
 
                 # --- Відправка листа (SMTP) ---
-                # Формуємо тему та тіло листа
                 subject = 'Ваші доступи до платформи Learnyx'
                 message = (
                     f"Вітаємо!\n\n"
                     f"Ваш запит на реєстрацію успішно підтверджено. "
                     f"Ось ваші тимчасові дані для входу:\n\n"
-                    f"Логін: {user.username}\n"
+                    f"Логін: {user.email if user.email else user.username}\n"
                     f"Пароль: {generated_password}\n\n"
                     f"Будь ласка, змініть пароль після першого входу в систему."
                 )
                 
-                # Відправляємо лист. 
-                # fail_silently=False - КРИТИЧНО ВАЖЛИВО! Якщо пошта впаде, 
-                # це викличе помилку, і транзакція вище автоматично скасує збереження юзера в БД.
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=None,  # Береться значення DEFAULT_FROM_EMAIL з settings.py
+                    from_email=None, 
                     recipient_list=[user.email],
                     fail_silently=False, 
                 )
 
-            # Якщо ми дійшли сюди, значить і база збереглась, і лист відправився
             return Response({
                 "detail": f"Користувача підтверджено. Лист успішно надіслано на {user.email}",
                 "temporary_password": generated_password, 
@@ -109,13 +93,31 @@ class RequestViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            # У разі помилки (наприклад, невірні налаштування SMTP), транзакція скасовується.
-            # Ми повертаємо 500 статус і пояснення проблеми.
             return Response(
                 {"detail": f"Помилка при підтвердженні (транзакцію скасовано): {str(e)}"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
-class LoginView(TokenObtainPairView):
-    pass
+class LoginView(APIView):
+    """
+    Кастомний ендпоінт для логіну (видає JWT токени та інформацію про юзера).
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data['user']
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'accessToken': str(refresh.access_token),
+            'refreshToken': str(refresh),
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'role': user.role_obj.name if getattr(user, 'role_obj', None) else None,
+            }
+        }, status=status.HTTP_201_CREATED)
