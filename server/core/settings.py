@@ -1,8 +1,7 @@
-
-
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+from datetime import timedelta
 
 # ── Base ──────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,11 +21,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
     'django_filters',
+    
+    # Project apps
     'api',
     'inventory',
     'users',
@@ -92,6 +95,7 @@ from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME':  timedelta(minutes=int(os.getenv('ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('REFRESH_TOKEN_LIFETIME_DAYS', 7))),
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 # ── Swagger ───────────────────────────────────────────────────
@@ -99,6 +103,7 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Learnyx API',
     'DESCRIPTION': 'API для платформи онлайн-навчання Learnyx',
     'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 # ── CORS ──────────────────────────────────────────────────────
@@ -123,7 +128,21 @@ USE_TZ = True
 
 # ── Static files ──────────────────────────────────────────────
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'static'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ── Email Configuration (MOCK for development) ────────────────
+# Листи не відправлятимуться реально, а виводитимуться в консоль Docker
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@learnyx.com'
+MANAGER_EMAIL = os.getenv('MANAGER_EMAIL', 'manager@learnyx.com')
+
+# ── Password Hashers ──────────────────────────────────────────
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+]
 
 # ── Logging ───────────────────────────────────────────────────
 LOGGING = {
@@ -149,4 +168,3 @@ LOGGING = {
         'core': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
     },
 }
-MANAGER_EMAIL = os.getenv('MANAGER_EMAIL', 'manager@learnyx.com')
