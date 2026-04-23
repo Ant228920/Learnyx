@@ -1,8 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
-# ─── Допоміжні моделі (Рівні та Ролі) ─────────────────────────────────
-
+# Рівні навчання (студенти та викладачі)
 class StudentLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
     
@@ -21,20 +20,22 @@ class Role(models.Model):
     def __str__(self): 
         return self.name
 
-# ─── Головний користувач ──────────────────────────────────────────────
-
+# Головний користувач (повна відповідність SQL)
 class User(AbstractUser):
-    email = models.EmailField(unique=True) # Додано для логіну через email
+    email = models.EmailField(unique=True) 
     role_obj = models.ForeignKey(Role, on_delete=models.PROTECT, null=True, blank=True)
+    
+    # Виправлено: прибрано зайве [str] = ...
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
+    
     father_name = models.CharField(max_length=50, blank=True, null=True)
     phone = models.CharField(max_length=20, unique=True, blank=True, null=True)
     nickname = models.CharField(max_length=50, unique=True, blank=True, null=True)
     photo = models.CharField(max_length=255, blank=True, null=True)
     is_approved = models.BooleanField(default=False)
 
-    # Виправлення конфлікту (E304) з вбудованим User
+    # --- ВИПРАВЛЕННЯ КОНФЛІКТУ (E304) ---
     groups = models.ManyToManyField(
         'auth.Group',
         related_name='custom_user_set',
@@ -50,27 +51,16 @@ class User(AbstractUser):
         verbose_name='user permissions',
     )
 
-    def __str__(self):
-        return self.email if self.email else self.username
-
-# ─── Профілі (Студент, Менеджер) ──────────────────────────────────────
-
+# Студент, Викладач, Менеджер
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     level = models.ForeignKey(StudentLevel, on_delete=models.SET_NULL, null=True)
-
-    def __str__(self):
-        return f"Student: {self.user.email}"
 
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     is_active = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f"Manager: {self.user.email}"
-
-# ─── Запити та відгуки ────────────────────────────────────────────────
-
+# Запити та відгуки
 class Request(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     manager = models.ForeignKey(Manager, on_delete=models.SET_NULL, null=True)
@@ -78,13 +68,7 @@ class Request(models.Model):
     status = models.CharField(max_length=50, default='new')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"Request {self.id} from {self.user.email}"
-
 class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Review from {self.user.email}"
