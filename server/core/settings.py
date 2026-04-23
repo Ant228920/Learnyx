@@ -123,6 +123,7 @@ USE_TZ = True
 
 # ── Static files ──────────────────────────────────────────────
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'static'  # <--- Додано цей рядок для Nginx
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ── Logging ───────────────────────────────────────────────────
