@@ -50,7 +50,7 @@ export interface LoginResponse {
   user: {
     id: number;
     email: string;
-    role: 'student' | 'teacher';
+    role: 'student' | 'teacher' | 'manager' | 'admin';
     firstName: string;
     lastName: string;
   };
@@ -64,6 +64,16 @@ export const authApi = {
   login: (data: LoginDTO) => api.post<LoginResponse>('/auth/login', data),
   me: () => api.get('/auth/me'),
   health: () => api.get('/health'),
+};
+
+export const applicantsApi = {
+  getAll: () => api.get('/applicants'),
+  approve: (id: number) => api.post(`/applicants/${id}/approve`),
+  reject: (id: number) => api.post(`/applicants/${id}/reject`),
+};
+
+export const lessonsApi = {
+  getToday: () => api.get('/lessons/today'),
 };
 
 export default api;

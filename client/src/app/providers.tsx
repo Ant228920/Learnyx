@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { AuthContextType, ModalType, User } from './auth.context';
 
@@ -22,21 +22,21 @@ export function Providers({ children }: { children: ReactNode }) {
     localStorage.getItem('token')
   );
 
-  const openModal = (type: ModalType) => setModal(type);
-  const closeModal = () => setModal(null);
+  const openModal = useCallback((type: ModalType) => setModal(type), []);
+  const closeModal = useCallback(() => setModal(null), []);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = useCallback((newToken: string, newUser: User) => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
     setUser(newUser);
-    closeModal();
-  };
+    setModal(null);
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

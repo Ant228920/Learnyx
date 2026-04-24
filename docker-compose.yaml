@@ -1,6 +1,6 @@
 version: "3.9"
 
-<<<<<<< HEAD
+
 # ─────────────────────────────────────────────────────────────
 #  Learnyx – Docker Compose (Root)
 #  Запуск: docker-compose up --build -d
@@ -102,8 +102,7 @@ volumes:
 networks:
   learnyx_network:
     driver: bridge
-=======
-services:
+    services:
   frontend:
     build: ./client
     ports:
@@ -136,4 +135,3 @@ services:
     image: dpage/pgadmin4
     ports:
       - "5050:80"
->>>>>>> 00666aa (feat: implement frontend auth modals and homepage layout)
