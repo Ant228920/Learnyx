@@ -1,10 +1,5 @@
 version: "3.9"
 
- feat/frontend-foundation
-
-
- HEAD
- develop
 # ─────────────────────────────────────────────────────────────
 #  Learnyx – Docker Compose (Root)
 #  Запуск: docker-compose up --build -d
@@ -14,6 +9,7 @@ version: "3.9"
 #    app      → Django backend  (порт 8000)
 #    pgadmin  → pgAdmin 4       (порт 5050)
 #    nginx    → Reverse Proxy   (порт 8080)
+#    frontend → React (Vite)    (порт 5173)
 # ─────────────────────────────────────────────────────────────
 
 services:
@@ -42,26 +38,25 @@ services:
   # ── 2. Django Backend ──────────────────────────────────────
   app:
     build:
-      context: ./server        # збираємо з папки server/
+      context: ./server
       dockerfile: Dockerfile
     container_name: learnyx_app
     restart: unless-stopped
     env_file:
-      - ./server/.env          # змінні оточення
+      - ./server/.env
     environment:
-      DB_HOST: db              
+      DB_HOST: db
       DB_PORT: 5432
     volumes:
-      - ./server:/app          # hot-reload під час розробки
-      - static_volume:/app/static  # Спільна папка для статики з Nginx
+      - ./server:/app
+      - static_volume:/app/static
     ports:
-      - "8000:8000"            # прямий доступ до бекенду (опціонально)
+      - "8000:8000"
     networks:
       - learnyx_network
     depends_on:
       db:
         condition: service_healthy
-    # Збираємо статику, накочуємо міграції, сідуємо базу і запускаємо gunicorn
     command: >
       sh -c "python manage.py collectstatic --noinput &&
              python manage.py migrate --noinput &&
@@ -89,7 +84,7 @@ services:
     container_name: learnyx_nginx
     restart: unless-stopped
     ports:
-      - "8080:80"  # Доступ до API через Swagger/браузер (http://localhost:8080)
+      - "8080:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_volume:/app/static
@@ -98,22 +93,10 @@ services:
     depends_on:
       - app
 
-# ─────────────────────────────────────────────────────────────
-volumes:
-  postgres_data:
-  static_volume: # Оголошуємо volume для статики
-
-networks:
-  learnyx_network:
-    driver: bridge
- feat/frontend-foundation
-    services:
-
-
-services:
- develop
+  # ── 5. Frontend (React/Vite) ───────────────────────────────
   frontend:
     build: ./client
+    container_name: learnyx_frontend
     ports:
       - "5173:5173"
     volumes:
@@ -121,30 +104,16 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8000/api/v1
+    networks:
+      - learnyx_network
     depends_on:
-      - backend
+      - app
 
-  backend:
-    # тимчасово (якщо вже є у вас)
-    image: your-backend-image
-    ports:
-      - "8000:8000"
+# ─────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  static_volume:
 
-  db:
-    image: postgres:15
-    restart: always
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: learnyx
-    ports:
-      - "5432:5432"
-
-  pgadmin:
-    image: dpage/pgadmin4
-    ports:
-      - "5050:80"
- feat/frontend-foundation
-
- 00666aa (feat: implement frontend auth modals and homepage layout)
- develop
+networks:
+  learnyx_network:
+    driver: bridge
