@@ -1,9 +1,5 @@
 version: "3.9"
-<<<<<<< HEAD
 
-
-=======
->>>>>>> develop
 # ─────────────────────────────────────────────────────────────
 #  Learnyx – Docker Compose (Root)
 #  Запуск: docker-compose up --build -d
@@ -91,6 +87,7 @@ services:
       - learnyx_network
     depends_on:
       - app
+
   # ── 5. Frontend (React/Vite) ───────────────────────────────
   frontend:
     build: ./client
@@ -106,6 +103,7 @@ services:
       - learnyx_network
     depends_on:
       - app
+
 # ─────────────────────────────────────────────────────────────
 volumes:
   postgres_data:
