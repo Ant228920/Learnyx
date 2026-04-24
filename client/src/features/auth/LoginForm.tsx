@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconEye, IconEyeOff, IconMail } from '../icons';
+import { IconEye, IconEyeOff, IconMail } from '../../components/layout/icons';
 import type { LoginDTO } from '../../services/api';
 import { useAuth } from '../../app/providers';
 

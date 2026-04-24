@@ -2,7 +2,7 @@
 
 @import "tailwindcss";
 
-/* ─── Font utility classes ────────────────────────────────────────────────── */
+/* ─── Font utility classes ─────────────────────────────────── */
 
 .font-poppins {
   font-family: 'Poppins', Helvetica, sans-serif;
@@ -12,13 +12,13 @@
   font-family: 'Inter', Helvetica, sans-serif;
 }
 
-/* ─── Hero title height ───────────────────────────────────────────────────── */
+/* ─── Hero title height ─────────────────────────────────────── */
 
 .h-hero-title {
   height: 260px;
 }
 
-/* ─── Shared form input ───────────────────────────────────────────────────── */
+/* ─── Form input ────────────────────────────────────────────── */
 
 .form-input {
   width: 100%;
@@ -62,7 +62,7 @@
   box-shadow: 0 0 0 2px #1f8cf9;
 }
 
-/* ─── Primary button ──────────────────────────────────────────────────────── */
+/* ─── Primary button ────────────────────────────────────────── */
 
 .btn-primary {
   width: 100%;
@@ -90,7 +90,7 @@
   cursor: not-allowed;
 }
 
-/* ─── Modal animation ─────────────────────────────────────────────────────── */
+/* ─── Animations ────────────────────────────────────────────── */
 
 .animate-fade-in {
   animation: fade-in 0.22s ease forwards;
