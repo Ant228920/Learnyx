@@ -7,21 +7,31 @@ import LoginForm from './LoginForm';
 import SuccessModal from './SuccessModal';
 
 const MODAL_CONFIG = {
+ feat/frontend-foundation
   student: { title: 'Реєстрація учня',   subtitle: 'Заповніть форму, щоб розпочати навчання на LearnNYX' },
   teacher: { title: 'Стати викладачем',  subtitle: 'Заповніть анкету, щоб приєднатися до нашої команди' },
   login:   { title: 'Вхід до системи',   subtitle: '' },
+
+  student: { title: 'Реєстрація учня', subtitle: 'Заповніть форму, щоб розпочати навчання на LearnNYX' },
+  teacher: { title: 'Стати викладачем', subtitle: 'Заповніть анкету, щоб приєднатися до нашої команди' },
+  login:   { title: 'Вхід до системи', subtitle: '' },
+ develop
 } as const;
 
 export default function AuthModal() {
   const { modal, closeModal } = useAuth();
   const [success, setSuccess] = useState(false);
 
+ feat/frontend-foundation
   // Якщо modal = null (після login() в providers) — нічого не рендеримо
+
+ develop
   if (!modal) return null;
 
   const config = MODAL_CONFIG[modal];
 
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+ feat/frontend-foundation
     if (e.target === e.currentTarget) {
       setSuccess(false);
       closeModal();
@@ -37,6 +47,14 @@ export default function AuthModal() {
     return <SuccessModal onClose={handleClose} />;
   }
 
+    if (e.target === e.currentTarget) { setSuccess(false); closeModal(); }
+  };
+
+  const handleClose = () => { setSuccess(false); closeModal(); };
+
+  if (success) return <SuccessModal onClose={handleClose} />;
+ develop
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -46,6 +64,7 @@ export default function AuthModal() {
       aria-labelledby="auth-modal-title"
     >
       <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+ feat/frontend-foundation
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-2">
           <div>
@@ -59,6 +78,15 @@ export default function AuthModal() {
               <p className="font-inter text-sm text-[#565d6d] mt-0.5">
                 {config.subtitle}
               </p>
+
+       <div className="flex items-start justify-between p-6 pb-2">
+          <div>
+            <h2 id="auth-modal-title" className="font-poppins font-bold text-xl text-slate-900">
+              {config.title}
+            </h2>
+            {config.subtitle && (
+              <p className="font-inter text-sm text-[#565d6d] mt-0.5">{config.subtitle}</p>
+ develop
             )}
           </div>
           <button
@@ -70,6 +98,7 @@ export default function AuthModal() {
           </button>
         </div>
 
+ feat/frontend-foundation
         {/* Body */}
         <div className="px-6 pb-6 pt-4">
           {modal === 'student' && (
@@ -81,6 +110,12 @@ export default function AuthModal() {
           {modal === 'login' && (
             <LoginForm onSuccess={handleClose} />
           )}
+
+        <div className="px-6 pb-6 pt-4">
+          {modal === 'student' && <RegisterStudentForm onSuccess={() => setSuccess(true)} />}
+          {modal === 'teacher' && <RegisterTeacherForm onSuccess={() => setSuccess(true)} />}
+          {modal === 'login'   && <LoginForm onSuccess={handleClose} />}
+     develop
         </div>
       </div>
     </div>

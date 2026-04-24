@@ -1,6 +1,10 @@
 version: "3.9"
 
+ feat/frontend-foundation
 
+
+ HEAD
+ develop
 # ─────────────────────────────────────────────────────────────
 #  Learnyx – Docker Compose (Root)
 #  Запуск: docker-compose up --build -d
@@ -102,7 +106,12 @@ volumes:
 networks:
   learnyx_network:
     driver: bridge
+ feat/frontend-foundation
     services:
+
+
+services:
+ develop
   frontend:
     build: ./client
     ports:
@@ -135,3 +144,7 @@ networks:
     image: dpage/pgadmin4
     ports:
       - "5050:80"
+ feat/frontend-foundation
+
+ 00666aa (feat: implement frontend auth modals and homepage layout)
+ develop

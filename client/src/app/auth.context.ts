@@ -3,7 +3,11 @@ export type ModalType = 'student' | 'teacher' | 'login' | null;
 export interface User {
   id: number;
   email: string;
+  feat/frontend-foundation
   role: 'student' | 'teacher' | 'manager' | 'admin';
+
+  role: 'student' | 'teacher';
+  develop
   firstName: string;
   lastName: string;
 }
