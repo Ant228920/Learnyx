@@ -7,16 +7,15 @@ import LoginForm from './LoginForm';
 import SuccessModal from './SuccessModal';
 
 const MODAL_CONFIG = {
-  student: { title: 'Реєстрація учня',   subtitle: 'Заповніть форму, щоб розпочати навчання на LearnNYX' },
-  teacher: { title: 'Стати викладачем',  subtitle: 'Заповніть анкету, щоб приєднатися до нашої команди' },
-  login:   { title: 'Вхід до системи',   subtitle: '' },
+  student: { title: 'Реєстрація учня',  subtitle: 'Заповніть форму, щоб розпочати навчання на LearnNYX' },
+  teacher: { title: 'Стати викладачем', subtitle: 'Заповніть анкету, щоб приєднатися до нашої команди' },
+  login:   { title: 'Вхід до системи', subtitle: '' },
 } as const;
 
 export default function AuthModal() {
   const { modal, closeModal } = useAuth();
   const [success, setSuccess] = useState(false);
 
-  // Якщо modal = null (після login() в providers) — нічого не рендеримо
   if (!modal) return null;
 
   const config = MODAL_CONFIG[modal];
@@ -49,10 +48,7 @@ export default function AuthModal() {
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-2">
           <div>
-            <h2
-              id="auth-modal-title"
-              className="font-poppins font-bold text-xl text-slate-900"
-            >
+            <h2 id="auth-modal-title" className="font-poppins font-bold text-xl text-slate-900">
               {config.title}
             </h2>
             {config.subtitle && (
@@ -72,15 +68,9 @@ export default function AuthModal() {
 
         {/* Body */}
         <div className="px-6 pb-6 pt-4">
-          {modal === 'student' && (
-            <RegisterStudentForm onSuccess={() => setSuccess(true)} />
-          )}
-          {modal === 'teacher' && (
-            <RegisterTeacherForm onSuccess={() => setSuccess(true)} />
-          )}
-          {modal === 'login' && (
-            <LoginForm onSuccess={handleClose} />
-          )}
+          {modal === 'student' && <RegisterStudentForm onSuccess={() => setSuccess(true)} />}
+          {modal === 'teacher' && <RegisterTeacherForm onSuccess={() => setSuccess(true)} />}
+          {modal === 'login'   && <LoginForm onSuccess={handleClose} />}
         </div>
       </div>
     </div>

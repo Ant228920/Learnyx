@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconEye, IconEyeOff, IconMail } from '../../components/layout/icons';
+import { IconEye, IconEyeOff, IconMail } from '../icons';
 import type { LoginDTO } from '../../services/api';
 import { useAuth } from '../../app/providers';
 
@@ -47,8 +47,6 @@ export default function LoginForm({ onSuccess }: Props) {
 
     setLoading(true);
 
-    // ── DEMO режим — працює БЕЗ бекенду ────────────────────────────────────
-    // Роль по email: manager/admin → менеджер, teacher → вчитель, решта → студент
     const role = getRoleByEmail(form.email);
 
     const demoUser = {
@@ -59,14 +57,9 @@ export default function LoginForm({ onSuccess }: Props) {
       lastName:  role === 'manager' ? 'Петрович'  : 'Коваль',
     };
 
-    // 1. Зберігаємо юзера в контекст
     login('demo-token', demoUser);
-
-    // 2. Закриваємо модал
     closeModal();
     onSuccess?.();
-
-    // 3. Переходимо на потрібну сторінку
     setLoading(false);
     void navigate(getRedirectPath(role));
   };

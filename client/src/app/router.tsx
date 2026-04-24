@@ -23,12 +23,12 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Публічні сторінки — з MainLayout (хедер LearNYX) */}
+        {/* Публічні сторінки — з MainLayout */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
         </Route>
 
-        {/* Студент — власний layout (сайдбар + хедер всередині компонента) */}
+        {/* Студент */}
         <Route
           path="/dashboard"
           element={
@@ -38,7 +38,7 @@ export default function AppRouter() {
           }
         />
 
-        {/* Менеджер / Адмін — власний layout */}
+        {/* Менеджер / Адмін */}
         <Route
           path="/manager"
           element={
@@ -48,7 +48,7 @@ export default function AppRouter() {
           }
         />
 
-        {/* Будь-який інший шлях → головна */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
