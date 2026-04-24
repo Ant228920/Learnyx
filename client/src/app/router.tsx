@@ -1,4 +1,3 @@
- feat/frontend-foundation
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../app/providers';
@@ -20,23 +19,16 @@ function ProtectedRoute({
   return <>{children}</>;
 }
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import MainLayout from '../components/layout/MainLayout';
-import HomePage from '../pages/HomePage';
-import Dashboard from '../pages/Dashboard';
- develop
-
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Публічні сторінки — з MainLayout (хедер LearNYX) */}
+        {/* Публічні сторінки — з MainLayout */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
         </Route>
 
-        {/* Студент — власний layout (сайдбар + хедер всередині компонента) */}
+        {/* Студент */}
         <Route
           path="/dashboard"
           element={
@@ -46,7 +38,7 @@ export default function AppRouter() {
           }
         />
 
-        {/* Менеджер / Адмін — власний layout */}
+        {/* Менеджер / Адмін */}
         <Route
           path="/manager"
           element={
@@ -56,7 +48,7 @@ export default function AppRouter() {
           }
         />
 
-        {/* Будь-який інший шлях → головна */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

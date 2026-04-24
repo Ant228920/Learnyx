@@ -50,11 +50,7 @@ export interface LoginResponse {
   user: {
     id: number;
     email: string;
- feat/frontend-foundation
     role: 'student' | 'teacher' | 'manager' | 'admin';
-
-    role: 'student' | 'teacher';
- develop
     firstName: string;
     lastName: string;
   };
@@ -70,7 +66,6 @@ export const authApi = {
   health: () => api.get('/health'),
 };
 
- feat/frontend-foundation
 export const applicantsApi = {
   getAll: () => api.get('/applicants'),
   approve: (id: number) => api.post(`/applicants/${id}/approve`),
@@ -81,6 +76,4 @@ export const lessonsApi = {
   getToday: () => api.get('/lessons/today'),
 };
 
-
- develop
 export default api;
