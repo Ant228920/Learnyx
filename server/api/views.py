@@ -81,7 +81,7 @@ class ApproveRegistrationRequestView(APIView):
             return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_400_BAD_REQUEST)
 
         password = generate_password()
-        
+
         try:
             with transaction.atomic():
                 # Розбиваємо ім'я більш надійно
@@ -146,9 +146,9 @@ class ActivatePackageView(APIView):
         package.status = 'active'
         package.purchased_at = timezone.now()
         package.save()
-        
+
         logger.info(f'Package {pk} activated by user {request.user.id}')
-        
+
         return Response({
             'message': 'Пакет успішно активовано.',
             'package_id': package.id,
