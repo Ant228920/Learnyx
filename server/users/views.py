@@ -119,5 +119,7 @@ class LoginView(APIView):
                 'id': user.id,
                 'email': user.email,
                 'role': user.role_obj.name if getattr(user, 'role_obj', None) else None,
+                'firstName': user.first_name,
+                'lastName': user.last_name,
             }
-        }, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_200_OK)

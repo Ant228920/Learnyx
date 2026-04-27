@@ -96,13 +96,14 @@ paths:
           content:
             application/json:
               example:
-                access: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                refresh: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 user:
                   id: 1
                   email: "student@example.com"
                   role: "student"
-                  full_name: "Іван Петренко"
+                  firstName: "Іван"
+                  lastName: "Петренко"
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
