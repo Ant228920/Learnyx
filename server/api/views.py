@@ -459,6 +459,7 @@ class StudentListView(generics.ListAPIView):
             )
             .order_by('lessons_balance')
         )
+<<<<<<< HEAD
 
 
 class StudentDashboardView(APIView):
@@ -641,3 +642,5 @@ class JournalListView(generics.ListAPIView):
             .select_related('lesson__slot')
             .order_by('-lesson__slot__start_time')
         )
+=======
+>>>>>>> 0d0d56b (feat: implement US8 student list with annotated lesson balance)
