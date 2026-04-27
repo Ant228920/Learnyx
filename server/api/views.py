@@ -374,6 +374,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         )
         return Response(LessonWithSlotSerializer(qs, many=True).data)
 
+<<<<<<< HEAD
     @action(detail=True, methods=['patch'], url_path='cancel')
     def cancel(self, request, pk=None):
         """US20: Student cancels their own scheduled lesson; slot freed atomically."""
@@ -432,6 +433,8 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         return Response(LessonSerializer(lesson).data)
 
+=======
+>>>>>>> 8501469 (feat: implement US14/US15 bonus cashback system)
 
 class BonusBalanceView(APIView):
     """US14: Student's cashback balance + current-package progress scale."""
@@ -440,6 +443,7 @@ class BonusBalanceView(APIView):
     def get(self, request, student_id):
         student = get_object_or_404(Student, pk=student_id)
         return Response({'student_id': student_id, **get_bonus_balance(student)})
+<<<<<<< HEAD
 
 
 class StudentListView(generics.ListAPIView):
@@ -641,3 +645,5 @@ class JournalListView(generics.ListAPIView):
             .select_related('lesson__slot')
             .order_by('-lesson__slot__start_time')
         )
+=======
+>>>>>>> 8501469 (feat: implement US14/US15 bonus cashback system)
