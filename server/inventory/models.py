@@ -11,12 +11,17 @@ class Teacher(models.Model):
     level = models.ForeignKey(TeacherLevel, on_delete=models.SET_NULL, null=True)
     bio = models.TextField(blank=True, null=True)
     salary = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-
 class Slot(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    is_booked = models.BooleanField(default=False)
+    
+    # Видалено is_booked і додано status за вимогами завдання:
+    STATUS_CHOICES = [
+        ('available', 'Available'),
+        ('booked', 'Booked'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
 
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE)
@@ -62,6 +67,7 @@ class Package(models.Model):
     purchased_at = models.DateTimeField(auto_now_add=True)
 
 class Lesson(models.Model):
+    # Тут все залишається без змін, ключі slot_id та student_id створяться автоматично
     slot = models.OneToOneField(Slot, on_delete=models.CASCADE)
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     package = models.ForeignKey(Package, on_delete=models.CASCADE)
