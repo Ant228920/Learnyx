@@ -9,6 +9,7 @@ from api.views import (
     SlotViewSet,
     LessonViewSet,
     BonusBalanceView,
+    StudentListView,
 )
 from users.views import RequestViewSet
 
@@ -30,6 +31,7 @@ urlpatterns = [
 
     # ── Packages & Students
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
+    path('v1/students/', StudentListView.as_view(), name='student-list'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),
 
     # ── Bonus / cashback

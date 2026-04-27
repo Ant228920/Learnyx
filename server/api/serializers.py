@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
 from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord
+from users.models import Student
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
@@ -136,3 +137,14 @@ class LessonWithSlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = ['id', 'slot', 'student', 'package', 'curriculum_lesson', 'status', 'meeting_link']
+
+
+class StudentListSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    email = serializers.EmailField(source='user.email')
+    lessons_balance = serializers.IntegerField()
+
+    class Meta:
+        model = Student
+        fields = ['user_id', 'first_name', 'last_name', 'email', 'lessons_balance']

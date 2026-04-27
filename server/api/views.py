@@ -8,9 +8,12 @@ from django.db import transaction
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
+from django.db.models import Sum, Q
+from django.db.models.functions import Coalesce
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, viewsets, mixins
+from rest_framework import status, viewsets, mixins, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
@@ -25,6 +28,7 @@ from api.serializers import (
     LessonStatusSerializer,
     MeetingLinkSerializer,
     JournalRecordSerializer,
+    StudentListSerializer,
 )
 from users.models import User, Role, Student, Manager
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord
@@ -411,3 +415,22 @@ class BonusBalanceView(APIView):
     def get(self, request, student_id):
         student = get_object_or_404(Student, pk=student_id)
         return Response({'student_id': student_id, **get_bonus_balance(student)})
+
+
+class StudentListView(generics.ListAPIView):
+    """US8: Manager sees all students with their total active-package balance, ascending."""
+    permission_classes = [IsManager]
+    serializer_class = StudentListSerializer
+
+    def get_queryset(self):
+        return (
+            Student.objects
+            .select_related('user')
+            .annotate(
+                lessons_balance=Coalesce(
+                    Sum('package__balance', filter=Q(package__status='active')),
+                    0,
+                )
+            )
+            .order_by('lessons_balance')
+        )
