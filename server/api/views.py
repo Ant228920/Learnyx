@@ -28,6 +28,7 @@ from api.serializers import (
     LessonStatusSerializer,
     MeetingLinkSerializer,
     JournalRecordSerializer,
+    JournalListSerializer,
     StudentListSerializer,
 )
 from users.models import User, Role, Student, Manager
@@ -237,7 +238,31 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         return LessonSerializer
 
     def get_queryset(self):
-        return Lesson.objects.select_related('slot', 'package').all()
+        qs = Lesson.objects.select_related('slot', 'package').all()
+
+        # Role-based scoping: students/teachers see only their own lessons
+        user = self.request.user
+        role = user.role_obj.name.lower() if user.role_obj else ''
+        if role == 'student':
+            student = Student.objects.filter(user=user).first()
+            qs = qs.filter(student=student) if student else qs.none()
+        elif role == 'teacher':
+            teacher = Teacher.objects.filter(user=user).first()
+            qs = qs.filter(slot__teacher=teacher) if teacher else qs.none()
+        # manager sees all
+
+        # Query-param filters (used by manager for US13-style filtering)
+        p = self.request.query_params
+        if p.get('status'):
+            qs = qs.filter(status=p['status'])
+        if p.get('date_from'):
+            qs = qs.filter(slot__start_time__date__gte=p['date_from'])
+        if p.get('date_to'):
+            qs = qs.filter(slot__start_time__date__lte=p['date_to'])
+        if p.get('teacher_id'):
+            qs = qs.filter(slot__teacher_id=p['teacher_id'])
+
+        return qs.order_by('slot__start_time')
 
     def create(self, request, *args, **kwargs):
         """US4: Book a lesson — slot + balance check inside a single transaction."""
@@ -601,3 +626,18 @@ class TeacherDashboardView(APIView):
                 'materials_count': 0,   # US22 (LessonMaterial model) not yet implemented
             },
         })
+
+
+class JournalListView(generics.ListAPIView):
+    """Student views their own journal records ordered by lesson date descending."""
+    permission_classes = [IsStudent]
+    serializer_class = JournalListSerializer
+
+    def get_queryset(self):
+        student = get_object_or_404(Student, user=self.request.user)
+        return (
+            JournalRecord.objects
+            .filter(lesson__student=student)
+            .select_related('lesson__slot')
+            .order_by('-lesson__slot__start_time')
+        )

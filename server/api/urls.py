@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from users.views import LoginView
+from users.views import LoginView, TokenRefreshView
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
@@ -12,6 +12,7 @@ from api.views import (
     StudentListView,
     StudentDashboardView,
     TeacherDashboardView,
+    JournalListView,
 )
 from users.views import RequestViewSet
 
@@ -23,6 +24,7 @@ router.register(r'v1/user-requests', RequestViewSet, basename='user-request')
 urlpatterns = [
     # ── Auth (canonical)
     path('v1/auth/login/', LoginView.as_view(), name='auth-login'),
+    path('v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('v1/auth/register/', RegistrationRequestView.as_view(), name='auth-register'),
     path('v1/applicants/<int:pk>/approve/', ApproveRegistrationRequestView.as_view(), name='approve-applicant'),
 
@@ -42,6 +44,9 @@ urlpatterns = [
     # ── Dashboards
     path('v1/student/dashboard/', StudentDashboardView.as_view(), name='student-dashboard'),
     path('v1/teacher/dashboard/', TeacherDashboardView.as_view(), name='teacher-dashboard'),
+
+    # ── Journal
+    path('v1/journal/', JournalListView.as_view(), name='journal-list'),
 
     # ── ViewSets
     path('', include(router.urls)),

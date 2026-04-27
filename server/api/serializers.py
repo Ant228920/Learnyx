@@ -148,3 +148,16 @@ class StudentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = ['user_id', 'first_name', 'last_name', 'email', 'lessons_balance']
+
+
+class JournalListSerializer(serializers.ModelSerializer):
+    start_time = serializers.DateTimeField(source='lesson.slot.start_time', read_only=True)
+    lesson_status = serializers.CharField(source='lesson.status', read_only=True)
+
+    class Meta:
+        model = JournalRecord
+        fields = [
+            'id', 'lesson', 'start_time', 'lesson_status',
+            'is_present', 'activity_grade', 'homework_grade',
+            'teacher_homework_task', 'homework_answer_url', 'teacher_notes',
+        ]
