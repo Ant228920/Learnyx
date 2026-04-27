@@ -351,11 +351,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             data['cashback_earned_pct'] = cashback_earned
         return Response(data)
 
-<<<<<<< HEAD
     @action(detail=True, methods=['post'], url_path='evaluate')
-=======
-    @action(detail=True, methods=['post'], url_path='evaluate', permission_classes=[IsTeacher])
->>>>>>> 4865dde (feat: implement US7 lesson evaluate and US10 upcoming lessons endpoints)
     def evaluate(self, request, pk=None):
         """US7: Teacher fills in a JournalRecord for a lesson (create or update)."""
         lesson = get_object_or_404(Lesson, pk=pk)
@@ -366,11 +362,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         code = status.HTTP_200_OK if existing else status.HTTP_201_CREATED
         return Response(JournalRecordSerializer(journal).data, status=code)
 
-<<<<<<< HEAD
     @action(detail=False, methods=['get'], url_path='upcoming')
-=======
-    @action(detail=False, methods=['get'], url_path='upcoming', permission_classes=[IsAuthenticated])
->>>>>>> 4865dde (feat: implement US7 lesson evaluate and US10 upcoming lessons endpoints)
     def upcoming(self, request):
         """US10: Return the authenticated student's future lessons ordered by start time."""
         student = get_object_or_404(Student, user=request.user)
@@ -381,7 +373,6 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             .order_by('slot__start_time')
         )
         return Response(LessonWithSlotSerializer(qs, many=True).data)
-<<<<<<< HEAD
 
     @action(detail=True, methods=['patch'], url_path='cancel')
     def cancel(self, request, pk=None):
@@ -650,5 +641,3 @@ class JournalListView(generics.ListAPIView):
             .select_related('lesson__slot')
             .order_by('-lesson__slot__start_time')
         )
-=======
->>>>>>> 4865dde (feat: implement US7 lesson evaluate and US10 upcoming lessons endpoints)
