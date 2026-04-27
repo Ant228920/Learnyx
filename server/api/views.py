@@ -459,10 +459,6 @@ class StudentListView(generics.ListAPIView):
             )
             .order_by('lessons_balance')
         )
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> d84ca05 (feat: implement US2/US3 student and teacher dashboards)
 
 
 class StudentDashboardView(APIView):
@@ -630,7 +626,6 @@ class TeacherDashboardView(APIView):
                 'materials_count': 0,   # US22 (LessonMaterial model) not yet implemented
             },
         })
-<<<<<<< HEAD
 
 
 class JournalListView(generics.ListAPIView):
@@ -646,7 +641,3 @@ class JournalListView(generics.ListAPIView):
             .select_related('lesson__slot')
             .order_by('-lesson__slot__start_time')
         )
-=======
->>>>>>> 0d0d56b (feat: implement US8 student list with annotated lesson balance)
-=======
->>>>>>> d84ca05 (feat: implement US2/US3 student and teacher dashboards)
