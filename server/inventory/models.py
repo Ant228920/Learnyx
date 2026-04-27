@@ -16,8 +16,20 @@ class Slot(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    is_booked = models.BooleanField(default=False)
+    
+    # ... твоє поле status з попереднього кроку ...
+    STATUS_CHOICES = [
+        ('available', 'Available'),
+        ('booked', 'Booked'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
 
+    # ДОДАЄМО ЦЕ ДЛЯ ВИКОНАННЯ ЗАВДАННЯ:
+    class Meta:
+        indexes = [
+            # Вказуємо поля для композитного індексу (вчитель + дата)
+            models.Index(fields=['teacher', 'start_time']),
+        ]
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
@@ -62,13 +74,14 @@ class Package(models.Model):
     purchased_at = models.DateTimeField(auto_now_add=True)
 
 class Lesson(models.Model):
+    # Тут все залишається без змін, ключі slot_id та student_id створяться автоматично
     slot = models.OneToOneField(Slot, on_delete=models.CASCADE)
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    
     package = models.ForeignKey(Package, on_delete=models.CASCADE)
     curriculum_lesson = models.ForeignKey(CurriculumLesson, on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=50, default='scheduled')
     meeting_link = models.CharField(max_length=255, blank=True, null=True)
-
 class JournalRecord(models.Model):
     lesson = models.OneToOneField(Lesson, on_delete=models.CASCADE)
     is_present = models.BooleanField(default=True)
