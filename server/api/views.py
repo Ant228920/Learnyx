@@ -31,8 +31,8 @@ from api.serializers import (
     StudentListSerializer,
 )
 from users.models import User, Role, Student, Manager
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord
-from api.services import calculate_cashback, get_bonus_balance
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion
+from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS
 
 logger = logging.getLogger(__name__)
 
@@ -434,3 +434,170 @@ class StudentListView(generics.ListAPIView):
             )
             .order_by('lessons_balance')
         )
+
+
+class StudentDashboardView(APIView):
+    """US2: Aggregated dashboard for the authenticated student."""
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        student = get_object_or_404(Student, user=request.user)
+        now = timezone.now()
+        today = now.date()
+
+        # --- balance block ---
+        active_pkg = Package.objects.filter(student=student, status='active').first()
+        balance = (
+            {
+                'remaining': active_pkg.balance,
+                'total': active_pkg.total_lessons,
+                'package_id': active_pkg.pk,
+            }
+            if active_pkg else None
+        )
+
+        # --- cashback block ---
+        completions = CourseCompletion.objects.filter(
+            student=student, is_discount_used=False, earned_discount__gt=0
+        )
+        available_cashback_pct = float(
+            sum(c.earned_discount for c in completions) or 0
+        )
+
+        # --- next scheduled lesson ---
+        next_lesson_obj = (
+            Lesson.objects
+            .filter(student=student, status='scheduled', slot__start_time__gt=now)
+            .select_related('slot__teacher__user')
+            .order_by('slot__start_time')
+            .first()
+        )
+        next_lesson = None
+        if next_lesson_obj:
+            sl = next_lesson_obj.slot
+            next_lesson = {
+                'lesson_id': next_lesson_obj.pk,
+                'start_time': sl.start_time,
+                'end_time': sl.end_time,
+                'meeting_link': next_lesson_obj.meeting_link,
+                'teacher': f'{sl.teacher.user.first_name} {sl.teacher.user.last_name}'.strip(),
+            }
+
+        # --- today's lessons ---
+        today_qs = (
+            Lesson.objects
+            .filter(student=student, status='scheduled', slot__start_time__date=today)
+            .select_related('slot__teacher__user')
+            .order_by('slot__start_time')
+        )
+        today_lessons = [
+            {
+                'lesson_id': l.pk,
+                'start_time': l.slot.start_time,
+                'end_time': l.slot.end_time,
+                'meeting_link': l.meeting_link,
+                'teacher': f'{l.slot.teacher.user.first_name} {l.slot.teacher.user.last_name}'.strip(),
+            }
+            for l in today_qs
+        ]
+
+        # --- bonus progress for the active package ---
+        bonus_progress = None
+        if active_pkg:
+            grades = list(
+                JournalRecord.objects
+                .filter(lesson__package=active_pkg, activity_grade__isnull=False)
+                .values_list('activity_grade', flat=True)
+            )
+            if grades:
+                from decimal import Decimal
+                avg = sum(grades) / len(grades)
+                current_pct = round(avg / 10 * 100, 1)
+                next_tier = None
+                for threshold, discount in CASHBACK_TIERS:
+                    if Decimal(str(current_pct)) < threshold:
+                        next_tier = {
+                            'threshold_pct': float(threshold),
+                            'cashback_pct': float(discount),
+                            'gap_pct': round(float(threshold) - current_pct, 1),
+                        }
+                        break
+                bonus_progress = {
+                    'success_pct': current_pct,
+                    'next_bonus_tier': next_tier,
+                }
+
+        return Response({
+            'balance': balance,
+            'available_cashback_pct': available_cashback_pct,
+            'next_lesson': next_lesson,
+            'today_lessons': today_lessons,
+            'bonus_progress': bonus_progress,
+        })
+
+
+class TeacherDashboardView(APIView):
+    """US3: Aggregated dashboard for the authenticated teacher."""
+    permission_classes = [IsTeacher]
+
+    def get(self, request):
+        teacher = get_object_or_404(Teacher, user=request.user)
+        now = timezone.now()
+        today = now.date()
+
+        # --- today's schedule ---
+        today_slots = list(
+            Slot.objects
+            .filter(teacher=teacher, start_time__date=today)
+            .order_by('start_time')
+        )
+        # One query for all lessons on those slots
+        lessons_by_slot = {
+            l.slot_id: l
+            for l in Lesson.objects
+            .filter(slot__in=today_slots)
+            .select_related('student__user', 'curriculum_lesson')
+        }
+
+        today_lessons = []
+        for slot in today_slots:
+            lesson = lessons_by_slot.get(slot.pk)
+            delta_seconds = (slot.start_time - now).total_seconds()
+            # can_start: within the 10-minute window before start, or lesson already ongoing
+            can_start = delta_seconds <= 600
+
+            today_lessons.append({
+                'slot_id': slot.pk,
+                'lesson_id': lesson.pk if lesson else None,
+                'start_time': slot.start_time,
+                'end_time': slot.end_time,
+                'student_name': (
+                    f'{lesson.student.user.first_name} {lesson.student.user.last_name}'.strip()
+                    if lesson else None
+                ),
+                'topic': lesson.curriculum_lesson.title if lesson and lesson.curriculum_lesson else None,
+                'meeting_link': lesson.meeting_link if lesson else None,
+                'lesson_status': lesson.status if lesson else None,
+                'can_start': can_start,
+            })
+
+        # --- stats ---
+        total_students = (
+            Lesson.objects
+            .filter(slot__teacher=teacher)
+            .values('student')
+            .distinct()
+            .count()
+        )
+        conducted_lessons = Lesson.objects.filter(
+            slot__teacher=teacher, status='conducted'
+        ).count()
+
+        return Response({
+            'today_lessons': today_lessons,
+            'stats': {
+                'total_students': total_students,
+                'conducted_lessons': conducted_lessons,
+                'materials_count': 0,   # US22 (LessonMaterial model) not yet implemented
+            },
+        })

@@ -10,6 +10,8 @@ from api.views import (
     LessonViewSet,
     BonusBalanceView,
     StudentListView,
+    StudentDashboardView,
+    TeacherDashboardView,
 )
 from users.views import RequestViewSet
 
@@ -36,6 +38,10 @@ urlpatterns = [
 
     # ── Bonus / cashback
     path('v1/bonus/balance/<int:student_id>/', BonusBalanceView.as_view(), name='bonus-balance'),
+
+    # ── Dashboards
+    path('v1/student/dashboard/', StudentDashboardView.as_view(), name='student-dashboard'),
+    path('v1/teacher/dashboard/', TeacherDashboardView.as_view(), name='teacher-dashboard'),
 
     # ── ViewSets
     path('', include(router.urls)),
