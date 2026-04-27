@@ -8,6 +8,7 @@ from api.views import (
     StudentBalanceView,
     SlotViewSet,
     LessonViewSet,
+    BonusBalanceView,
 )
 from users.views import RequestViewSet
 
@@ -30,6 +31,9 @@ urlpatterns = [
     # ── Packages & Students
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),
+
+    # ── Bonus / cashback
+    path('v1/bonus/balance/<int:student_id>/', BonusBalanceView.as_view(), name='bonus-balance'),
 
     # ── ViewSets
     path('', include(router.urls)),

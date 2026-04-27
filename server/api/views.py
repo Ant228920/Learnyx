@@ -27,6 +27,7 @@ from api.serializers import (
 )
 from users.models import User, Role, Student, Manager
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord
+from api.services import calculate_cashback, get_bonus_balance
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +291,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             lesson.save()
 
             package_balance_remaining = None
+            cashback_earned = None
             if new_status == 'conducted':
                 package = Package.objects.select_for_update().get(pk=lesson.package_id)
                 package.balance = max(0, package.balance - 1)
@@ -301,9 +303,20 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
                 )
 
+                if package.status == 'completed':
+                    completion = calculate_cashback(package)
+                    if completion:
+                        cashback_earned = float(completion.earned_discount)
+                        logger.info(
+                            f'Package {package.id} completed: cashback {cashback_earned}% awarded '
+                            f'to student {package.student_id}'
+                        )
+
         data = dict(LessonSerializer(lesson).data)
         if package_balance_remaining is not None:
             data['package_balance_remaining'] = package_balance_remaining
+        if cashback_earned is not None:
+            data['cashback_earned_pct'] = cashback_earned
         return Response(data)
 
     @action(detail=True, methods=['post'], url_path='evaluate')
@@ -328,3 +341,12 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             .order_by('slot__start_time')
         )
         return Response(LessonWithSlotSerializer(qs, many=True).data)
+
+
+class BonusBalanceView(APIView):
+    """US14: Student's cashback balance + current-package progress scale."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+        student = get_object_or_404(Student, pk=student_id)
+        return Response({'student_id': student_id, **get_bonus_balance(student)})
