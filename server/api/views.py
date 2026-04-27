@@ -15,6 +15,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from api.models import RegistrationRequest
+from api.permissions import IsTeacher, IsStudent, IsManager
 from api.serializers import (
     RegistrationRequestSerializer,
     SlotSerializer,
@@ -172,8 +173,12 @@ class StudentBalanceView(APIView):
 class SlotViewSet(viewsets.ModelViewSet):
     """US5 + US9: Teacher slot management — create with overlap check, delete if unbooked."""
     serializer_class = SlotSerializer
-    permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    def get_permissions(self):
+        if self.action in ('create', 'destroy'):
+            return [IsTeacher()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         qs = Slot.objects.select_related('teacher__user').all()
@@ -208,7 +213,13 @@ class SlotViewSet(viewsets.ModelViewSet):
 
 class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     """US4 + US6: Lesson booking (atomic) and status update (atomic)."""
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [(IsManager | IsStudent)()]
+        if self.action == 'set_status':
+            return [IsTeacher()]
+        return [IsAuthenticated()]
 
     def get_serializer_class(self):
         if self.action == 'create':
