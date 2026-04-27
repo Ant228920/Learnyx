@@ -23,6 +23,7 @@ from api.serializers import (
     LessonWithSlotSerializer,
     LessonCreateSerializer,
     LessonStatusSerializer,
+    MeetingLinkSerializer,
     JournalRecordSerializer,
 )
 from users.models import User, Role, Student, Manager
@@ -220,8 +221,10 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate'):
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link'):
             return [IsTeacher()]
+        if self.action == 'cancel':
+            return [IsStudent()]
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
@@ -341,6 +344,64 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             .order_by('slot__start_time')
         )
         return Response(LessonWithSlotSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=['patch'], url_path='cancel')
+    def cancel(self, request, pk=None):
+        """US20: Student cancels their own scheduled lesson; slot freed atomically."""
+        with transaction.atomic():
+            lesson = Lesson.objects.select_related('slot').select_for_update().get(pk=pk)
+
+            student = get_object_or_404(Student, user=request.user)
+            if lesson.student_id != student.pk:
+                return Response(
+                    {'detail': 'You can only cancel your own lessons.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if lesson.status != 'scheduled':
+                return Response(
+                    {'detail': f'Cannot cancel a lesson with status "{lesson.status}".'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            if lesson.slot.start_time <= timezone.now():
+                return Response(
+                    {'detail': 'Cannot cancel a lesson that has already started.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            lesson.status = 'cancelled'
+            lesson.save(update_fields=['status'])
+
+            slot = lesson.slot
+            slot.is_booked = False
+            slot.save(update_fields=['is_booked'])
+
+        logger.info(f'Lesson {lesson.pk} cancelled by student {student.pk}, slot {slot.pk} freed')
+        return Response(LessonSerializer(lesson).data)
+
+    @action(detail=True, methods=['patch'], url_path='meeting-link')
+    def set_meeting_link(self, request, pk=None):
+        """US21: Teacher sets the meeting link for a lesson."""
+        serializer = MeetingLinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        lesson = get_object_or_404(
+            Lesson.objects.select_related('slot__teacher'),
+            pk=pk,
+        )
+
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only set meeting links for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lesson.meeting_link = serializer.validated_data['meeting_link']
+        lesson.save(update_fields=['meeting_link'])
+
+        return Response(LessonSerializer(lesson).data)
 
 
 class BonusBalanceView(APIView):

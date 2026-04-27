@@ -99,6 +99,10 @@ class LessonStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=VALID_STATUSES)
 
 
+class MeetingLinkSerializer(serializers.Serializer):
+    meeting_link = serializers.URLField(max_length=255)
+
+
 class JournalRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalRecord
