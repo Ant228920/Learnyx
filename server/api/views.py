@@ -10,13 +10,20 @@ from django.shortcuts import get_object_or_404
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets, mixins
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from api.models import RegistrationRequest
-from api.serializers import RegistrationRequestSerializer
+from api.serializers import (
+    RegistrationRequestSerializer,
+    SlotSerializer,
+    LessonSerializer,
+    LessonCreateSerializer,
+    LessonStatusSerializer,
+)
 from users.models import User, Role, Student, Manager
-from inventory.models import Package
+from inventory.models import Package, Slot, Teacher, Lesson
 
 logger = logging.getLogger(__name__)
 
@@ -160,4 +167,125 @@ class StudentBalanceView(APIView):
             'package_id': package.id,
             'status': package.status,
         }, status=status.HTTP_200_OK)
+
+
+class SlotViewSet(viewsets.ModelViewSet):
+    """US5 + US9: Teacher slot management — create with overlap check, delete if unbooked."""
+    serializer_class = SlotSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        qs = Slot.objects.select_related('teacher__user').all()
+
+        teacher_id = self.request.query_params.get('teacher_id')
+        is_booked = self.request.query_params.get('is_booked')
+        date = self.request.query_params.get('date')
+
+        if teacher_id:
+            qs = qs.filter(teacher_id=teacher_id)
+        if is_booked is not None:
+            qs = qs.filter(is_booked=is_booked.lower() in ('true', '1'))
+        if date:
+            qs = qs.filter(start_time__date=date)
+
+        return qs
+
+    def perform_create(self, serializer):
+        teacher = get_object_or_404(Teacher, user=self.request.user)
+        serializer.save(teacher=teacher)
+
+    def destroy(self, request, *args, **kwargs):
+        slot = self.get_object()
+        if slot.is_booked:
+            return Response(
+                {'message': 'Неможливо видалити заброньований слот.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        slot.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+    """US4 + US6: Lesson booking (atomic) and status update (atomic)."""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return LessonCreateSerializer
+        return LessonSerializer
+
+    def get_queryset(self):
+        return Lesson.objects.select_related('slot', 'package').all()
+
+    def create(self, request, *args, **kwargs):
+        """US4: Book a lesson — slot + balance check inside a single transaction."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            # Lock both rows to prevent race conditions on concurrent booking
+            slot = Slot.objects.select_for_update().get(
+                pk=serializer.validated_data['slot'].pk
+            )
+            if slot.is_booked:
+                return Response(
+                    {'slot': 'Slot is already booked.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            package = Package.objects.select_for_update().get(
+                pk=serializer.validated_data['package'].pk
+            )
+            if package.balance <= 0:
+                return Response(
+                    {'package': 'Package has no remaining lessons.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            slot.is_booked = True
+            slot.save()
+
+            lesson = serializer.save(slot=slot, package=package)
+
+        logger.info(f'Lesson {lesson.id} booked: student {lesson.student_id}, slot {slot.id}')
+        return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch'], url_path='status')
+    def set_status(self, request, pk=None):
+        """US6: Update lesson status — deduct package balance when conducted."""
+        status_serializer = LessonStatusSerializer(data=request.data)
+        status_serializer.is_valid(raise_exception=True)
+        new_status = status_serializer.validated_data['status']
+
+        terminal = {'conducted', 'cancelled', 'missed'}
+
+        with transaction.atomic():
+            lesson = Lesson.objects.select_for_update().get(pk=pk)
+
+            if lesson.status in terminal:
+                return Response(
+                    {'status': f'Lesson already has a terminal status "{lesson.status}".'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            lesson.status = new_status
+            lesson.save()
+
+            package_balance_remaining = None
+            if new_status == 'conducted':
+                package = Package.objects.select_for_update().get(pk=lesson.package_id)
+                package.balance = max(0, package.balance - 1)
+                if package.balance == 0:
+                    package.status = 'completed'
+                package.save()
+                package_balance_remaining = package.balance
+                logger.info(
+                    f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
+                )
+
+        data = dict(LessonSerializer(lesson).data)
+        if package_balance_remaining is not None:
+            data['package_balance_remaining'] = package_balance_remaining
+        return Response(data)
     
