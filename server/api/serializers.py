@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
@@ -97,3 +97,38 @@ class LessonCreateSerializer(serializers.ModelSerializer):
 class LessonStatusSerializer(serializers.Serializer):
     VALID_STATUSES = ['conducted', 'cancelled', 'missed']
     status = serializers.ChoiceField(choices=VALID_STATUSES)
+
+
+class JournalRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JournalRecord
+        fields = [
+            'id', 'lesson', 'is_present', 'activity_grade',
+            'teacher_homework_task', 'homework_answer_url',
+            'homework_grade', 'teacher_notes',
+        ]
+        read_only_fields = ['id', 'lesson']
+
+    def validate_activity_grade(self, value):
+        if value is not None and not (1 <= value <= 10):
+            raise serializers.ValidationError('activity_grade must be between 1 and 10.')
+        return value
+
+    def validate_homework_grade(self, value):
+        if value is not None and not (1 <= value <= 10):
+            raise serializers.ValidationError('homework_grade must be between 1 and 10.')
+        return value
+
+
+class SlotInlineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Slot
+        fields = ['id', 'start_time', 'end_time']
+
+
+class LessonWithSlotSerializer(serializers.ModelSerializer):
+    slot = SlotInlineSerializer(read_only=True)
+
+    class Meta:
+        model = Lesson
+        fields = ['id', 'slot', 'student', 'package', 'curriculum_lesson', 'status', 'meeting_link']

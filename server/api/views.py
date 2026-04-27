@@ -20,11 +20,13 @@ from api.serializers import (
     RegistrationRequestSerializer,
     SlotSerializer,
     LessonSerializer,
+    LessonWithSlotSerializer,
     LessonCreateSerializer,
     LessonStatusSerializer,
+    JournalRecordSerializer,
 )
 from users.models import User, Role, Student, Manager
-from inventory.models import Package, Slot, Teacher, Lesson
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +233,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     def create(self, request, *args, **kwargs):
         """US4: Book a lesson — slot + balance check inside a single transaction."""
-        serializer = self.get_serializer(data=request.data)
+        data = request.data.copy()
+        if 'student' not in data:
+            student = get_object_or_404(Student, user=request.user)
+            data['student'] = student.pk
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
         with transaction.atomic():
@@ -299,4 +305,26 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         if package_balance_remaining is not None:
             data['package_balance_remaining'] = package_balance_remaining
         return Response(data)
-    
+
+    @action(detail=True, methods=['post'], url_path='evaluate', permission_classes=[IsTeacher])
+    def evaluate(self, request, pk=None):
+        """US7: Teacher fills in a JournalRecord for a lesson (create or update)."""
+        lesson = get_object_or_404(Lesson, pk=pk)
+        existing = JournalRecord.objects.filter(lesson=lesson).first()
+        serializer = JournalRecordSerializer(existing, data=request.data, partial=bool(existing))
+        serializer.is_valid(raise_exception=True)
+        journal = serializer.save(lesson=lesson)
+        code = status.HTTP_200_OK if existing else status.HTTP_201_CREATED
+        return Response(JournalRecordSerializer(journal).data, status=code)
+
+    @action(detail=False, methods=['get'], url_path='upcoming', permission_classes=[IsAuthenticated])
+    def upcoming(self, request):
+        """US10: Return the authenticated student's future lessons ordered by start time."""
+        student = get_object_or_404(Student, user=request.user)
+        qs = (
+            Lesson.objects
+            .filter(student=student, slot__start_time__gt=timezone.now())
+            .select_related('slot')
+            .order_by('slot__start_time')
+        )
+        return Response(LessonWithSlotSerializer(qs, many=True).data)
