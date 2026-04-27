@@ -9,10 +9,12 @@ from api.views import (
     SlotViewSet,
     LessonViewSet,
 )
+from users.views import RequestViewSet
 
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
 router.register(r'v1/lessons', LessonViewSet, basename='lesson')
+router.register(r'v1/user-requests', RequestViewSet, basename='user-request')
 
 urlpatterns = [
     # ── Auth (canonical)
