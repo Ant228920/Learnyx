@@ -219,7 +219,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action == 'set_status':
+        if self.action in ('set_status', 'evaluate'):
             return [IsTeacher()]
         return [IsAuthenticated()]
 
@@ -306,7 +306,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             data['package_balance_remaining'] = package_balance_remaining
         return Response(data)
 
-    @action(detail=True, methods=['post'], url_path='evaluate', permission_classes=[IsTeacher])
+    @action(detail=True, methods=['post'], url_path='evaluate')
     def evaluate(self, request, pk=None):
         """US7: Teacher fills in a JournalRecord for a lesson (create or update)."""
         lesson = get_object_or_404(Lesson, pk=pk)
@@ -317,7 +317,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         code = status.HTTP_200_OK if existing else status.HTTP_201_CREATED
         return Response(JournalRecordSerializer(journal).data, status=code)
 
-    @action(detail=False, methods=['get'], url_path='upcoming', permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'], url_path='upcoming')
     def upcoming(self, request):
         """US10: Return the authenticated student's future lessons ordered by start time."""
         student = get_object_or_404(Student, user=request.user)
