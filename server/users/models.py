@@ -4,38 +4,35 @@ from django.contrib.auth.models import AbstractUser
 # Рівні навчання (студенти та викладачі)
 class StudentLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    
-    def __str__(self): 
+
+    def __str__(self):
         return self.name
 
 class TeacherLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    
-    def __str__(self): 
+
+    def __str__(self):
         return self.name
 
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    
-    def __str__(self): 
+
+    def __str__(self):
         return self.name
 
-# Головний користувач (повна відповідність SQL)
 class User(AbstractUser):
-    email = models.EmailField(unique=True) 
+    email = models.EmailField(unique=True)
     role_obj = models.ForeignKey(Role, on_delete=models.PROTECT, null=True, blank=True)
-    
-    # Виправлено: прибрано зайве [str] = ...
+
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
-    
+
     father_name = models.CharField(max_length=50, blank=True, null=True)
     phone = models.CharField(max_length=20, unique=True, blank=True, null=True)
     nickname = models.CharField(max_length=50, unique=True, blank=True, null=True)
     photo = models.CharField(max_length=255, blank=True, null=True)
     is_approved = models.BooleanField(default=False)
 
-    # --- ВИПРАВЛЕННЯ КОНФЛІКТУ (E304) ---
     groups = models.ManyToManyField(
         'auth.Group',
         related_name='custom_user_set',
@@ -60,7 +57,6 @@ class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     is_active = models.BooleanField(default=True)
 
-# Запити та відгуки
 class Request(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     manager = models.ForeignKey(Manager, on_delete=models.SET_NULL, null=True)

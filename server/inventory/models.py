@@ -1,6 +1,7 @@
 from django.db import models
 from users.models import User, TeacherLevel, Student, Manager # Імпортуємо зв'язки
 from django.core.validators import MaxValueValidator, MinValueValidator
+
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
     def __str__(self): return self.name
@@ -30,6 +31,7 @@ class Slot(models.Model):
             # Вказуємо поля для композитного індексу (вчитель + дата)
             models.Index(fields=['teacher', 'start_time']),
         ]
+
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
@@ -98,6 +100,7 @@ class Lesson(models.Model):
             # Швидко шукаємо уроки конкретного студента за їхнім статусом
             models.Index(fields=['student', 'status']),
         ]
+
 class JournalRecord(models.Model):
     lesson = models.OneToOneField(Lesson, on_delete=models.CASCADE)
     is_present = models.BooleanField(default=True)
@@ -122,6 +125,7 @@ class JournalRecord(models.Model):
             # Поле lesson індексується автоматично через OneToOneField
             models.Index(fields=['is_present']),
         ]
+
 class Transaction(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
     lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True)
