@@ -11,3 +11,5 @@ dist/
 build/
 .eslintcache
 client/.env
+CLAUDE.md
+.claude/
