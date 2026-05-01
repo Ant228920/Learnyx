@@ -109,36 +109,3 @@ volumes:
 networks:
   learnyx_network:
     driver: bridge
-    services:
-  frontend:
-    build: ./client
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
-    depends_on:
-      - backend
-
-  backend:
-    # тимчасово (якщо вже є у вас)
-    image: your-backend-image
-    ports:
-      - "8000:8000"
-
-  db:
-    image: postgres:15
-    restart: always
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: learnyx
-    ports:
-      - "5432:5432"
-
-  pgadmin:
-    image: dpage/pgadmin4
-    ports:
-      - "5050:80"

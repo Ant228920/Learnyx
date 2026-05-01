@@ -19,7 +19,4 @@ tzdata==2025.3
 uritemplate==4.2.0
 django-cors-headers
 django-filter
-djangorestframework-simplejwt
-drf-spectacular
-bcrypt
 gunicorn==21.2.0
