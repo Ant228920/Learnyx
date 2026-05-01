@@ -6,7 +6,7 @@ from datetime import timedelta
 # ── Base ──────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR / '.env', override=True)
 
 # ── Security ──────────────────────────────────────────────────
 SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-insecure-key')
@@ -90,8 +90,6 @@ REST_FRAMEWORK = {
 }
 
 # ── JWT ───────────────────────────────────────────────────────
-from datetime import timedelta
-
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME':  timedelta(minutes=int(os.getenv('ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('REFRESH_TOKEN_LIFETIME_DAYS', 7))),
@@ -107,10 +105,16 @@ SPECTACULAR_SETTINGS = {
 }
 
 # ── CORS ──────────────────────────────────────────────────────
+# Origins are comma-separated in .env; defaults cover Vite dev server (local + Docker port-mapped).
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://localhost:3000',
+    o.strip()
+    for o in os.getenv(
+        'CORS_ALLOWED_ORIGINS',
+        'http://localhost:5173,http://localhost:3000',
+    ).split(',')
+    if o.strip()
 ]
+CORS_ALLOW_CREDENTIALS = False
 
 # ── Password validation ───────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
