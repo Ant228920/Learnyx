@@ -48,20 +48,31 @@ export default function LoginForm({ onSuccess }: Props) {
     setLoading(true);
 
     const role = getRoleByEmail(form.email);
+    const path = getRedirectPath(role);
 
     const demoUser = {
       id: 1,
       email: form.email,
       role,
-      firstName: role === 'manager' ? 'Олександр' : 'Олена',
-      lastName:  role === 'manager' ? 'Петрович'  : 'Коваль',
+      firstName: role === 'manager' ? 'Олександр'
+        : role === 'teacher' ? 'Олександр'
+        : 'Олена',
+      lastName: role === 'manager' ? 'Петрович'
+        : role === 'teacher' ? 'Петрович'
+        : 'Коваль',
     };
 
     login('demo-token', demoUser);
     closeModal();
+    // login() викликає setModal(null) і setUser() всередині
+    login('demo-token', demoUser);
     onSuccess?.();
     setLoading(false);
-    void navigate(getRedirectPath(role));
+
+    // setTimeout гарантує що React оновить стан перед navigate
+    setTimeout(() => {
+      void navigate(path);
+    }, 0);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -129,6 +140,7 @@ export default function LoginForm({ onSuccess }: Props) {
       <div className="bg-blue-50 rounded-xl p-3 text-xs font-inter text-[#565d6d]">
         <p className="font-semibold text-slate-700 mb-1">Демо-входи (будь-який пароль):</p>
         <p>👨‍🎓 Студент: <span className="text-[#1f8cf9] font-medium">student@test.com</span></p>
+        <p>🧑‍🏫 Вчитель: <span className="text-[#1f8cf9] font-medium">teacher@test.com</span></p>
         <p>🧑‍💼 Менеджер: <span className="text-[#1f8cf9] font-medium">manager@test.com</span></p>
       </div>
 
