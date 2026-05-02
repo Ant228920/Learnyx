@@ -1,4 +1,9 @@
 version: "3.9"
+<<<<<<< HEAD
+
+
+=======
+>>>>>>> develop
 # ─────────────────────────────────────────────────────────────
 #  Learnyx – Docker Compose (Root)
 #  Запуск: docker-compose up --build -d
