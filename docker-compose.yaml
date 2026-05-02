@@ -1,6 +1,9 @@
 version: "3.9"
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> develop
 # ─────────────────────────────────────────────────────────────
 #  Learnyx – Docker Compose (Root)
 #  Запуск: docker-compose up --build -d
@@ -12,9 +15,7 @@ version: "3.9"
 #    nginx    → Reverse Proxy   (порт 8080)
 #    frontend → React (Vite)    (порт 5173)
 # ─────────────────────────────────────────────────────────────
-
 services:
-
   # ── 1. PostgreSQL ──────────────────────────────────────────
   db:
     image: postgres:16-alpine
@@ -35,7 +36,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
   # ── 2. Django Backend ──────────────────────────────────────
   app:
     build:
@@ -63,7 +63,6 @@ services:
              python manage.py migrate --noinput &&
              python manage.py seed &&
              gunicorn core.wsgi:application --bind 0.0.0.0:8000"
-
   # ── 3. pgAdmin ─────────────────────────────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -78,7 +77,6 @@ services:
       - learnyx_network
     depends_on:
       - db
-
   # ── 4. Nginx (Reverse Proxy) ───────────────────────────────
   nginx:
     image: nginx:1.25-alpine
@@ -93,7 +91,6 @@ services:
       - learnyx_network
     depends_on:
       - app
-
   # ── 5. Frontend (React/Vite) ───────────────────────────────
   frontend:
     build: ./client
@@ -109,7 +106,6 @@ services:
       - learnyx_network
     depends_on:
       - app
-
 # ─────────────────────────────────────────────────────────────
 volumes:
   postgres_data:

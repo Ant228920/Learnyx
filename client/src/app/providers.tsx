@@ -17,7 +17,15 @@ export const useAuth = () => useContext(AuthContext);
 
 export function Providers({ children }: { children: ReactNode }) {
   const [modal, setModal] = useState<ModalType>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    // Відновлюємо юзера з localStorage при завантаженні
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? (JSON.parse(stored) as User) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(
     localStorage.getItem('token')
   );
@@ -27,6 +35,8 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const login = useCallback((newToken: string, newUser: User) => {
     localStorage.setItem('token', newToken);
+    localStorage.setItem('userRole', newUser.role);
+    localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
     setModal(null);
@@ -34,6 +44,8 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('user');
     setToken(null);
     setUser(null);
   }, []);
