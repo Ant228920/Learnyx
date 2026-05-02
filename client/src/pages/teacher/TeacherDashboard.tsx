@@ -18,7 +18,7 @@ const INITIAL_FILES: UploadedFile[] = [
   { id: 2, name: 'Завдання_на_літо_10_клас.docx', size: '1.1 MB', type: 'DOCX' },
   { id: 3, name: 'Архів_тестів_2023.zip', size: '14.8 MB', type: 'ZIP' },
   { id: 4, name: 'Методичні_рекомендації_ЗНО.pdf', size: '3.2 MB', type: 'PDF' },
-  { id: 5, name: 'Збірник_задач_алгебра.pdf', size: '5.1 MB', type: 'PDF' },
+  { id: 5, name: 'Програма_курсу_2024.pdf', size: '0.8 MB', type: 'PDF' },
 ];
 
 const FileIcon = ({ type }: { type: string }) => {
@@ -30,6 +30,10 @@ const FileIcon = ({ type }: { type: string }) => {
   );
 };
 
+// Кнопка "Поставити оцінку" стає активною через 15 хвилин після початку уроку
+// Для демо — перший завершений урок активний, решта — через 15 хвилин
+const isGradeActive = (lesson: Lesson) => lesson.done;
+
 export default function TeacherDashboard() {
   const { user } = useAuth();
   const [files, setFiles] = useState<UploadedFile[]>(INITIAL_FILES);
@@ -38,7 +42,7 @@ export default function TeacherDashboard() {
   const [linkModal, setLinkModal] = useState(false);
   const [gradeValue, setGradeValue] = useState('');
   const [notConducted, setNotConducted] = useState(false);
-  const [absenceReason, setAbsenceReason] = useState('');
+  const [notConductedReason, setNotConductedReason] = useState('');
   const [homeworkTopic, setHomeworkTopic] = useState('Тригонометричні рівняння. Частина 2');
   const [link, setLink] = useState('');
   const [gradedIds, setGradedIds] = useState<number[]>([]);
@@ -47,16 +51,15 @@ export default function TeacherDashboard() {
   const displayedFiles = showAllFiles ? files : files.slice(0, 3);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploaded = e.target.files;
-    if (!uploaded) return;
-    const newFiles: UploadedFile[] = Array.from(uploaded).map((f, i) => ({
+    const uploadedFiles = Array.from(e.target.files || []);
+    const newFiles: UploadedFile[] = uploadedFiles.map((f, i) => ({
       id: Date.now() + i,
       name: f.name,
       size: `${(f.size / 1024 / 1024).toFixed(1)} MB`,
-      type: f.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+      type: f.name.split('.').pop()?.toUpperCase() || 'FILE',
     }));
-    setFiles(prev => [...prev, ...newFiles]);
-    e.target.value = '';
+    setFiles(prev => [...newFiles, ...prev]);
+    if (e.target) e.target.value = '';
   };
 
   const handleDeleteFile = (id: number) => {
@@ -69,12 +72,9 @@ export default function TeacherDashboard() {
       setGradeLesson(null);
       setGradeValue('');
       setNotConducted(false);
-      setAbsenceReason('');
+      setNotConductedReason('');
     }
   };
-
-  // Кнопка "Поставити оцінку" активна тільки для уроку done=true або gradedIds
-  const canGrade = (lesson: Lesson) => lesson.done || gradedIds.includes(lesson.id);
 
   return (
     <TeacherLayout>
@@ -118,7 +118,7 @@ export default function TeacherDashboard() {
             <div className="bg-white rounded-2xl border border-[#dee1e6] overflow-hidden">
               {LESSONS.map((lesson, i) => {
                 const graded = gradedIds.includes(lesson.id);
-                const active = canGrade(lesson);
+                const canGrade = isGradeActive(lesson);
                 return (
                   <div key={lesson.id} className={`flex items-center gap-6 px-6 py-5 ${i > 0 ? 'border-t border-[#dee1e6]' : ''}`}>
                     <span className="font-inter font-bold text-slate-900 text-sm w-12 flex-shrink-0">{lesson.time}</span>
@@ -127,14 +127,12 @@ export default function TeacherDashboard() {
                       <p className="font-inter text-[#565d6d] text-xs mt-0.5">{lesson.group}</p>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      {lesson.done || graded ? (
+                      {graded ? (
                         <>
-                          <button type="button" className="px-4 py-2 bg-gray-100 rounded-xl font-inter font-semibold text-gray-400 text-sm cursor-default">
-                            Проведено
-                          </button>
-                          <button type="button" onClick={() => { setGradeLesson(lesson); setNotConducted(false); setGradeValue(''); }}
+                          <span className="px-4 py-2 bg-gray-100 rounded-xl font-inter font-semibold text-gray-400 text-sm">Проведено</span>
+                          <button type="button" onClick={() => { setGradeLesson(lesson); setNotConducted(false); }}
                             className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors flex items-center gap-1.5">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
                             Поставити оцінку
                           </button>
                         </>
@@ -144,9 +142,16 @@ export default function TeacherDashboard() {
                             className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
                             Почати урок
                           </button>
-                          <button type="button" disabled={!active}
-                            className={`px-4 py-2 rounded-xl font-inter font-semibold text-sm flex items-center gap-1.5 ${active ? 'bg-[#1f8cf9] text-white hover:bg-blue-600 transition-colors cursor-pointer' : 'bg-gray-50 border border-[#dee1e6] text-gray-300 cursor-not-allowed'}`}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                          <button type="button"
+                            disabled={!canGrade}
+                            onClick={() => canGrade && setGradeLesson(lesson)}
+                            title={!canGrade ? 'Доступно через 15 хвилин після початку уроку' : ''}
+                            className={`px-4 py-2 rounded-xl font-inter font-semibold text-sm flex items-center gap-1.5 transition-colors ${
+                              canGrade
+                                ? 'bg-[#1f8cf9] text-white hover:bg-blue-600'
+                                : 'bg-gray-50 border border-[#dee1e6] text-gray-300 cursor-not-allowed'
+                            }`}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
                             Поставити оцінку
                           </button>
                         </>
@@ -160,10 +165,15 @@ export default function TeacherDashboard() {
         </div>
 
         {/* Right — Materials */}
-        <aside className="w-72 flex-shrink-0 flex flex-col gap-6">
+        <aside className="w-72 flex-shrink-0 flex flex-col gap-5">
           <h2 className="font-poppins font-bold text-slate-900 text-xl">Матеріали</h2>
+
+          {/* Upload zone */}
           <div className="bg-white rounded-2xl border border-[#dee1e6] p-5 flex flex-col gap-4">
-            <label className="flex flex-col items-center gap-3 p-5 border-2 border-dashed border-[#dee1e6] rounded-xl cursor-pointer hover:border-[#1f8cf9] hover:bg-blue-50 transition-colors">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-[#dee1e6] rounded-xl cursor-pointer hover:border-[#1f8cf9] hover:bg-blue-50 transition-colors"
+            >
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
               </svg>
@@ -171,90 +181,100 @@ export default function TeacherDashboard() {
                 <p className="font-inter font-semibold text-slate-800 text-sm">Перетягніть файли сюди</p>
                 <p className="font-inter text-[#9095a1] text-xs mt-0.5">або натисніть кнопку нижче</p>
               </div>
-              <button type="button" onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-1.5 border border-[#dee1e6] rounded-lg font-inter text-slate-700 text-sm hover:bg-gray-50 transition-colors">
+              <button type="button" className="px-4 py-2 border border-[#dee1e6] rounded-lg font-inter text-slate-700 text-sm hover:bg-gray-50 transition-colors">
                 Вибрати файл
               </button>
-              <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileUpload} />
-            </label>
-            <p className="font-inter text-[#9095a1] text-[10px] text-center">Дозволені формати: PDF, DOCX, ZIP. Максимальний розмір: 50MB.</p>
-          </div>
-
-          <div>
-            <p className="font-inter font-bold text-slate-900 text-xs tracking-[0.60px] uppercase mb-3">Нещодавні</p>
-            <div className="flex flex-col gap-2">
-              {displayedFiles.map(file => (
-                <div key={file.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-[#dee1e6] hover:shadow-sm transition-shadow group">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileIcon type={file.type} />
-                    <div className="min-w-0">
-                      <p className="font-inter font-semibold text-slate-800 text-xs truncate max-w-[140px]">{file.name}</p>
-                      <p className="font-inter text-[#9095a1] text-[10px]">{file.size} • {file.type}</p>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => handleDeleteFile(file.id)}
-                    aria-label={`Видалити ${file.name}`} title="Видалити"
-                    className="text-[#9095a1] hover:text-red-500 transition-colors flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" /></svg>
-                  </button>
-                </div>
-              ))}
             </div>
-
-            {files.length > 3 && (
-              <button type="button" onClick={() => setShowAllFiles(!showAllFiles)}
-                className="mt-3 font-inter font-bold text-[#1f8cf9] text-sm flex items-center gap-1 hover:underline">
-                {showAllFiles ? 'Сховати' : `Переглянути всі файли (${files.length})`}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points={showAllFiles ? '18 15 12 9 6 15' : '9 18 15 12 9 6'} />
-                </svg>
-              </button>
-            )}
+            <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileUpload}
+              aria-label="Завантажити файли матеріалів" title="Завантажити файли" />
+            <p className="font-inter text-[#9095a1] text-[10px] text-center leading-4">
+              Дозволені формати: PDF, DOCX, ZIP. Максимальний розмір файлу: 50MB.
+            </p>
           </div>
+
+          {/* Files list */}
+          {files.length > 0 && (
+            <div>
+              <p className="font-inter font-bold text-slate-900 text-xs tracking-[0.60px] uppercase mb-3">Нещодавні</p>
+              <div className="flex flex-col gap-2">
+                {displayedFiles.map(file => (
+                  <div key={file.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-[#dee1e6] hover:shadow-sm transition-shadow group">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileIcon type={file.type} />
+                      <div className="min-w-0">
+                        <p className="font-inter font-semibold text-slate-800 text-xs truncate max-w-[140px]">{file.name}</p>
+                        <p className="font-inter text-[#9095a1] text-[10px]">{file.size} • {file.type}</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => handleDeleteFile(file.id)}
+                      aria-label={`Видалити файл ${file.name}`}
+                      title="Видалити"
+                      className="text-[#9095a1] hover:text-[#e64c4c] transition-colors flex-shrink-0 ml-1 opacity-0 group-hover:opacity-100">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {files.length > 3 && (
+                <button type="button" onClick={() => setShowAllFiles(!showAllFiles)}
+                  className="mt-3 font-inter font-bold text-[#1f8cf9] text-sm flex items-center gap-1 hover:underline">
+                  {showAllFiles ? 'Приховати' : `Переглянути всі файли (${files.length})`}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points={showAllFiles ? '18 15 12 9 6 15' : '9 18 15 12 9 6'} />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
         </aside>
       </div>
 
       {/* Grade Modal */}
       {gradeLesson && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) setGradeLesson(null); }}
+          onClick={e => { if (e.target === e.currentTarget) { setGradeLesson(null); setNotConducted(false); } }}
           role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl animate-fade-in p-8 flex flex-col gap-5">
             <div className="flex items-center justify-between">
               <h2 className="font-poppins font-bold text-slate-900 text-xl">Поставити оцінку</h2>
-              <button type="button" onClick={() => setGradeLesson(null)} aria-label="Закрити" title="Закрити"
-                className="text-[#9095a1] hover:text-slate-600">
+              <button type="button" onClick={() => { setGradeLesson(null); setNotConducted(false); }}
+                aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
 
             {/* Not conducted toggle */}
-            <div className="flex items-center justify-between p-4 bg-[#fff5f5] rounded-xl border border-[#fee2e2]">
-              <div>
-                <p className="font-inter font-bold text-slate-900 text-sm">Урок не проведено</p>
-                <p className="font-inter text-[#565d6d] text-xs mt-0.5">Учень не з'явився — оцінка 0</p>
-              </div>
-              <button type="button" onClick={() => { setNotConducted(!notConducted); if (!notConducted) setGradeValue('0'); else setGradeValue(''); }}
-                className={`relative w-12 h-6 rounded-full transition-colors ${notConducted ? 'bg-[#e64c4c]' : 'bg-[#dee1e6]'}`}>
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notConducted ? 'translate-x-6' : 'translate-x-0.5'}`} />
-              </button>
-            </div>
+            <label className="flex items-center gap-3 p-4 bg-red-50 rounded-xl border border-red-100 cursor-pointer">
+              <input type="checkbox" checked={notConducted} onChange={e => setNotConducted(e.target.checked)}
+                className="w-4 h-4 accent-[#e64c4c]" />
+              <span className="font-inter font-medium text-slate-800 text-sm">Урок не проведено (учень не з'явився)</span>
+            </label>
 
             {notConducted ? (
-              <div className="flex flex-col gap-1">
-                <label htmlFor="absence-reason" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Причина відсутності</label>
-                <textarea id="absence-reason" value={absenceReason} onChange={e => setAbsenceReason(e.target.value)}
-                  placeholder="Вкажіть причину відсутності учня..."
-                  rows={3}
-                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
-                <p className="font-inter text-xs text-[#9095a1]">Оцінка автоматично: <span className="font-bold text-[#e64c4c]">0 балів</span></p>
-              </div>
+              <>
+                <div className="flex flex-col gap-1">
+                  <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за урок</label>
+                  <div className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-[#9095a1] bg-[#f8f9fb]">
+                    0 / 10 (автоматично)
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="reason" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Причина відсутності</label>
+                  <textarea id="reason" value={notConductedReason} onChange={e => setNotConductedReason(e.target.value)}
+                    placeholder="Опишіть причину відсутності учня..."
+                    rows={3}
+                    className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
+                </div>
+              </>
             ) : (
               <>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="grade-value" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за урок</label>
+                  <label htmlFor="grade-input" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за урок</label>
                   <div className="relative">
-                    <input id="grade-value" type="text" value={gradeValue} onChange={e => setGradeValue(e.target.value)}
+                    <input id="grade-input" type="text" value={gradeValue} onChange={e => setGradeValue(e.target.value)}
                       placeholder="Оцінка, наприклад 8/10"
                       className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] pr-10" />
                     <svg className="absolute right-3 top-1/2 -translate-y-1/2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
@@ -262,10 +282,14 @@ export default function TeacherDashboard() {
                     </svg>
                   </div>
                 </div>
+
                 <div className="flex flex-col gap-1">
                   <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Статус уроку</label>
-                  <div className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-[#9095a1] bg-[#f8f9fb]">Проведено ✓</div>
+                  <div className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-[#9095a1] bg-[#f8f9fb]">
+                    Проведено ✓
+                  </div>
                 </div>
+
                 <div className="flex flex-col gap-1">
                   <label htmlFor="hw-topic" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Тема домашнього завдання</label>
                   <input id="hw-topic" type="text" value={homeworkTopic} onChange={e => setHomeworkTopic(e.target.value)}
@@ -273,10 +297,13 @@ export default function TeacherDashboard() {
                     aria-label="Тема домашнього завдання"
                     className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
                 </div>
+
                 <div className="flex flex-col gap-2">
                   <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Завантажити файл домашнього завдання</label>
-                  <label className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-[#dee1e6] rounded-xl cursor-pointer hover:border-[#1f8cf9] hover:bg-blue-50 transition-colors">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                  <label className="flex flex-col items-center gap-3 p-5 border-2 border-dashed border-[#dee1e6] rounded-xl cursor-pointer hover:border-[#1f8cf9] hover:bg-blue-50 transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
                     <p className="font-inter text-[#565d6d] text-sm text-center">Перетягніть файл сюди або скористайтеся кнопкою</p>
                     <p className="font-inter text-[#9095a1] text-xs">PDF, DOCX, JPG • ДО 10MB</p>
                     <button type="button" className="px-4 py-1.5 border border-[#dee1e6] rounded-lg font-inter text-slate-700 text-sm hover:bg-gray-50">Вибрати файл</button>
@@ -302,8 +329,7 @@ export default function TeacherDashboard() {
           <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl animate-fade-in p-8 flex flex-col gap-5">
             <div className="flex items-center justify-between">
               <h2 className="font-poppins font-bold text-slate-900 text-xl">Надіслати посилання</h2>
-              <button type="button" onClick={() => setLinkModal(false)} aria-label="Закрити" title="Закрити"
-                className="text-[#9095a1] hover:text-slate-600">
+              <button type="button" onClick={() => setLinkModal(false)} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
@@ -314,7 +340,7 @@ export default function TeacherDashboard() {
               </svg>
               <input type="url" value={link} onChange={e => setLink(e.target.value)}
                 placeholder="Вставте посилання сюди"
-                aria-label="Посилання"
+                aria-label="Посилання на матеріал"
                 className="w-full border border-[#dee1e6] rounded-xl pl-10 pr-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
             </div>
             <button type="button" onClick={() => { setLinkModal(false); setLink(''); }}
