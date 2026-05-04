@@ -28,6 +28,8 @@ tags:
     description: Журнал успішності (оцінки, ДЗ, відвідуваність)
   - name: Bonus
     description: Learning Cashback та бонусний баланс
+  - name: Admin
+    description: Адміністративні ендпоінти для менеджера
   - name: Requests
     description: Заявки до менеджера
 
@@ -462,6 +464,101 @@ paths:
                 message: "У пакеті не залишилось занять"
                 path: "/api/v1/lessons/"
 
+  /lessons/assign/:
+    post:
+      tags: [Lessons]
+      summary: Призначити учня на слот (викладач)
+      description: |
+        Викладач самостійно вибирає учня зі свого пулу та закріплює його за своїм слотом.
+        Виконується в `transaction.atomic`: створюється `Lesson` і встановлюється `Slot.is_booked = True`.
+        Валідації: слот належить поточному викладачу; учень не має активного заняття в цей час.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonAssignRequest'
+            example:
+              slot_id: 3
+              student_id: 2
+              package_id: 1
+      responses:
+        '201':
+          description: Учня призначено, заняття створено
+          content:
+            application/json:
+              example:
+                id: 12
+                slot_id: 3
+                student_id: 2
+                package_id: 1
+                status: "scheduled"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          description: Слот не належить поточному викладачу
+          content:
+            application/json:
+              example:
+                errorCode: "SLOT_NOT_OWNED"
+                message: "Цей слот не належить вам"
+        '409':
+          description: Учень вже зайнятий або слот вже заброньований
+          content:
+            application/json:
+              example:
+                errorCode: "STUDENT_TIME_CONFLICT"
+                message: "Учень вже має заняття в цей час"
+
+  /lessons/{id}/homework/:
+    post:
+      tags: [Lessons]
+      summary: Задати домашнє завдання (викладач)
+      description: |
+        Викладач задає ДЗ після проведеного уроку. Зберігається в `JournalRecord`.
+        Поля: `teacher_homework_task` (текст, обов'язково), `homework_answer_url` (URL, опціонально).
+        Урок має бути у статусі `conducted`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomeworkRequest'
+            example:
+              teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+              homework_answer_url: "https://drive.google.com/file/abc"
+      responses:
+        '200':
+          description: Домашнє завдання збережено
+          content:
+            application/json:
+              example:
+                lesson_id: 10
+                teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+                homework_answer_url: "https://drive.google.com/file/abc"
+        '400':
+          description: Урок не у статусі conducted або невалідні дані
+          content:
+            application/json:
+              example:
+                errorCode: "LESSON_NOT_CONDUCTED"
+                message: "Домашнє завдання можна задати лише після проведеного уроку"
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /lessons/{id}/complete/:
     patch:
       tags: [Lessons]
@@ -650,6 +747,131 @@ paths:
           description: Деталі пакету
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /packages/{id}/purchase/:
+    post:
+      tags: [Packages]
+      summary: Оплатити пакет із застосуванням бонусу (Split Payment)
+      description: |
+        Активує пакет і автоматично застосовує знижку з `CourseCompletion`, якщо є:
+        - `earned_discount > 0`
+        - `is_discount_used = False`
+        - вік запису < 180 днів
+
+        Всі зміни в `transaction.atomic`:
+        `Package.status = 'active'`, `Package.purchased_at = now()`,
+        `CourseCompletion.is_discount_used = True` (якщо знижку застосовано).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Пакет активовано (знижка застосована або ні)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseResponse'
+              examples:
+                with_discount:
+                  summary: З бонусною знижкою
+                  value:
+                    package_id: 5
+                    final_price: "2160.00"
+                    discount_applied: true
+                    discount_pct: 10
+                no_discount:
+                  summary: Без знижки
+                  value:
+                    package_id: 5
+                    final_price: "2400.00"
+                    discount_applied: false
+                    discount_pct: 0
+        '400':
+          description: Пакет вже активний або інша помилка валідації
+          content:
+            application/json:
+              example:
+                errorCode: "PACKAGE_ALREADY_ACTIVE"
+                message: "Пакет вже активний"
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ───────────────────────────────────────────
+  # ADMIN
+  # ───────────────────────────────────────────
+
+  /admin/lessons/archive/:
+    get:
+      tags: [Admin]
+      summary: Архів занять платформи (менеджер)
+      description: |
+        Повний список занять з фільтрацією. При `?export=csv` повертає файл
+        замість JSON (Content-Type: text/csv).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2026-01-01"
+          description: Початок діапазону дат (включно)
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2026-12-31"
+          description: Кінець діапазону дат (включно)
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [scheduled, conducted, missed, cancelled]
+          style: form
+          explode: true
+          description: "Фільтр за статусом. Можна передати кілька: ?status=conducted&status=cancelled"
+          example: [conducted]
+        - name: teacher_id
+          in: query
+          schema:
+            type: integer
+          description: Фільтр за викладачем
+        - name: export
+          in: query
+          schema:
+            type: string
+            enum: [csv]
+          description: "При значенні 'csv' — повертає файл замість JSON"
+      responses:
+        '200':
+          description: Список занять (JSON або CSV залежно від параметра export)
+          content:
+            application/json:
+              example:
+                - id: 10
+                  status: "conducted"
+                  start_time: "2026-04-10T10:00:00Z"
+                  student: "Іван Учень"
+                  teacher: "Олена Викладач"
+                  package_id: 1
+            text/csv:
+              example: |
+                id,status,start_time,student,teacher,package_id
+                10,conducted,2026-04-10T10:00:00Z,Іван Учень,Олена Викладач,1
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   # ───────────────────────────────────────────
   # JOURNAL
@@ -996,6 +1218,45 @@ components:
         homework_answer_url:
           type: string
           format: uri
+
+    LessonAssignRequest:
+      type: object
+      required: [slot_id, student_id, package_id]
+      properties:
+        slot_id:
+          type: integer
+        student_id:
+          type: integer
+        package_id:
+          type: integer
+
+    HomeworkRequest:
+      type: object
+      required: [teacher_homework_task]
+      properties:
+        teacher_homework_task:
+          type: string
+          description: Текст домашнього завдання
+        homework_answer_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL на матеріали (опціонально)
+
+    PurchaseResponse:
+      type: object
+      properties:
+        package_id:
+          type: integer
+        final_price:
+          type: string
+          description: Фінальна ціна після знижки (або оригінальна)
+        discount_applied:
+          type: boolean
+          description: Чи було застосовано бонусну знижку
+        discount_pct:
+          type: integer
+          description: Відсоток знижки (0 якщо не застосовано)
 
     ErrorResponse:
       type: object
