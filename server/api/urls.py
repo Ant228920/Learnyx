@@ -13,6 +13,9 @@ from api.views import (
     StudentDashboardView,
     TeacherDashboardView,
     JournalListView,
+    AvailableStudentListView,
+    LessonArchiveView,
+    PackagePurchaseView,
 )
 from users.views import RequestViewSet
 
@@ -35,6 +38,8 @@ urlpatterns = [
 
     # ── Packages & Students
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
+    path('v1/packages/<int:pk>/purchase/', PackagePurchaseView.as_view(), name='purchase-package'),
+    path('v1/students/available/', AvailableStudentListView.as_view(), name='student-available'),
     path('v1/students/', StudentListView.as_view(), name='student-list'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),
 
@@ -44,6 +49,9 @@ urlpatterns = [
     # ── Dashboards
     path('v1/student/dashboard/', StudentDashboardView.as_view(), name='student-dashboard'),
     path('v1/teacher/dashboard/', TeacherDashboardView.as_view(), name='teacher-dashboard'),
+
+    # ── Manager archive
+    path('v1/admin/lessons/archive/', LessonArchiveView.as_view(), name='lesson-archive'),
 
     # ── Journal
     path('v1/journal/', JournalListView.as_view(), name='journal-list'),

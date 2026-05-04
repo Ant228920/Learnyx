@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson
 from users.models import Student
 
 
@@ -160,4 +160,75 @@ class JournalListSerializer(serializers.ModelSerializer):
             'id', 'lesson', 'start_time', 'lesson_status',
             'is_present', 'activity_grade', 'homework_grade',
             'teacher_homework_task', 'homework_answer_url', 'teacher_notes',
+        ]
+
+
+# ── LEAR-141 ────────────────────────────────────────────────────────────────
+
+class TeacherInlineSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+
+    class Meta:
+        model = Teacher
+        fields = ['user_id', 'first_name', 'last_name']
+
+
+class SlotAvailableSerializer(serializers.ModelSerializer):
+    teacher = TeacherInlineSerializer(read_only=True)
+
+    class Meta:
+        model = Slot
+        fields = ['id', 'teacher', 'start_time', 'end_time', 'is_booked']
+
+
+# ── LEAR-182 ────────────────────────────────────────────────────────────────
+
+class AvailableStudentSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    email = serializers.EmailField(source='user.email')
+
+    class Meta:
+        model = Student
+        fields = ['user_id', 'first_name', 'last_name', 'email']
+
+
+class AssignLessonSerializer(serializers.Serializer):
+    slot = serializers.PrimaryKeyRelatedField(queryset=Slot.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all())
+    package = serializers.PrimaryKeyRelatedField(queryset=Package.objects.all(), required=False, allow_null=True)
+    curriculum_lesson = serializers.PrimaryKeyRelatedField(
+        queryset=CurriculumLesson.objects.all(), required=False, allow_null=True
+    )
+
+
+# ── LEAR-186 ────────────────────────────────────────────────────────────────
+
+class HomeworkSerializer(serializers.Serializer):
+    teacher_homework_task = serializers.CharField()
+    homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
+
+
+# ── LEAR-189/190 ────────────────────────────────────────────────────────────
+
+class LessonArchiveSerializer(serializers.ModelSerializer):
+    start_time = serializers.DateTimeField(source='slot.start_time', read_only=True)
+    end_time = serializers.DateTimeField(source='slot.end_time', read_only=True)
+    teacher_name = serializers.SerializerMethodField()
+    student_name = serializers.SerializerMethodField()
+
+    def get_teacher_name(self, obj):
+        u = obj.slot.teacher.user
+        return f'{u.first_name} {u.last_name}'.strip()
+
+    def get_student_name(self, obj):
+        u = obj.student.user
+        return f'{u.first_name} {u.last_name}'.strip()
+
+    class Meta:
+        model = Lesson
+        fields = [
+            'id', 'status', 'start_time', 'end_time',
+            'teacher_name', 'student_name', 'package', 'meeting_link',
         ]
