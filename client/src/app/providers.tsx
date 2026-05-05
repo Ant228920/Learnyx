@@ -17,8 +17,8 @@ export const useAuth = () => useContext(AuthContext);
 
 export function Providers({ children }: { children: ReactNode }) {
   const [modal, setModal] = useState<ModalType>(null);
+
   const [user, setUser] = useState<User | null>(() => {
-    // Відновлюємо юзера з localStorage при завантаженні
     try {
       const stored = localStorage.getItem('user');
       return stored ? (JSON.parse(stored) as User) : null;
@@ -26,6 +26,7 @@ export function Providers({ children }: { children: ReactNode }) {
       return null;
     }
   });
+
   const [token, setToken] = useState<string | null>(
     localStorage.getItem('token')
   );
@@ -44,6 +45,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
     localStorage.removeItem('user');
     setToken(null);

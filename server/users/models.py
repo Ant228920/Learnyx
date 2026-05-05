@@ -136,7 +136,7 @@ class Review(models.Model):
         constraints = [
             # Data Integrity: Відгук не може бути порожнім рядком
             CheckConstraint(
-                condition=~Q(text=''), 
+                condition=~Q(text=''),
                 name='check_review_text_not_empty'
             )
         ]

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconEye, IconEyeOff, IconMail } from '../../components/layout/icons';
-import type { LoginDTO } from '../../services/api';
+import { authApi, extractErrorMessage } from '../../services/api';
 import { useAuth } from '../../app/providers';
 
 interface Props {
@@ -10,73 +10,61 @@ interface Props {
 
 function getRedirectPath(role: string): string {
   switch (role) {
-    case 'student': return '/dashboard';
-    case 'teacher': return '/teacher';
-    case 'manager': return '/manager';
-    case 'admin':   return '/manager';
-    default:        return '/';
+    case 'student':  return '/dashboard';
+    case 'teacher':  return '/teacher';
+    case 'manager':  return '/manager';
+    case 'admin':    return '/manager';
+    default:         return '/';
   }
 }
 
-function getRoleByEmail(email: string): 'student' | 'teacher' | 'manager' | 'admin' {
-  const e = email.toLowerCase();
-  if (e.includes('manager') || e.includes('admin')) return 'manager';
-  if (e.includes('teacher')) return 'teacher';
-  return 'student';
-}
-
 export default function LoginForm({ onSuccess }: Props) {
-  const { login, closeModal } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState<LoginDTO>({ email: '', password: '' });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForm((prev: LoginDTO) => ({ ...prev, [name]: value }));
-    setError('');
-  };
-
-  const handleSubmit = () => {
-    if (!form.email.trim() || !form.password.trim()) {
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
       setError('Заповніть всі поля');
       return;
     }
 
     setLoading(true);
+    setError('');
 
-    const role = getRoleByEmail(form.email);
-    const path = getRedirectPath(role);
+    try {
+      const data = await authApi.login({ email, password });
 
-    const demoUser = {
-      id: 1,
-      email: form.email,
-      role,
-      firstName: role === 'manager' ? 'Олександр'
-        : role === 'teacher' ? 'Олександр'
-        : 'Олена',
-      lastName: role === 'manager' ? 'Петрович'
-        : role === 'teacher' ? 'Петрович'
-        : 'Коваль',
-    };
+      // Зберігаємо refresh токен
+      localStorage.setItem('refreshToken', data.refreshToken);
 
-    login('demo-token', demoUser);
-    closeModal();
-    // login() викликає setModal(null) і setUser() всередині
-    login('demo-token', demoUser);
-    onSuccess?.();
-    setLoading(false);
+      // Нормалізуємо роль (бекенд повертає 'Student' або 'student')
+      const role = (data.user.role ?? '').toLowerCase() as 'student' | 'teacher' | 'manager' | 'admin';
 
-    // setTimeout гарантує що React оновить стан перед navigate
-    setTimeout(() => {
-      void navigate(path);
-    }, 0);
+      const normalizedUser = {
+        ...data.user,
+        role,
+      };
+
+      login(data.accessToken, normalizedUser);
+      onSuccess?.();
+
+      setTimeout(() => {
+        void navigate(getRedirectPath(role));
+      }, 0);
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSubmit();
+    if (e.key === 'Enter') void handleSubmit();
   };
 
   return (
@@ -93,8 +81,8 @@ export default function LoginForm({ onSuccess }: Props) {
           <input
             id="l-email"
             name="email"
-            value={form.email}
-            onChange={handleChange}
+            value={email}
+            onChange={e => { setEmail(e.target.value); setError(''); }}
             onKeyDown={handleKeyDown}
             placeholder="example@mail.com"
             type="email"
@@ -113,17 +101,17 @@ export default function LoginForm({ onSuccess }: Props) {
           <input
             id="l-password"
             name="password"
-            value={form.password}
-            onChange={handleChange}
+            value={password}
+            onChange={e => { setPassword(e.target.value); setError(''); }}
             onKeyDown={handleKeyDown}
-            placeholder="password123"
+            placeholder="••••••••"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             className="form-input pr-10"
           />
           <button
             type="button"
-            onClick={() => setShowPassword((v) => !v)}
+            onClick={() => setShowPassword(v => !v)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9095a1] hover:text-slate-600"
             aria-label={showPassword ? 'Сховати пароль' : 'Показати пароль'}
           >
@@ -132,24 +120,31 @@ export default function LoginForm({ onSuccess }: Props) {
         </div>
       </div>
 
+      {/* Error */}
       {error && (
-        <p className="text-sm text-red-500 text-center font-inter">{error}</p>
+        <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl border border-red-100">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <p className="text-sm text-red-600 font-inter">{error}</p>
+        </div>
       )}
 
-      {/* Demo hint */}
-      <div className="bg-blue-50 rounded-xl p-3 text-xs font-inter text-[#565d6d]">
-        <p className="font-semibold text-slate-700 mb-1">Демо-входи (будь-який пароль):</p>
-        <p>👨‍🎓 Студент: <span className="text-[#1f8cf9] font-medium">student@test.com</span></p>
-        <p>🧑‍🏫 Вчитель: <span className="text-[#1f8cf9] font-medium">teacher@test.com</span></p>
-        <p>🧑‍💼 Менеджер: <span className="text-[#1f8cf9] font-medium">manager@test.com</span></p>
-      </div>
-
       <button
-        onClick={handleSubmit}
+        type="button"
+        onClick={() => void handleSubmit()}
         disabled={loading}
-        className="btn-primary mt-1"
+        className="btn-primary mt-1 flex items-center justify-center gap-2"
       >
-        {loading ? 'Завантаження...' : 'Підтвердити'}
+        {loading ? (
+          <>
+            <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" strokeOpacity="0.3" />
+              <path d="M12 2a10 10 0 0 1 10 10" />
+            </svg>
+            Вхід...
+          </>
+        ) : 'Підтвердити'}
       </button>
     </div>
   );
