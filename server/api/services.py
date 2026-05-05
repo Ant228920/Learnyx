@@ -211,6 +211,50 @@ def calculate_cashback(package) -> 'CourseCompletion | None':
     return completion
 
 
+def purchase_package(package, student) -> dict:
+    """
+    LEAR-203: Activate a package with optional split-payment bonus discount.
+    Finds the best unexpired CourseCompletion discount (<= 180 days old),
+    applies it to final_price, and commits everything in one ACID transaction.
+    """
+    from datetime import timedelta
+
+    cutoff = timezone.now() - timedelta(days=180)
+    completion = (
+        CourseCompletion.objects
+        .filter(student=student, is_discount_used=False, earned_discount__gt=0, completed_at__gte=cutoff)
+        .order_by('-earned_discount')
+        .first()
+    )
+
+    discount_pct = completion.earned_discount if completion else Decimal('0')
+    original_price = package.final_price
+    final_price = (original_price * (1 - discount_pct / Decimal('100'))).quantize(Decimal('0.01'))
+
+    with transaction.atomic():
+        pkg = Package.objects.select_for_update().get(pk=package.pk)
+        if pkg.status == 'active':
+            raise ValueError('Package is already active.')
+
+        pkg.status = 'active'
+        pkg.purchased_at = timezone.now()
+        if discount_pct > 0:
+            pkg.final_price = final_price
+            pkg.discount = discount_pct
+        pkg.save()
+
+        if completion:
+            completion.is_discount_used = True
+            completion.save(update_fields=['is_discount_used'])
+
+    return {
+        'package_id': pkg.pk,
+        'final_price': float(final_price),
+        'discount_applied': discount_pct > 0,
+        'discount_pct': float(discount_pct),
+    }
+
+
 def get_bonus_balance(student) -> dict:
     """
     US14: returns bonus balance payload for a student.
