@@ -30,7 +30,7 @@ services:
     container_name: learnyx_app
     restart: unless-stopped
     env_file:
-      - ./server/.env
+      - server/.env
     environment:
       DB_HOST: db
       DB_PORT: 5432
