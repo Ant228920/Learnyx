@@ -1,3 +1,4 @@
+import csv
 import logging
 import secrets
 import string
@@ -5,18 +6,41 @@ import string
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db import transaction
+from django.http import HttpResponse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
+from django.db.models import Sum, Q
+from django.db.models.functions import Coalesce
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets, mixins, generics
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from api.models import RegistrationRequest
-from api.serializers import RegistrationRequestSerializer
+from api.permissions import IsTeacher, IsStudent, IsManager
+from api.serializers import (
+    RegistrationRequestSerializer,
+    SlotSerializer,
+    SlotAvailableSerializer,
+    LessonSerializer,
+    LessonWithSlotSerializer,
+    LessonCreateSerializer,
+    LessonStatusSerializer,
+    MeetingLinkSerializer,
+    JournalRecordSerializer,
+    JournalListSerializer,
+    StudentListSerializer,
+    AvailableStudentSerializer,
+    AssignLessonSerializer,
+    HomeworkSerializer,
+    LessonArchiveSerializer,
+)
 from users.models import User, Role, Student, Manager
-from inventory.models import Package
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson
+from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +88,7 @@ class ApproveRegistrationRequestView(APIView):
             return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_400_BAD_REQUEST)
 
         password = generate_password()
-        
+
         try:
             with transaction.atomic():
                 # Розбиваємо ім'я більш надійно
@@ -129,9 +153,9 @@ class ActivatePackageView(APIView):
         package.status = 'active'
         package.purchased_at = timezone.now()
         package.save()
-        
+
         logger.info(f'Package {pk} activated by user {request.user.id}')
-        
+
         return Response({
             'message': 'Пакет успішно активовано.',
             'package_id': package.id,
@@ -160,4 +184,664 @@ class StudentBalanceView(APIView):
             'package_id': package.id,
             'status': package.status,
         }, status=status.HTTP_200_OK)
-    
+
+
+class SlotViewSet(viewsets.ModelViewSet):
+    """US5 + US9: Teacher slot management — create with overlap check, delete if unbooked."""
+    serializer_class = SlotSerializer
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    def get_permissions(self):
+        if self.action in ('create', 'destroy'):
+            return [IsTeacher()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = Slot.objects.select_related('teacher__user').all()
+
+        teacher_id = self.request.query_params.get('teacher_id')
+        is_booked = self.request.query_params.get('is_booked')
+        date = self.request.query_params.get('date')
+
+        if teacher_id:
+            qs = qs.filter(teacher_id=teacher_id)
+        if is_booked is not None:
+            qs = qs.filter(is_booked=is_booked.lower() in ('true', '1'))
+        if date:
+            qs = qs.filter(start_time__date=date)
+
+        return qs
+
+    def perform_create(self, serializer):
+        teacher = get_object_or_404(Teacher, user=self.request.user)
+        serializer.save(teacher=teacher)
+
+    def destroy(self, request, *args, **kwargs):
+        slot = self.get_object()
+        if slot.is_booked:
+            return Response(
+                {'message': 'Неможливо видалити заброньований слот.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        slot.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'], url_path='available')
+    def available(self, request):
+        """LEAR-141: Available (unbooked) slots with nested teacher info."""
+        qs = Slot.objects.filter(is_booked=False).select_related('teacher__user')
+        teacher_id = request.query_params.get('teacher_id')
+        date = request.query_params.get('date')
+        if teacher_id:
+            qs = qs.filter(teacher_id=teacher_id)
+        if date:
+            qs = qs.filter(start_time__date=date)
+        return Response(SlotAvailableSerializer(qs, many=True).data)
+
+
+class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+    """US4 + US6: Lesson booking (atomic) and status update (atomic)."""
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [(IsManager | IsStudent)()]
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign'):
+            return [IsTeacher()]
+        if self.action == 'cancel':
+            return [IsStudent()]
+        return [IsAuthenticated()]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return LessonCreateSerializer
+        return LessonSerializer
+
+    def get_queryset(self):
+        qs = Lesson.objects.select_related('slot', 'package').all()
+
+        # Role-based scoping: students/teachers see only their own lessons
+        user = self.request.user
+        role = user.role_obj.name.lower() if user.role_obj else ''
+        if role == 'student':
+            student = Student.objects.filter(user=user).first()
+            qs = qs.filter(student=student) if student else qs.none()
+        elif role == 'teacher':
+            teacher = Teacher.objects.filter(user=user).first()
+            qs = qs.filter(slot__teacher=teacher) if teacher else qs.none()
+        # manager sees all
+
+        # Query-param filters (used by manager for US13-style filtering)
+        p = self.request.query_params
+        if p.get('status'):
+            qs = qs.filter(status=p['status'])
+        if p.get('date_from'):
+            qs = qs.filter(slot__start_time__date__gte=p['date_from'])
+        if p.get('date_to'):
+            qs = qs.filter(slot__start_time__date__lte=p['date_to'])
+        if p.get('teacher_id'):
+            qs = qs.filter(slot__teacher_id=p['teacher_id'])
+
+        return qs.order_by('slot__start_time')
+
+    def create(self, request, *args, **kwargs):
+        """US4: Book a lesson — slot + balance check inside a single transaction."""
+        data = request.data.copy()
+        if 'student' not in data:
+            student = get_object_or_404(Student, user=request.user)
+            data['student'] = student.pk
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            # Lock both rows to prevent race conditions on concurrent booking
+            slot = Slot.objects.select_for_update().get(
+                pk=serializer.validated_data['slot'].pk
+            )
+            if slot.is_booked:
+                return Response(
+                    {'slot': 'Slot is already booked.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            package = Package.objects.select_for_update().get(
+                pk=serializer.validated_data['package'].pk
+            )
+            if package.balance <= 0:
+                return Response(
+                    {'package': 'Package has no remaining lessons.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            slot.is_booked = True
+            slot.save()
+
+            lesson = serializer.save(slot=slot, package=package)
+
+        logger.info(f'Lesson {lesson.id} booked: student {lesson.student_id}, slot {slot.id}')
+        return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch'], url_path='status')
+    def set_status(self, request, pk=None):
+        """US6: Update lesson status — deduct package balance when conducted."""
+        status_serializer = LessonStatusSerializer(data=request.data)
+        status_serializer.is_valid(raise_exception=True)
+        new_status = status_serializer.validated_data['status']
+
+        terminal = {'conducted', 'cancelled', 'missed'}
+
+        with transaction.atomic():
+            lesson = Lesson.objects.select_for_update().get(pk=pk)
+
+            if lesson.status in terminal:
+                return Response(
+                    {'status': f'Lesson already has a terminal status "{lesson.status}".'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            lesson.status = new_status
+            lesson.save()
+
+            package_balance_remaining = None
+            cashback_earned = None
+            if new_status == 'conducted':
+                package = Package.objects.select_for_update().get(pk=lesson.package_id)
+                package.balance = max(0, package.balance - 1)
+                if package.balance == 0:
+                    package.status = 'completed'
+                package.save()
+                package_balance_remaining = package.balance
+                logger.info(
+                    f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
+                )
+
+                if package.status == 'completed':
+                    completion = calculate_cashback(package)
+                    if completion:
+                        cashback_earned = float(completion.earned_discount)
+                        logger.info(
+                            f'Package {package.id} completed: cashback {cashback_earned}% awarded '
+                            f'to student {package.student_id}'
+                        )
+
+        data = dict(LessonSerializer(lesson).data)
+        if package_balance_remaining is not None:
+            data['package_balance_remaining'] = package_balance_remaining
+        if cashback_earned is not None:
+            data['cashback_earned_pct'] = cashback_earned
+        return Response(data)
+
+    @action(detail=True, methods=['post'], url_path='evaluate')
+    def evaluate(self, request, pk=None):
+        """US7: Teacher fills in a JournalRecord for a lesson (create or update)."""
+        lesson = get_object_or_404(Lesson, pk=pk)
+        existing = JournalRecord.objects.filter(lesson=lesson).first()
+        serializer = JournalRecordSerializer(existing, data=request.data, partial=bool(existing))
+        serializer.is_valid(raise_exception=True)
+        journal = serializer.save(lesson=lesson)
+        code = status.HTTP_200_OK if existing else status.HTTP_201_CREATED
+        return Response(JournalRecordSerializer(journal).data, status=code)
+
+    @action(detail=False, methods=['get'], url_path='upcoming')
+    def upcoming(self, request):
+        """US10: Return the authenticated student's future lessons ordered by start time."""
+        student = get_object_or_404(Student, user=request.user)
+        qs = (
+            Lesson.objects
+            .filter(student=student, slot__start_time__gt=timezone.now())
+            .select_related('slot')
+            .order_by('slot__start_time')
+        )
+        return Response(LessonWithSlotSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=['patch'], url_path='cancel')
+    def cancel(self, request, pk=None):
+        """US20: Student cancels their own scheduled lesson; slot freed atomically."""
+        with transaction.atomic():
+            lesson = Lesson.objects.select_related('slot').select_for_update().get(pk=pk)
+
+            student = get_object_or_404(Student, user=request.user)
+            if lesson.student_id != student.pk:
+                return Response(
+                    {'detail': 'You can only cancel your own lessons.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if lesson.status != 'scheduled':
+                return Response(
+                    {'detail': f'Cannot cancel a lesson with status "{lesson.status}".'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            if lesson.slot.start_time <= timezone.now():
+                return Response(
+                    {'detail': 'Cannot cancel a lesson that has already started.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            lesson.status = 'cancelled'
+            lesson.save(update_fields=['status'])
+
+            slot = lesson.slot
+            slot.is_booked = False
+            slot.save(update_fields=['is_booked'])
+
+        logger.info(f'Lesson {lesson.pk} cancelled by student {student.pk}, slot {slot.pk} freed')
+        return Response(LessonSerializer(lesson).data)
+
+    @action(detail=True, methods=['patch'], url_path='meeting-link')
+    def set_meeting_link(self, request, pk=None):
+        """US21: Teacher sets the meeting link for a lesson."""
+        serializer = MeetingLinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        lesson = get_object_or_404(
+            Lesson.objects.select_related('slot__teacher'),
+            pk=pk,
+        )
+
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only set meeting links for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lesson.meeting_link = serializer.validated_data['meeting_link']
+        lesson.save(update_fields=['meeting_link'])
+
+        return Response(LessonSerializer(lesson).data)
+
+    @action(detail=False, methods=['post'], url_path='assign')
+    def assign(self, request):
+        """LEAR-182: Teacher assigns a free student to their own slot (atomic)."""
+        serializer = AssignLessonSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        slot = serializer.validated_data['slot']
+        student = serializer.validated_data['student']
+        curriculum_lesson = serializer.validated_data.get('curriculum_lesson')
+
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only assign students to your own slots.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Resolve package: use supplied or pick student's active package
+        package = serializer.validated_data.get('package')
+        if package is None:
+            package = Package.objects.filter(student=student, status='active').first()
+            if package is None:
+                return Response(
+                    {'detail': 'Student has no active package.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        if package.student_id != student.pk:
+            return Response(
+                {'detail': 'Package does not belong to this student.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            slot = Slot.objects.select_for_update().get(pk=slot.pk)
+            if slot.is_booked:
+                return Response({'detail': 'Slot is already booked.'}, status=status.HTTP_409_CONFLICT)
+
+            # Check student is free at this slot's time
+            conflict = Lesson.objects.filter(
+                student=student,
+                status='scheduled',
+                slot__start_time__lt=slot.end_time,
+                slot__end_time__gt=slot.start_time,
+            ).exists()
+            if conflict:
+                return Response(
+                    {'detail': 'Student already has a lesson at this time.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            slot.is_booked = True
+            slot.save(update_fields=['is_booked'])
+
+            lesson = Lesson.objects.create(
+                slot=slot,
+                student=student,
+                package=package,
+                curriculum_lesson=curriculum_lesson,
+            )
+
+        logger.info(f'Lesson {lesson.id} assigned by teacher {teacher.pk}: student {student.pk}, slot {slot.pk}')
+        return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='homework')
+    def homework(self, request, pk=None):
+        """LEAR-186: Teacher sets homework text (and optional URL) on a conducted lesson."""
+        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
+
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only add homework for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if lesson.status != 'conducted':
+            return Response(
+                {'detail': 'Homework can only be added for conducted lessons.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = HomeworkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        record, created = JournalRecord.objects.get_or_create(lesson=lesson)
+        record.teacher_homework_task = serializer.validated_data['teacher_homework_task']
+        record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
+        record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
+
+        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(JournalRecordSerializer(record).data, status=http_status)
+
+
+class BonusBalanceView(APIView):
+    """US14: Student's cashback balance + current-package progress scale."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+        student = get_object_or_404(Student, pk=student_id)
+        return Response({'student_id': student_id, **get_bonus_balance(student)})
+
+
+class StudentListView(generics.ListAPIView):
+    """US8: Manager sees all students with their total active-package balance, ascending."""
+    permission_classes = [IsManager]
+    serializer_class = StudentListSerializer
+
+    def get_queryset(self):
+        return (
+            Student.objects
+            .select_related('user')
+            .annotate(
+                lessons_balance=Coalesce(
+                    Sum('packages__balance', filter=Q(packages__status='active')),
+                    0,
+                )
+            )
+            .order_by('lessons_balance')
+        )
+
+
+class StudentDashboardView(APIView):
+    """US2: Aggregated dashboard for the authenticated student."""
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        student = get_object_or_404(Student, user=request.user)
+        now = timezone.now()
+        today = now.date()
+
+        # --- balance block ---
+        active_pkg = Package.objects.filter(student=student, status='active').first()
+        balance = (
+            {
+                'remaining': active_pkg.balance,
+                'total': active_pkg.total_lessons,
+                'package_id': active_pkg.pk,
+            }
+            if active_pkg else None
+        )
+
+        # --- cashback block ---
+        completions = CourseCompletion.objects.filter(
+            student=student, is_discount_used=False, earned_discount__gt=0
+        )
+        available_cashback_pct = float(
+            sum(c.earned_discount for c in completions) or 0
+        )
+
+        # --- next scheduled lesson ---
+        next_lesson_obj = (
+            Lesson.objects
+            .filter(student=student, status='scheduled', slot__start_time__gt=now)
+            .select_related('slot__teacher__user')
+            .order_by('slot__start_time')
+            .first()
+        )
+        next_lesson = None
+        if next_lesson_obj:
+            sl = next_lesson_obj.slot
+            next_lesson = {
+                'lesson_id': next_lesson_obj.pk,
+                'start_time': sl.start_time,
+                'end_time': sl.end_time,
+                'meeting_link': next_lesson_obj.meeting_link,
+                'teacher': f'{sl.teacher.user.first_name} {sl.teacher.user.last_name}'.strip(),
+            }
+
+        # --- today's lessons ---
+        today_qs = (
+            Lesson.objects
+            .filter(student=student, status='scheduled', slot__start_time__date=today)
+            .select_related('slot__teacher__user')
+            .order_by('slot__start_time')
+        )
+        today_lessons = [
+            {
+                'lesson_id': l.pk,
+                'start_time': l.slot.start_time,
+                'end_time': l.slot.end_time,
+                'meeting_link': l.meeting_link,
+                'teacher': f'{l.slot.teacher.user.first_name} {l.slot.teacher.user.last_name}'.strip(),
+            }
+            for l in today_qs
+        ]
+
+        # --- bonus progress for the active package ---
+        bonus_progress = None
+        if active_pkg:
+            grades = list(
+                JournalRecord.objects
+                .filter(lesson__package=active_pkg, activity_grade__isnull=False)
+                .values_list('activity_grade', flat=True)
+            )
+            if grades:
+                from decimal import Decimal
+                avg = sum(grades) / len(grades)
+                current_pct = round(avg / 10 * 100, 1)
+                next_tier = None
+                for threshold, discount in CASHBACK_TIERS:
+                    if Decimal(str(current_pct)) < threshold:
+                        next_tier = {
+                            'threshold_pct': float(threshold),
+                            'cashback_pct': float(discount),
+                            'gap_pct': round(float(threshold) - current_pct, 1),
+                        }
+                        break
+                bonus_progress = {
+                    'success_pct': current_pct,
+                    'next_bonus_tier': next_tier,
+                }
+
+        return Response({
+            'balance': balance,
+            'available_cashback_pct': available_cashback_pct,
+            'next_lesson': next_lesson,
+            'today_lessons': today_lessons,
+            'bonus_progress': bonus_progress,
+        })
+
+
+class TeacherDashboardView(APIView):
+    """US3: Aggregated dashboard for the authenticated teacher."""
+    permission_classes = [IsTeacher]
+
+    def get(self, request):
+        teacher = get_object_or_404(Teacher, user=request.user)
+        now = timezone.now()
+        today = now.date()
+
+        # --- today's schedule ---
+        today_slots = list(
+            Slot.objects
+            .filter(teacher=teacher, start_time__date=today)
+            .order_by('start_time')
+        )
+        # One query for all lessons on those slots
+        lessons_by_slot = {
+            l.slot_id: l
+            for l in Lesson.objects
+            .filter(slot__in=today_slots)
+            .select_related('student__user', 'curriculum_lesson')
+        }
+
+        today_lessons = []
+        for slot in today_slots:
+            lesson = lessons_by_slot.get(slot.pk)
+            delta_seconds = (slot.start_time - now).total_seconds()
+            # can_start: within the 10-minute window before start, or lesson already ongoing
+            can_start = delta_seconds <= 600
+
+            today_lessons.append({
+                'slot_id': slot.pk,
+                'lesson_id': lesson.pk if lesson else None,
+                'start_time': slot.start_time,
+                'end_time': slot.end_time,
+                'student_name': (
+                    f'{lesson.student.user.first_name} {lesson.student.user.last_name}'.strip()
+                    if lesson else None
+                ),
+                'topic': lesson.curriculum_lesson.title if lesson and lesson.curriculum_lesson else None,
+                'meeting_link': lesson.meeting_link if lesson else None,
+                'lesson_status': lesson.status if lesson else None,
+                'can_start': can_start,
+            })
+
+        # --- stats ---
+        total_students = (
+            Lesson.objects
+            .filter(slot__teacher=teacher)
+            .values('student')
+            .distinct()
+            .count()
+        )
+        conducted_lessons = Lesson.objects.filter(
+            slot__teacher=teacher, status='conducted'
+        ).count()
+
+        return Response({
+            'today_lessons': today_lessons,
+            'stats': {
+                'total_students': total_students,
+                'conducted_lessons': conducted_lessons,
+                'materials_count': 0,   # US22 (LessonMaterial model) not yet implemented
+            },
+        })
+
+
+class JournalListView(generics.ListAPIView):
+    """Student views their own journal records ordered by lesson date descending."""
+    permission_classes = [IsStudent]
+    serializer_class = JournalListSerializer
+
+    def get_queryset(self):
+        student = get_object_or_404(Student, user=self.request.user)
+        return (
+            JournalRecord.objects
+            .filter(lesson__student=student)
+            .select_related('lesson__slot')
+            .order_by('-lesson__slot__start_time')
+        )
+
+
+class AvailableStudentListView(generics.ListAPIView):
+    """LEAR-182: Teacher or Manager sees students free at a given slot's time (?slot_id=X)."""
+    permission_classes = [IsTeacher | IsManager]
+    serializer_class = AvailableStudentSerializer
+
+    def get_queryset(self):
+        slot_id = self.request.query_params.get('slot_id')
+        if not slot_id:
+            return Student.objects.none()
+        slot = get_object_or_404(Slot, pk=slot_id)
+        busy_ids = Lesson.objects.filter(
+            status='scheduled',
+            slot__start_time__lt=slot.end_time,
+            slot__end_time__gt=slot.start_time,
+        ).values_list('student_id', flat=True)
+        return Student.objects.select_related('user').exclude(pk__in=busy_ids)
+
+
+class LessonArchiveView(generics.ListAPIView):
+    """LEAR-189/190: Manager's lesson archive with filters and optional CSV export."""
+    permission_classes = [IsManager]
+    serializer_class = LessonArchiveSerializer
+
+    def get_queryset(self):
+        qs = Lesson.objects.select_related(
+            'slot__teacher__user', 'student__user', 'package'
+        )
+        p = self.request.query_params
+        if p.get('date_from'):
+            qs = qs.filter(slot__start_time__date__gte=p['date_from'])
+        if p.get('date_to'):
+            qs = qs.filter(slot__start_time__date__lte=p['date_to'])
+        statuses = p.getlist('status')
+        if statuses:
+            qs = qs.filter(status__in=statuses)
+        if p.get('teacher_id'):
+            qs = qs.filter(slot__teacher_id=p['teacher_id'])
+        return qs.order_by('slot__start_time')
+
+    def list(self, request, *args, **kwargs):
+        if request.query_params.get('export') == 'csv':
+            return self._export_csv()
+        return super().list(request, *args, **kwargs)
+
+    def _export_csv(self):
+        qs = self.get_queryset()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="lessons_archive.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Status', 'Start Time', 'End Time', 'Teacher', 'Student', 'Package ID'])
+        for lesson in qs:
+            t = lesson.slot.teacher.user
+            s = lesson.student.user
+            writer.writerow([
+                lesson.pk,
+                lesson.status,
+                lesson.slot.start_time,
+                lesson.slot.end_time,
+                f'{t.first_name} {t.last_name}'.strip(),
+                f'{s.first_name} {s.last_name}'.strip(),
+                lesson.package_id,
+            ])
+        return response
+
+
+class PackagePurchaseView(APIView):
+    """LEAR-203: Student (or Manager) purchases a package with optional bonus discount."""
+    permission_classes = [(IsStudent | IsManager)]
+
+    def post(self, request, pk):
+        package = get_object_or_404(Package, pk=pk)
+
+        # Resolve student: student role → own profile; manager → package's student
+        role = request.user.role_obj.name.lower() if request.user.role_obj else ''
+        if role == 'student':
+            student = get_object_or_404(Student, user=request.user)
+            if package.student_id != student.pk:
+                return Response(
+                    {'detail': 'Package does not belong to you.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            student = package.student
+
+        try:
+            result = purchase_package(package, student)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(result, status=status.HTTP_200_OK)

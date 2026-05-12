@@ -535,6 +535,100 @@
             },
             "description": "Скасування заняття.\n\nExpected: 200 OK\nErrors: 409 (Заняття вже проведено)"
           }
+        },
+        {
+          "name": "Призначити учня на слот (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/assign/",
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "assign", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slot_id\": 3,\n  \"student_id\": 2,\n  \"package_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Викладач самостійно призначає учня на свій слот.\n\nВалідації:\n- слот належить цьому викладачу\n- учень вільний у цей час\n- transaction.atomic: Lesson.create + Slot.is_booked = True\n\nAccess: IsTeacher\nExpected: 201 Created\nErrors: 400 (невалідні дані), 403 (не викладач або чужий слот), 409 (учень вже зайнятий / слот вже заброньований)"
+          },
+          "response": [
+            {
+              "name": "201 Created — Учня призначено",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"id\": 12,\n  \"slot_id\": 3,\n  \"student_id\": 2,\n  \"package_id\": 1,\n  \"status\": \"scheduled\"\n}"
+            },
+            {
+              "name": "409 Conflict — Учень вже зайнятий",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"errorCode\": \"STUDENT_TIME_CONFLICT\",\n  \"message\": \"Учень вже має заняття в цей час\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Задати домашнє завдання (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/10/homework/",
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "10", "homework", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacher_homework_task\": \"Розв'язати задачі 1-5 стор. 45\",\n  \"homework_answer_url\": \"https://drive.google.com/file/abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Викладач задає домашнє завдання після проведеного уроку.\n\nЗберігається в JournalRecord:\n- teacher_homework_task (текст, обов'язково)\n- homework_answer_url (URL, опціонально)\n\nВалідація: урок має бути у статусі conducted.\nAccess: IsTeacher\nExpected: 200 OK\nErrors: 400 (урок не проведено або невалідні дані), 403, 404"
+          },
+          "response": [
+            {
+              "name": "200 OK — ДЗ збережено",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"lesson_id\": 10,\n  \"teacher_homework_task\": \"Розв'язати задачі 1-5 стор. 45\",\n  \"homework_answer_url\": \"https://drive.google.com/file/abc\"\n}"
+            },
+            {
+              "name": "400 Bad Request — Урок не проведено",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"errorCode\": \"LESSON_NOT_CONDUCTED\",\n  \"message\": \"Домашнє завдання можна задати лише після проведеного уроку\"\n}"
+            }
+          ]
         }
       ]
     },
@@ -608,6 +702,119 @@
               "status": "Created",
               "code": 201,
               "body": "{\n  \"id\": 5,\n  \"student_id\": 1,\n  \"course_id\": 3,\n  \"total_lessons\": 12,\n  \"balance\": 12,\n  \"final_price\": 2400.00,\n  \"status\": \"active\",\n  \"purchased_at\": \"2026-04-06T10:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Придбати пакет з бонусом (Split Payment)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/packages/5/purchase/",
+              "host": ["{{base_url}}"],
+              "path": ["packages", "5", "purchase", ""]
+            },
+            "description": "Оплата пакету з автоматичним застосуванням бонусної знижки (Split Payment).\n\nЛогіка:\n1. Шукає активний CourseCompletion з earned_discount > 0, is_discount_used=False, вік < 180 днів\n2. Якщо є — застосовує знижку до final_price\n3. transaction.atomic: Package.status='active', Package.purchased_at=now(), CourseCompletion.is_discount_used=True\n\nAccess: IsStudent | IsManager\nExpected: 200 OK\nErrors: 400 (пакет вже активний), 404"
+          },
+          "response": [
+            {
+              "name": "200 OK — Пакет оплачено (з бонусом)",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"package_id\": 5,\n  \"final_price\": \"2160.00\",\n  \"discount_applied\": true,\n  \"discount_pct\": 10\n}"
+            },
+            {
+              "name": "200 OK — Пакет оплачено (без бонусу)",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"package_id\": 5,\n  \"final_price\": \"2400.00\",\n  \"discount_applied\": false,\n  \"discount_pct\": 0\n}"
+            },
+            {
+              "name": "400 Bad Request — Пакет вже активний",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"errorCode\": \"PACKAGE_ALREADY_ACTIVE\",\n  \"message\": \"Пакет вже активний\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Ендпоінти для менеджера: архів занять, звіти",
+      "item": [
+        {
+          "name": "Архів занять (Manager)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/lessons/archive/",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "lessons", "archive", ""],
+              "query": [
+                {
+                  "key": "date_from",
+                  "value": "2026-01-01",
+                  "disabled": true
+                },
+                {
+                  "key": "date_to",
+                  "value": "2026-12-31",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "conducted",
+                  "description": "Можна передати кілька: ?status=conducted&status=cancelled",
+                  "disabled": true
+                },
+                {
+                  "key": "teacher_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "export",
+                  "value": "csv",
+                  "description": "Додайте цей параметр для завантаження CSV-файлу",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Архів усіх занять платформи з фільтрацією.\n\nФільтри:\n- date_from / date_to — діапазон дат\n- status — масив статусів (conducted, cancelled, missed, scheduled)\n- teacher_id — конкретний викладач\n- export=csv — завантажити відфільтрований список як CSV (Content-Type: text/csv)\n\nAccess: IsManager\nExpected: 200 OK (JSON) або 200 OK (CSV)\nErrors: 403"
+          },
+          "response": [
+            {
+              "name": "200 OK — Список занять (JSON)",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "[\n  {\n    \"id\": 10,\n    \"status\": \"conducted\",\n    \"start_time\": \"2026-04-10T10:00:00Z\",\n    \"student\": \"Іван Учень\",\n    \"teacher\": \"Олена Викладач\",\n    \"package_id\": 1\n  }\n]"
+            },
+            {
+              "name": "200 OK — CSV-файл (?export=csv)",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {"key": "Content-Type", "value": "text/csv"},
+                {"key": "Content-Disposition", "value": "attachment; filename=\"lessons_archive.csv\""}
+              ],
+              "body": "id,status,start_time,student,teacher,package_id\n10,conducted,2026-04-10T10:00:00Z,Іван Учень,Олена Викладач,1"
             }
           ]
         }

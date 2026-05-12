@@ -7,9 +7,19 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView as _BaseTokenRefreshView
 
 from .models import Request, User, Role, Student
 from users.serializers import LoginSerializer
+
+class TokenRefreshView(_BaseTokenRefreshView):
+    """Return accessToken (camelCase) to match the login response convention."""
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if 'access' in response.data:
+            response.data['accessToken'] = response.data.pop('access')
+        return response
+
 
 # --- СЕРІАЛІЗАТОРИ ---
 
@@ -119,5 +129,7 @@ class LoginView(APIView):
                 'id': user.id,
                 'email': user.email,
                 'role': user.role_obj.name if getattr(user, 'role_obj', None) else None,
+                'firstName': user.first_name,
+                'lastName': user.last_name,
             }
-        }, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_200_OK)

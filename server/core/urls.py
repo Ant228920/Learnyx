@@ -8,15 +8,14 @@ from api.health import health_check
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health", health_check, name="health_check"),
-    
+
     # Маршрути загального API
     path("api/", include("api.urls")),
-    
+
     # Маршрути для користувачів, логіну та заявок
     path("api/", include("users.urls")),
 ]
 
-# ─── Обробка помилок (Custom Error Handlers) ──────────────────────
 
 def handler404(request, exception):
     return JsonResponse({
