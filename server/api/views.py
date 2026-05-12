@@ -200,13 +200,13 @@ class SlotViewSet(viewsets.ModelViewSet):
         qs = Slot.objects.select_related('teacher__user').all()
 
         teacher_id = self.request.query_params.get('teacher_id')
-        is_booked = self.request.query_params.get('is_booked')
+        slot_status = self.request.query_params.get('status')
         date = self.request.query_params.get('date')
 
         if teacher_id:
             qs = qs.filter(teacher_id=teacher_id)
-        if is_booked is not None:
-            qs = qs.filter(is_booked=is_booked.lower() in ('true', '1'))
+        if slot_status:
+            qs = qs.filter(status=slot_status)
         if date:
             qs = qs.filter(start_time__date=date)
 
@@ -218,7 +218,7 @@ class SlotViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         slot = self.get_object()
-        if slot.is_booked:
+        if slot.status == 'booked':
             return Response(
                 {'message': 'Неможливо видалити заброньований слот.'},
                 status=status.HTTP_409_CONFLICT,
@@ -229,7 +229,7 @@ class SlotViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='available')
     def available(self, request):
         """LEAR-141: Available (unbooked) slots with nested teacher info."""
-        qs = Slot.objects.filter(is_booked=False).select_related('teacher__user')
+        qs = Slot.objects.filter(status='available').select_related('teacher__user')
         teacher_id = request.query_params.get('teacher_id')
         date = request.query_params.get('date')
         if teacher_id:
@@ -297,7 +297,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             slot = Slot.objects.select_for_update().get(
                 pk=serializer.validated_data['slot'].pk
             )
-            if slot.is_booked:
+            if slot.status == 'booked':
                 return Response(
                     {'slot': 'Slot is already booked.'},
                     status=status.HTTP_409_CONFLICT,
@@ -312,8 +312,8 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            slot.is_booked = True
-            slot.save()
+            slot.status = 'booked'
+            slot.save(update_fields=['status'])
 
             lesson = serializer.save(slot=slot, package=package)
 
@@ -327,7 +327,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         status_serializer.is_valid(raise_exception=True)
         new_status = status_serializer.validated_data['status']
 
-        terminal = {'conducted', 'cancelled', 'missed'}
+        terminal = {'conducted', 'canceled_advance', 'student_missed', 'teacher_missed'}
 
         with transaction.atomic():
             lesson = Lesson.objects.select_for_update().get(pk=pk)
@@ -418,12 +418,12 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            lesson.status = 'cancelled'
+            lesson.status = 'canceled_advance'
             lesson.save(update_fields=['status'])
 
             slot = lesson.slot
-            slot.is_booked = False
-            slot.save(update_fields=['is_booked'])
+            slot.status = 'available'
+            slot.save(update_fields=['status'])
 
         logger.info(f'Lesson {lesson.pk} cancelled by student {student.pk}, slot {slot.pk} freed')
         return Response(LessonSerializer(lesson).data)
@@ -486,7 +486,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         with transaction.atomic():
             slot = Slot.objects.select_for_update().get(pk=slot.pk)
-            if slot.is_booked:
+            if slot.status == 'booked':
                 return Response({'detail': 'Slot is already booked.'}, status=status.HTTP_409_CONFLICT)
 
             # Check student is free at this slot's time
@@ -502,8 +502,8 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            slot.is_booked = True
-            slot.save(update_fields=['is_booked'])
+            slot.status = 'booked'
+            slot.save(update_fields=['status'])
 
             lesson = Lesson.objects.create(
                 slot=slot,
