@@ -3,21 +3,30 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../app/providers';
 import MainLayout from '../components/layout/MainLayout';
 import HomePage from '../pages/HomePage';
+
+// Student
 import StudentDashboard from '../pages/student/StudentDashboard';
 import StudentHomework from '../pages/student/StudentHomework';
 import StudentSchedule from '../pages/student/StudentSchedule';
 import StudentSubscription from '../pages/student/StudentSubscription';
 import StudentGrades from '../pages/student/StudentGrades';
+import StudentSettings from '../pages/student/StudentSettings';
+
+// Teacher
 import TeacherDashboard from '../pages/teacher/TeacherDashboard';
 import TeacherSchedule from '../pages/teacher/TeacherSchedule';
 import TeacherFinances from '../pages/teacher/TeacherFinances';
 import TeacherStudents from '../pages/teacher/TeacherStudents';
 import TeacherHomework from '../pages/teacher/TeacherHomework';
+import TeacherSettings from '../pages/teacher/TeacherSettings';
+
+// Manager
 import ManagerDashboard from '../pages/manager/ManagerDashboard';
 import ManagerApplications from '../pages/manager/ManagerApplications';
 import ManagerSubscriptions from '../pages/manager/ManagerSubscriptions';
 import ManagerReports from '../pages/manager/ManagerReports';
 import ManagerMatching from '../pages/manager/ManagerMatching';
+import ManagerSettings from '../pages/manager/ManagerSettings';
 
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
   const { user } = useAuth();
@@ -34,32 +43,10 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Публічні сторінки — з MainLayout */}
+        {/* Public */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
         </Route>
-
-        {/* Студент */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <StudentDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Менеджер / Адмін */}
-        <Route
-          path="/manager"
-          element={
-            <ProtectedRoute allowedRoles={['manager', 'admin']}>
-              <ManagerDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Fallback */}
 
         {/* Student */}
         <Route path="/dashboard">
@@ -68,6 +55,7 @@ export default function AppRouter() {
           <Route path="schedule" element={<ProtectedRoute allowedRoles={S}><StudentSchedule /></ProtectedRoute>} />
           <Route path="subscription" element={<ProtectedRoute allowedRoles={S}><StudentSubscription /></ProtectedRoute>} />
           <Route path="grades" element={<ProtectedRoute allowedRoles={S}><StudentGrades /></ProtectedRoute>} />
+          <Route path="settings" element={<ProtectedRoute allowedRoles={S}><StudentSettings /></ProtectedRoute>} />
         </Route>
 
         {/* Teacher */}
@@ -77,6 +65,7 @@ export default function AppRouter() {
           <Route path="finances" element={<ProtectedRoute allowedRoles={T}><TeacherFinances /></ProtectedRoute>} />
           <Route path="students" element={<ProtectedRoute allowedRoles={T}><TeacherStudents /></ProtectedRoute>} />
           <Route path="homework" element={<ProtectedRoute allowedRoles={T}><TeacherHomework /></ProtectedRoute>} />
+          <Route path="settings" element={<ProtectedRoute allowedRoles={T}><TeacherSettings /></ProtectedRoute>} />
         </Route>
 
         {/* Manager */}
@@ -86,6 +75,7 @@ export default function AppRouter() {
           <Route path="subscriptions" element={<ProtectedRoute allowedRoles={M}><ManagerSubscriptions /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute allowedRoles={M}><ManagerReports /></ProtectedRoute>} />
           <Route path="matching" element={<ProtectedRoute allowedRoles={M}><ManagerMatching /></ProtectedRoute>} />
+          <Route path="settings" element={<ProtectedRoute allowedRoles={M}><ManagerSettings /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

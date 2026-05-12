@@ -3,14 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 
 const NAV_ITEMS = [
-  { label: 'Дашборд',           path: '/dashboard' },
-  { label: 'Домашні завдання',  path: '/dashboard/homework' },
-  { label: 'Розклад',           path: '/dashboard/schedule' },
-  { label: 'Підписка',          path: '/dashboard/subscription' },
-  { label: 'Оцінки',            path: '/dashboard/grades' },
+  { label: 'Дашборд',   path: '/manager' },
+  { label: 'Заявки',    path: '/manager/applications' },
+  { label: 'Підписки',  path: '/manager/subscriptions' },
+  { label: 'Звітність', path: '/manager/reports' },
+  { label: 'Підбір',    path: '/manager/matching' },
 ];
 
-const FOOTER_LINKS = ['Політика конфіденційності', 'Допомога', 'Про проект'];
+const FOOTER_LINKS = ['Політика конфіденційності', 'Центр допомоги', 'Умови використання'];
 
 const IconLogo = () => (
   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
@@ -18,22 +18,17 @@ const IconLogo = () => (
   </svg>
 );
 
-interface Props {
-  children: ReactNode;
-}
-
-export default function StudentLayout({ children }: Props) {
+export default function ManagerLayout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-
   return (
     <div className="flex w-full min-h-screen bg-[#f8f9fb]">
 
-      {/* ── Sidebar ── */}
+      {/* Sidebar */}
       <aside
-        aria-label="Навігація студента"
+        aria-label="Основна навігація адміністратора"
         className="fixed top-0 left-0 flex h-full w-64 flex-col border-r border-[#dee1e6] bg-white z-30"
       >
         <div className="flex w-full items-center gap-3 p-6">
@@ -54,9 +49,7 @@ export default function StudentLayout({ children }: Props) {
                   aria-current={active ? 'page' : undefined}
                   onClick={() => void navigate(item.path)}
                   className={`flex w-full items-center gap-3 px-4 py-2.5 rounded-2xl text-left transition-colors ${
-                    active
-                      ? 'bg-[#1f8cf9] shadow-[0px_2px_4px_#1f8cf933]'
-                      : 'hover:bg-gray-50'
+                    active ? 'bg-[#1f8cf9] shadow-[0px_2px_4px_#1f8cf933]' : 'hover:bg-gray-50'
                   }`}
                 >
                   <span className={`font-inter text-sm font-medium ${active ? 'text-white' : 'text-[#565d6d]'}`}>
@@ -71,7 +64,7 @@ export default function StudentLayout({ children }: Props) {
         <div className="border-t border-[#dee1e6] p-4 w-full">
           <button
             type="button"
-            onClick={() => void navigate('/dashboard/settings')}
+            onClick={() => void navigate('/manager/settings')}
             className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>
@@ -79,19 +72,15 @@ export default function StudentLayout({ children }: Props) {
         </div>
       </aside>
 
-      {/* ── Main ── */}
+      {/* Main */}
       <div className="flex flex-col flex-1 pl-64 min-h-screen">
 
         {/* Header */}
         <header className="h-16 flex items-center justify-end px-10 bg-white border-b border-[#dee1e6] sticky top-0 z-20">
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end">
-              <span className="font-inter font-bold text-slate-900 text-sm">
-                {user?.firstName} {user?.lastName}
-              </span>
-              <span className="font-inter font-bold text-[#1f8cf9] text-[10px] tracking-[0.50px] uppercase">
-                @{user?.firstName?.toLowerCase()}_student
-              </span>
+              <span className="font-inter font-bold text-slate-900 text-sm">{user?.firstName} {user?.lastName}</span>
+              <span className="font-inter font-bold text-[#1f8cf9] text-[10px] tracking-[0.50px] uppercase">Адміністратор</span>
             </div>
             <div className="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-[#f4f4f6]">
               <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}</span>
@@ -100,7 +89,7 @@ export default function StudentLayout({ children }: Props) {
           </div>
         </header>
 
-        {/* Page content */}
+        {/* Content */}
         <main className="flex-1 px-16 py-10 w-full">
           {children}
         </main>
@@ -109,13 +98,11 @@ export default function StudentLayout({ children }: Props) {
         <footer className="px-16 py-6 bg-white border-t border-[#dee1e6]">
           <div className="max-w-[1440px] mx-auto flex items-center justify-between">
             <p className="font-inter font-medium text-[#565d6d] text-xs">
-              © 2024 LearnYX Ecosystem. Усі права захищені.
+              © 2024 LearnYX Ecosystem. Платформа для професійного навчання та зростання.
             </p>
             <nav aria-label="Нижня навігація" className="flex items-center gap-6">
               {FOOTER_LINKS.map((link) => (
-                <a key={link} href="#" className="font-inter font-bold text-[#565d6d] text-xs hover:text-slate-900 transition-colors">
-                  {link}
-                </a>
+                <a key={link} href="#" className="font-inter font-bold text-[#565d6d] text-xs hover:text-slate-900 transition-colors">{link}</a>
               ))}
             </nav>
           </div>
