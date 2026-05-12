@@ -30,8 +30,8 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
 class SlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = Slot
-        fields = ['id', 'teacher', 'start_time', 'end_time', 'is_booked']
-        read_only_fields = ['id', 'teacher', 'is_booked']
+        fields = ['id', 'teacher', 'start_time', 'end_time', 'status']
+        read_only_fields = ['id', 'teacher', 'status']
 
     def validate(self, data):
         start_time = data.get('start_time')
@@ -81,7 +81,7 @@ class LessonCreateSerializer(serializers.ModelSerializer):
         package = data.get('package')
         student = data.get('student')
 
-        if slot and slot.is_booked:
+        if slot and slot.status == 'booked':
             raise serializers.ValidationError({'slot': 'Slot is already booked.'})
 
         if package:
@@ -96,7 +96,7 @@ class LessonCreateSerializer(serializers.ModelSerializer):
 
 
 class LessonStatusSerializer(serializers.Serializer):
-    VALID_STATUSES = ['conducted', 'cancelled', 'missed']
+    VALID_STATUSES = ['conducted', 'canceled_advance', 'student_missed', 'teacher_missed']
     status = serializers.ChoiceField(choices=VALID_STATUSES)
 
 
@@ -179,7 +179,7 @@ class SlotAvailableSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Slot
-        fields = ['id', 'teacher', 'start_time', 'end_time', 'is_booked']
+        fields = ['id', 'teacher', 'start_time', 'end_time', 'status']
 
 
 # ── LEAR-182 ────────────────────────────────────────────────────────────────
@@ -206,7 +206,7 @@ class AssignLessonSerializer(serializers.Serializer):
 # ── LEAR-186 ────────────────────────────────────────────────────────────────
 
 class HomeworkSerializer(serializers.Serializer):
-    teacher_homework_task = serializers.CharField()
+    teacher_homework_task = serializers.JSONField()
     homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
 
 
