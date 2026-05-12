@@ -26,8 +26,8 @@ class GeneratePasswordTest(TestCase):
         p1 = generate_password()
         p2 = generate_password()
         self.assertNotEqual(p1, p2)
-        
-    
+
+
 
 
 class RegistrationRequestModelTest(TestCase):
@@ -90,7 +90,7 @@ class ViewsUnitTests(TestCase):
 
         # Створюємо фейковий POST-запит
         request = self.factory.post('/api/packages/1/activate/')
-        
+
         mock_user = MagicMock()
         force_authenticate(request, user=mock_user)
 
@@ -120,7 +120,7 @@ class ViewsUnitTests(TestCase):
 
         # Створюємо фейковий GET-запит
         request = self.factory.get('/api/balance/')
-        
+
         mock_user = MagicMock()
         force_authenticate(request, user=mock_user)
 
@@ -142,7 +142,7 @@ class ViewsUnitTests(TestCase):
         # Імітуємо роботу серіалізатора, щоб він не ліз у БД
         mock_serializer_instance = MagicMock()
         mock_serializer_instance.is_valid.return_value = True
-        
+
         # Імітуємо об'єкт, який "зберігся"
         mock_reg_request = MagicMock()
         mock_reg_request.id = 99
@@ -150,7 +150,7 @@ class ViewsUnitTests(TestCase):
         mock_reg_request.email = 'ivan@test.com'
         mock_reg_request.role = 'student'
         mock_serializer_instance.save.return_value = mock_reg_request
-        
+
         mock_serializer_class.return_value = mock_serializer_instance
 
         # Створюємо фейковий запит із даними
@@ -169,7 +169,7 @@ class ViewsUnitTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['id'], 99)
         self.assertEqual(response.data['message'], 'Готово! Ваша заявка успішно відправлена менеджеру.')
-        
+
         # Перевіряємо, що лист був відправлений
         mock_send_mail.assert_called_once()
         args, kwargs = mock_send_mail.call_args
@@ -212,11 +212,6 @@ def _make_package(student, balance=10):
 
 
 class LessonBookingIntegrationTest(TestCase):
-    """
-    Full booking flow:
-      teacher creates a slot → student books a lesson →
-      teacher marks it conducted → package balance decreases by 1.
-    """
 
     def setUp(self):
         self.client = APIClient()
@@ -254,7 +249,7 @@ class LessonBookingIntegrationTest(TestCase):
         lesson_id = resp.data['id']
 
         # Slot must be marked as booked
-        self.assertTrue(Slot.objects.get(pk=slot_id).is_booked)
+        self.assertEqual(Slot.objects.get(pk=slot_id).status, 'booked')
 
         # -- Teacher marks the lesson as conducted --
         self._login(self.teacher_user)
@@ -316,7 +311,7 @@ class LessonEvaluateIntegrationTest(TestCase):
             teacher=self.teacher,
             start_time=start,
             end_time=start + timezone.timedelta(hours=1),
-            is_booked=True,
+            status='booked',
         )
         self.lesson = Lesson.objects.create(
             slot=slot,
@@ -333,7 +328,7 @@ class LessonEvaluateIntegrationTest(TestCase):
             'teacher_homework_task': 'Read chapter 3',
             'teacher_notes':        'Good progress',
         }
-        resp = self.client.post(f'/api/v1/lessons/{self.lesson.pk}/evaluate/', payload)
+        resp = self.client.post(f'/api/v1/lessons/{self.lesson.pk}/evaluate/', payload, format='json')
 
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data['activity_grade'], 8)
