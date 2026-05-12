@@ -565,7 +565,7 @@ class StudentListView(generics.ListAPIView):
             .select_related('user')
             .annotate(
                 lessons_balance=Coalesce(
-                    Sum('package__balance', filter=Q(package__status='active')),
+                    Sum('packages__balance', filter=Q(packages__status='active')),
                     0,
                 )
             )
@@ -756,8 +756,8 @@ class JournalListView(generics.ListAPIView):
 
 
 class AvailableStudentListView(generics.ListAPIView):
-    """LEAR-182: Teacher sees students free at a given slot's time (?slot_id=X)."""
-    permission_classes = [IsTeacher]
+    """LEAR-182: Teacher or Manager sees students free at a given slot's time (?slot_id=X)."""
+    permission_classes = [IsTeacher | IsManager]
     serializer_class = AvailableStudentSerializer
 
     def get_queryset(self):
