@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import TeacherLayout from './TeacherLayout';
 import { useTeacherStudents } from '../../features/teacher/students';
 import type { TeacherStudent } from '../../features/teacher/students';
@@ -10,7 +10,6 @@ export default function TeacherStudents() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [profileStudent, setProfileStudent] = useState<TeacherStudent | null>(null);
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
-  const nextId = useRef(10000);
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
@@ -21,10 +20,6 @@ export default function TeacherStudents() {
     setVisibleCount(prev => prev + PAGE_SIZE);
   };
 
-  const handleConfirmRequest = (req: { id: number; name: string; subject: string; level: string; days: string; time: string; avatarBg: string }) => {
-    nextId.current += 1;
-    setConfirmedMsg(`${req.name} доданий до ваших учнів! Години ${req.time} (${req.days}) додано до розкладу.`);
-  };
 
   return (
     <TeacherLayout>
