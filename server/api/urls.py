@@ -16,6 +16,7 @@ from api.views import (
     AvailableStudentListView,
     LessonArchiveView,
     PackagePurchaseView,
+    ProfileView,
 )
 from users.views import RequestViewSet
 
@@ -56,6 +57,9 @@ urlpatterns = [
 
     # ── Journal
     path('v1/journal/', JournalListView.as_view(), name='journal-list'),
+
+    # ── Profile
+    path('v1/profile/', ProfileView.as_view(), name='profile'),
 
     # ── ViewSets
     path('', include(router.urls)),

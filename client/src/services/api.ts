@@ -441,3 +441,21 @@ export const managerApi = {
     return data;
   },
 };
+
+// ── Profile API ────────────────────────────────────────────────────────────
+export const profileApi = {
+  get: async () => {
+    const { data } = await apiClient.get('/profile/');
+    return data;
+  },
+
+  update: async (payload: {
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    telegram_nickname?: string;
+  }) => {
+    const { data } = await apiClient.patch('/profile/', payload);
+    return data;
+  },
+};

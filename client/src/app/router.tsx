@@ -18,6 +18,9 @@ import ManagerApplications from '../pages/manager/ManagerApplications';
 import ManagerSubscriptions from '../pages/manager/ManagerSubscriptions';
 import ManagerReports from '../pages/manager/ManagerReports';
 import ManagerMatching from '../pages/manager/ManagerMatching';
+import ManagerSettings from '../pages/manager/ManagerSettings';
+import TeacherSettings from '../pages/teacher/TeacherSettings';
+import StudentSettings from '../pages/student/StudentSettings';
 
 function roleDashboard(role: string): string {
   if (role === 'Student') return '/dashboard';
@@ -58,9 +61,6 @@ export default function AppRouter() {
           <Route path="/" element={<PublicOnlyRoute><HomePage /></PublicOnlyRoute>} />
         </Route>
 
-        {/* Settings — redirect to role dashboard (no settings page yet) */}
-        <Route path="/settings" element={<RoleRedirect />} />
-
         {/* Student */}
         <Route path="/dashboard">
           <Route index element={<ProtectedRoute allowedRoles={S}><StudentDashboard /></ProtectedRoute>} />
@@ -68,6 +68,7 @@ export default function AppRouter() {
           <Route path="schedule" element={<ProtectedRoute allowedRoles={S}><StudentSchedule /></ProtectedRoute>} />
           <Route path="subscription" element={<ProtectedRoute allowedRoles={S}><StudentSubscription /></ProtectedRoute>} />
           <Route path="grades" element={<ProtectedRoute allowedRoles={S}><StudentGrades /></ProtectedRoute>} />
+          <Route path="settings" element={<ProtectedRoute allowedRoles={S}><StudentSettings /></ProtectedRoute>} />
         </Route>
 
         {/* Teacher */}
@@ -77,6 +78,7 @@ export default function AppRouter() {
           <Route path="finances" element={<ProtectedRoute allowedRoles={T}><TeacherFinances /></ProtectedRoute>} />
           <Route path="students" element={<ProtectedRoute allowedRoles={T}><TeacherStudents /></ProtectedRoute>} />
           <Route path="homework" element={<ProtectedRoute allowedRoles={T}><TeacherHomework /></ProtectedRoute>} />
+          <Route path="settings" element={<ProtectedRoute allowedRoles={T}><TeacherSettings /></ProtectedRoute>} />
         </Route>
 
         {/* Manager */}
@@ -86,6 +88,7 @@ export default function AppRouter() {
           <Route path="subscriptions" element={<ProtectedRoute allowedRoles={M}><ManagerSubscriptions /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute allowedRoles={M}><ManagerReports /></ProtectedRoute>} />
           <Route path="matching" element={<ProtectedRoute allowedRoles={M}><ManagerMatching /></ProtectedRoute>} />
+          <Route path="settings" element={<ProtectedRoute allowedRoles={M}><ManagerSettings /></ProtectedRoute>} />
         </Route>
 
         {/* Fallback — authenticated users go to their dashboard, others to homepage */}

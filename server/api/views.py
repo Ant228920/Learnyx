@@ -857,3 +857,34 @@ class PackagePurchaseView(APIView):
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(result, status=status.HTTP_200_OK)
+
+
+class ProfileView(APIView):
+    """Shared profile endpoint for all roles."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone': getattr(user, 'phone', '') or '',
+            'telegram_nickname': getattr(user, 'nickname', '') or '',
+            'role': user.role_obj.name if getattr(user, 'role_obj', None) else '',
+        })
+
+    def patch(self, request):
+        user = request.user
+        data = request.data
+        if 'first_name' in data:
+            user.first_name = data['first_name']
+        if 'last_name' in data:
+            user.last_name = data['last_name']
+        if 'phone' in data:
+            user.phone = data['phone']
+        if 'telegram_nickname' in data:
+            user.nickname = data['telegram_nickname']
+        user.save()
+        return Response({'message': 'Профіль оновлено успішно.'})
