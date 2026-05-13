@@ -1,31 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
+import { useApplications } from '../../features/manager/applications';
+import type { Application } from '../../features/manager/applications';
 
-type UserRole = 'Учень' | 'Вчитель';
 type FilterType = 'Усі' | 'Учень' | 'Вчитель';
 type FilterSubject = 'Усі' | 'Англійська мова' | 'Математика' | 'Українська мова' | 'Історія України' | 'Інформатика';
-
-interface Applicant {
-  id: number;
-  name: string;
-  role: UserRole;
-  subject: string;
-  level: string;
-  email: string;
-  phone: string;
-  telegram: string;
-  date: string;
-  avatarBg: string;
-}
-
-const APPLICANTS: Applicant[] = [
-  { id: 1, name: 'Ковальчук Олена Ігорівна', role: 'Учень', subject: 'Англійська мова', level: 'B2 (Upper-Intermediate)', email: 'o.kovalchuk@email.com', phone: '+380 67 123 45 67', telegram: '@elena_learnyx', date: '24.05.2024', avatarBg: 'bg-[#e7eff9]' },
-  { id: 2, name: 'Дмитрук Валерій Павлович', role: 'Вчитель', subject: 'Математика', level: 'ЗНО Підготовка', email: 'v.dmytruk@email.com', phone: '+380 67 234 56 78', telegram: '@valerii_physics', date: '23.05.2024', avatarBg: 'bg-[#e7eff9]' },
-  { id: 3, name: 'Сидоренко Максим Вікторович', role: 'Учень', subject: 'Математика', level: '9 клас', email: 'm.sydorenko@email.com', phone: '+380 67 345 67 89', telegram: '@max_math', date: '24.05.2024', avatarBg: 'bg-[#dafdf8]' },
-  { id: 4, name: 'Іванов Дмитро Сергійович', role: 'Учень', subject: 'Українська мова', level: '4 клас', email: 'd.ivanov@email.com', phone: '+380 67 456 78 90', telegram: '@dmytro_school', date: '23.05.2024', avatarBg: 'bg-[#e7eff9]' },
-  { id: 5, name: 'Ткаченко Софія Юріївна', role: 'Учень', subject: 'Інформатика', level: '7 клас', email: 's.tkachenko@email.com', phone: '+380 67 567 89 01', telegram: '@sofia_code', date: '22.05.2024', avatarBg: 'bg-[#ebe3ff]' },
-];
 
 const NAV_ITEMS = [
   { label: 'Дашборд', active: false, path: '/manager' },
@@ -128,31 +108,36 @@ const IconX = () => (
 export default function ManagerApplications() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { data: applicants, loading, error, approve, reject } = useApplications();
 
-  const [selectedUser, setSelectedUser] = useState<Applicant | null>(null);
-  const [applicants, setApplicants] = useState<Applicant[]>(APPLICANTS);
+  const [selectedUser, setSelectedUser] = useState<Application | null>(null);
   const [filterType, setFilterType] = useState<FilterType>('Усі');
   const [filterSubject, setFilterSubject] = useState<FilterSubject>('Усі');
   const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject'; id: number } | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
+
   const handleLogout = () => { logout(); void navigate('/'); };
 
-  const handleToggle = (app: Applicant) => {
+  const handleToggle = (app: Application) => {
     setSelectedUser((prev) => prev?.id === app.id ? null : app);
   };
 
-  const filtered = useMemo(() =>
-    applicants.filter((a) =>
-      (filterType === 'Усі' || a.role === filterType) &&
-      (filterSubject === 'Усі' || a.subject === filterSubject)
-    ), [applicants, filterType, filterSubject]);
+  const filtered = applicants.filter((a) =>
+    (filterType === 'Усі' || a.role === filterType) &&
+    (filterSubject === 'Усі' || a.subject === filterSubject)
+  );
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!confirmAction) return;
     const { type, id } = confirmAction;
     const name = applicants.find((a) => a.id === id)?.name ?? '';
-    setApplicants((prev) => prev.filter((a) => a.id !== id));
+    try {
+      if (type === 'approve') await approve(id);
+      else await reject(id);
+    } catch { /* hook manages error */ }
     if (selectedUser?.id === id) setSelectedUser(null);
     setConfirmAction(null);
     setSuccessMessage(
@@ -245,7 +230,6 @@ export default function ManagerApplications() {
 
                 {/* Filters */}
                 <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6] shadow-[0px_1px_2px_#0000000d] w-fit">
-                  {/* Type filter */}
                   <label className="relative inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[#dee1e6] bg-white cursor-pointer min-w-[160px]">
                     <IconFilter />
                     <span className="font-inter text-slate-800 text-sm flex-1">Тип: {filterType}</span>
@@ -262,7 +246,6 @@ export default function ManagerApplications() {
                     </select>
                   </label>
 
-                  {/* Subject filter */}
                   <label className="relative inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[#dee1e6] bg-white cursor-pointer min-w-[200px]">
                     <IconSubject />
                     <span className="font-inter text-slate-800 text-sm flex-1">Предмет: {filterSubject}</span>
@@ -294,12 +277,10 @@ export default function ManagerApplications() {
                           selectedUser?.id === app.id ? 'border-[#1f8cf9] shadow-sm' : 'border-[#dee1e6]'
                         }`}
                       >
-                        {/* Avatar */}
                         <div className={`w-12 h-12 rounded-full ${app.avatarBg} flex items-center justify-center flex-shrink-0`} aria-hidden="true">
                           <span className="font-inter font-bold text-[#1f8cf9] text-lg">{app.name[0]}</span>
                         </div>
 
-                        {/* Name + email + badge */}
                         <div className="flex flex-col gap-1 flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-poppins font-bold text-slate-900 text-base tracking-[-0.32px] leading-6">
@@ -314,19 +295,16 @@ export default function ManagerApplications() {
                           <span className="font-inter text-[#565d6d] text-xs">{app.email}</span>
                         </div>
 
-                        {/* Subject + level */}
                         <div className="flex flex-col w-44 flex-shrink-0">
                           <span className="font-inter font-semibold text-slate-800 text-sm">{app.subject}</span>
                           <span className="font-inter text-[#565d6d] text-xs">{app.level}</span>
                         </div>
 
-                        {/* Date */}
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <IconCalendar />
                           <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">{app.date}</span>
                         </div>
 
-                        {/* Button */}
                         <button
                           type="button"
                           onClick={() => handleToggle(app)}
@@ -346,7 +324,6 @@ export default function ManagerApplications() {
               {/* Right: detail panel WITH action buttons */}
               {selectedUser && (
                 <aside className="w-[300px] flex-shrink-0 bg-white rounded-2xl shadow-[0px_25px_50px_-12px_#00000040] overflow-hidden sticky top-24 animate-fade-in">
-                  {/* Panel header */}
                   <div className="flex items-center justify-between p-6 bg-[#1f8cf91a]">
                     <div>
                       <p className="font-poppins font-bold text-slate-900 text-xl leading-7">
@@ -361,16 +338,13 @@ export default function ManagerApplications() {
                     </div>
                   </div>
 
-                  {/* Panel body */}
                   <div className="flex flex-col gap-4 px-6 pt-5 pb-6">
-                    {/* Role badge */}
                     <span className={`px-2 py-0.5 rounded-full font-inter font-bold text-[10px] w-fit ${
                       selectedUser.role === 'Вчитель' ? 'bg-[#ebe3ff] text-purple-700' : 'bg-[#e0faea] text-[#1a7bd9]'
                     }`}>
                       {selectedUser.role}
                     </span>
 
-                    {/* Fields */}
                     {[
                       { label: selectedUser.role === 'Вчитель' ? 'ПІБ ВЧИТЕЛЯ' : 'ПІБ СТУДЕНТА', value: selectedUser.name, icon: <IconUser /> },
                       { label: 'НОМЕР ТЕЛЕФОНУ', value: selectedUser.phone, icon: <IconPhone /> },
@@ -390,7 +364,6 @@ export default function ManagerApplications() {
                       </div>
                     ))}
 
-                    {/* Action buttons */}
                     <div className="flex flex-col gap-3 pt-3">
                       <button
                         type="button"
@@ -469,7 +442,7 @@ export default function ManagerApplications() {
               </button>
               <button
                 type="button"
-                onClick={handleConfirm}
+                onClick={() => void handleConfirm()}
                 className={`flex-1 py-3 rounded-xl font-inter font-medium text-sm text-white transition-colors ${
                   confirmAction.type === 'approve' ? 'bg-[#1f8cf9] hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'
                 }`}

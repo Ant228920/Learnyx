@@ -1,29 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
-
-type UserRole = 'Студент' | 'Вчитель';
-
-interface Registration {
-  id: number;
-  name: string;
-  role: UserRole;
-  subject: string;
-  phone: string;
-  email: string;
-  telegram: string;
-  level: string;
-  date: string;
-  avatarBg: string;
-}
-
-const REGISTRATIONS: Registration[] = [
-  { id: 1, name: 'Ковальчук Олена Ігорівна', role: 'Студент', subject: 'Англійська мова', phone: '+380 67 123 45 67', email: 'o.kovalchuk@email.com', telegram: '@elena_learnyx', level: 'B2 (Upper-Intermediate)', date: '24.05.2024', avatarBg: 'bg-[#e7eff9]' },
-  { id: 2, name: 'Дмитрук Валерій Павлович', role: 'Вчитель', subject: 'Математика', phone: '+380 67 234 56 78', email: 'v.dmytruk@email.com', telegram: '@valerii_physics', level: 'ЗНО Підготовка', date: '23.05.2024', avatarBg: 'bg-[#e7eff9]' },
-  { id: 3, name: 'Сидоренко Максим Вікторович', role: 'Студент', subject: 'Математика', phone: '+380 67 345 67 89', email: 'm.sydorenko@email.com', telegram: '@max_math', level: '9 клас', date: '24.05.2024', avatarBg: 'bg-[#dafdf8]' },
-  { id: 4, name: 'Іванов Дмитро Сергійович', role: 'Студент', subject: 'Українська мова', phone: '+380 67 456 78 90', email: 'd.ivanov@email.com', telegram: '@dmytro_school', level: '4 клас', date: '23.05.2024', avatarBg: 'bg-[#e7eff9]' },
-  { id: 5, name: 'Ткаченко Софія Юріївна', role: 'Студент', subject: 'Інформатика', phone: '+380 67 567 89 01', email: 's.tkachenko@email.com', telegram: '@sofia_code', level: '7 клас', date: '22.05.2024', avatarBg: 'bg-[#ebe3ff]' },
-];
+import { useManagerDashboard } from '../../features/manager/dashboard';
+import type { DashboardRegistration } from '../../features/manager/dashboard';
 
 const NAV_ITEMS = [
   { label: 'Дашборд', active: true, path: '/manager' },
@@ -109,14 +88,18 @@ const IconLogo = () => (
 export default function ManagerDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [selectedUser, setSelectedUser] = useState<Registration | null>(null);
+  const { data, loading, error } = useManagerDashboard();
+  const [selectedUser, setSelectedUser] = useState<DashboardRegistration | null>(null);
+
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   const handleLogout = () => {
     logout();
     void navigate('/');
   };
 
-  const handleToggleUser = (reg: Registration) => {
+  const handleToggleUser = (reg: DashboardRegistration) => {
     setSelectedUser((prev) => (prev?.id === reg.id ? null : reg));
   };
 
@@ -203,14 +186,14 @@ export default function ManagerDashboard() {
                 <div className="w-12 h-12 bg-[#f4f4f6] rounded-2xl flex items-center justify-center"><IconUsers /></div>
                 <div>
                   <p className="font-inter font-medium text-[#565d6d] text-sm">Загальна кількість учнів</p>
-                  <p className="font-inter font-black text-slate-800 text-3xl mt-1">1,248</p>
+                  <p className="font-inter font-black text-slate-800 text-3xl mt-1">{data?.totalStudents ?? 0}</p>
                 </div>
               </article>
               <article className="flex flex-col gap-4 p-6 bg-white rounded-2xl border border-[#dee1e6] shadow-[0px_1px_2.5px_#171a1f12]">
                 <div className="w-12 h-12 bg-[#1f8cf90a] rounded-2xl flex items-center justify-center"><IconGraduate /></div>
                 <div>
                   <p className="font-inter font-medium text-[#565d6d] text-sm">Загальна кількість викладачів</p>
-                  <p className="font-inter font-black text-slate-800 text-3xl mt-1">84</p>
+                  <p className="font-inter font-black text-slate-800 text-3xl mt-1">{data?.totalTeachers ?? 0}</p>
                 </div>
               </article>
             </section>
@@ -224,19 +207,17 @@ export default function ManagerDashboard() {
                   Останні реєстрації
                 </h2>
                 <div className="flex flex-col gap-4">
-                  {REGISTRATIONS.map((reg) => (
+                  {(data?.recentRegistrations ?? []).map((reg) => (
                     <article
                       key={reg.id}
                       className={`flex items-center gap-4 p-5 bg-white rounded-2xl border transition-all ${
                         selectedUser?.id === reg.id ? 'border-[#1f8cf9] shadow-sm' : 'border-[#dee1e6]'
                       }`}
                     >
-                      {/* Avatar */}
                       <div className={`w-12 h-12 rounded-full ${reg.avatarBg} flex items-center justify-center flex-shrink-0`} aria-hidden="true">
                         <span className="font-inter font-bold text-[#1f8cf9] text-lg">{reg.name[0]}</span>
                       </div>
 
-                      {/* Name + email + badge */}
                       <div className="flex flex-col gap-1 flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-poppins font-bold text-slate-900 text-base tracking-[-0.32px] leading-6 truncate">
@@ -251,19 +232,16 @@ export default function ManagerDashboard() {
                         <span className="font-inter text-[#565d6d] text-xs">{reg.email}</span>
                       </div>
 
-                      {/* Subject + level */}
                       <div className="flex flex-col w-44 flex-shrink-0">
                         <span className="font-inter font-semibold text-slate-800 text-sm">{reg.subject}</span>
                         <span className="font-inter text-[#565d6d] text-xs">{reg.level}</span>
                       </div>
 
-                      {/* Date */}
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <IconCalendar />
                         <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">{reg.date}</span>
                       </div>
 
-                      {/* Button */}
                       <button
                         type="button"
                         onClick={() => handleToggleUser(reg)}
@@ -276,13 +254,15 @@ export default function ManagerDashboard() {
                       </button>
                     </article>
                   ))}
+                  {(data?.recentRegistrations ?? []).length === 0 && (
+                    <p className="font-inter text-[#565d6d] text-sm">Немає нових реєстрацій</p>
+                  )}
                 </div>
               </div>
 
-              {/* Side Detail Panel — тільки перегляд, без кнопок дії */}
+              {/* Side Detail Panel */}
               {selectedUser && (
                 <aside className="w-[300px] flex-shrink-0 bg-white rounded-2xl shadow-[0px_25px_50px_-12px_#00000040] overflow-hidden sticky top-24 animate-fade-in">
-                  {/* Panel header */}
                   <div className="flex items-center justify-between p-6 bg-[#1f8cf91a]">
                     <div>
                       <p className="font-poppins font-bold text-slate-900 text-xl leading-7">
@@ -297,7 +277,6 @@ export default function ManagerDashboard() {
                     </div>
                   </div>
 
-                  {/* Panel body — тільки інформація */}
                   <div className="flex flex-col gap-4 px-6 pt-5 pb-6">
                     <span className={`px-2 py-0.5 rounded-full font-inter font-bold text-[10px] w-fit ${
                       selectedUser.role === 'Вчитель' ? 'bg-[#ebe3ff] text-purple-700' : 'bg-[#e0faea] text-[#1a7bd9]'
