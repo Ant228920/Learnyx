@@ -342,7 +342,7 @@ export const teacherApi = {
   getStudents: async (): Promise<Array<{
     user_id: number; first_name: string; last_name: string; email: string; lessons_balance: number;
   }>> => {
-    const { data } = await apiClient.get('/users/students/');
+    const { data } = await apiClient.get('/students/');
     return data.results ?? data;
   },
 
@@ -359,24 +359,29 @@ export const teacherApi = {
 
 // ── Manager API ────────────────────────────────────────────────────────────
 export const managerApi = {
+  getRegistrationRequests: async () => {
+    const { data } = await apiClient.get('/applicants/');
+    return data.results ?? data;
+  },
+
   getStudents: async (params?: { is_approved?: boolean }) => {
     const query = params?.is_approved !== undefined ? `?is_approved=${params.is_approved}` : '';
-    const { data } = await apiClient.get(`/users/students/${query}`);
+    const { data } = await apiClient.get(`/students/${query}`);
     return data.results ?? data;
   },
 
   getTeachers: async () => {
-    const { data } = await apiClient.get('/users/teachers/');
+    const { data } = await apiClient.get('/students/?role=teacher');
     return data.results ?? data;
   },
 
   approveUser: async (userId: number) => {
-    const { data } = await apiClient.patch(`/users/approve/${userId}/`, { is_approved: true });
+    const { data } = await apiClient.post(`/applicants/${userId}/approve/`);
     return data;
   },
 
   rejectUser: async (userId: number) => {
-    const { data } = await apiClient.patch(`/users/approve/${userId}/`, { is_approved: false });
+    const { data } = await apiClient.post(`/applicants/${userId}/reject/`);
     return data;
   },
 

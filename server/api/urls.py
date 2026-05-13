@@ -29,6 +29,7 @@ urlpatterns = [
     path('v1/auth/login/', LoginView.as_view(), name='auth-login'),
     path('v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('v1/auth/register/', RegistrationRequestView.as_view(), name='auth-register'),
+    path('v1/applicants/', RegistrationRequestView.as_view(), name='applicants-list'),
     path('v1/applicants/<int:pk>/approve/', ApproveRegistrationRequestView.as_view(), name='approve-applicant'),
 
     # ── Auth (legacy aliases — kept for backward compatibility)

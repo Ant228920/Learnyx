@@ -19,47 +19,47 @@ import ManagerSubscriptions from '../pages/manager/ManagerSubscriptions';
 import ManagerReports from '../pages/manager/ManagerReports';
 import ManagerMatching from '../pages/manager/ManagerMatching';
 
+function roleDashboard(role: string): string {
+  if (role === 'Student') return '/dashboard';
+  if (role === 'Teacher') return '/teacher';
+  if (role === 'Manager' || role === 'Admin') return '/manager';
+  return '/';
+}
+
+function RoleRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/" replace />;
+  return <Navigate to={roleDashboard(user.role)} replace />;
+}
+
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/" replace />;
-  if (!allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
+  if (!allowedRoles.includes(user.role)) return <Navigate to={roleDashboard(user.role)} replace />;
   return <>{children}</>;
 }
 
-const S = ['student'];
-const T = ['teacher'];
-const M = ['manager', 'admin'];
+function PublicOnlyRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (user) return <Navigate to={roleDashboard(user.role)} replace />;
+  return <>{children}</>;
+}
+
+const S = ['Student'];
+const T = ['Teacher'];
+const M = ['Manager', 'Admin'];
 
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Публічні сторінки — з MainLayout */}
+        {/* Public — redirect to dashboard if already logged in */}
         <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<PublicOnlyRoute><HomePage /></PublicOnlyRoute>} />
         </Route>
 
-        {/* Студент */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <StudentDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Менеджер / Адмін */}
-        <Route
-          path="/manager"
-          element={
-            <ProtectedRoute allowedRoles={['manager', 'admin']}>
-              <ManagerDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Fallback */}
+        {/* Settings — redirect to role dashboard (no settings page yet) */}
+        <Route path="/settings" element={<RoleRedirect />} />
 
         {/* Student */}
         <Route path="/dashboard">
@@ -88,7 +88,8 @@ export default function AppRouter() {
           <Route path="matching" element={<ProtectedRoute allowedRoles={M}><ManagerMatching /></ProtectedRoute>} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Fallback — authenticated users go to their dashboard, others to homepage */}
+        <Route path="*" element={<RoleRedirect />} />
       </Routes>
     </BrowserRouter>
   );

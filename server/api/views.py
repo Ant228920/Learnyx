@@ -52,8 +52,17 @@ def generate_password(length=10):
 
 
 class RegistrationRequestView(APIView):
-    """Сценарій 1: Подача заявки гостем."""
-    permission_classes = [AllowAny]
+    """Сценарій 1: Подача заявки гостем / перегляд заявок менеджером."""
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsManager()]
+        return [AllowAny()]
+
+    def get(self, request):
+        requests = RegistrationRequest.objects.filter(status='new').order_by('-created_at')
+        serializer = RegistrationRequestSerializer(requests, many=True)
+        return Response(serializer.data)
 
     def post(self, request):
         serializer = RegistrationRequestSerializer(data=request.data)
@@ -555,22 +564,25 @@ class BonusBalanceView(APIView):
 
 
 class StudentListView(generics.ListAPIView):
-    """US8: Manager sees all students with their total active-package balance, ascending."""
-    permission_classes = [IsManager]
+    """US8: Manager or Teacher sees all students with their total active-package balance, ascending."""
+    permission_classes = [IsManager | IsTeacher]
     serializer_class = StudentListSerializer
 
     def get_queryset(self):
-        return (
-            Student.objects
-            .select_related('user')
-            .annotate(
-                lessons_balance=Coalesce(
-                    Sum('packages__balance', filter=Q(packages__status='active')),
-                    0,
-                )
+        user = self.request.user
+        role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
+        base_qs = Student.objects.select_related('user').annotate(
+            lessons_balance=Coalesce(
+                Sum('packages__balance', filter=Q(packages__status='active')),
+                0,
             )
-            .order_by('lessons_balance')
         )
+        if role == 'teacher':
+            teacher = Teacher.objects.filter(user=user).first()
+            if not teacher:
+                return Student.objects.none()
+            return base_qs.filter(lessons__slot__teacher=teacher).distinct().order_by('lessons_balance')
+        return base_qs.order_by('lessons_balance')
 
 
 class StudentDashboardView(APIView):

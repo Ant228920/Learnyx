@@ -63,7 +63,7 @@ const IconBook = () => (
 );
 
 export default function ManagerReports() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [teacher, setTeacher] = useState('Всі викладачі');
   const [showAll, setShowAll] = useState(false);
@@ -96,7 +96,7 @@ export default function ManagerReports() {
           </nav>
         </div>
         <div className="border-t border-[#dee1e6] p-4 w-full">
-          <button type="button" onClick={() => { logout(); void navigate('/'); }}
+          <button type="button" onClick={() => void navigate('/manager')}
             className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors">
             <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>
           </button>

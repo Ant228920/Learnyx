@@ -14,34 +14,18 @@ function formatDate(raw?: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapStudent(u: any): Application {
+function mapRequest(r: any): Application {
   return {
-    id: u.user_id ?? u.id ?? 0,
-    name: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
-    role: 'Учень',
-    subject: u.subject ?? u.discipline ?? '—',
-    level: u.level ?? '—',
-    email: u.email ?? '—',
-    phone: u.phone ?? '—',
-    telegram: u.telegram_nickname ?? '—',
-    date: formatDate(u.created_at),
-    avatarBg: avatarBg(u.user_id ?? u.id ?? 0),
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapTeacher(u: any): Application {
-  return {
-    id: u.user_id ?? u.id ?? 0,
-    name: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
-    role: 'Вчитель',
-    subject: u.subject ?? u.discipline ?? '—',
-    level: u.level ?? '—',
-    email: u.email ?? '—',
-    phone: u.phone ?? '—',
-    telegram: u.telegram_nickname ?? '—',
-    date: formatDate(u.created_at),
-    avatarBg: avatarBg(u.user_id ?? u.id ?? 0),
+    id: r.id,
+    name: r.full_name ?? '—',
+    role: r.role === 'student' ? 'Учень' : 'Вчитель',
+    subject: r.subject ?? '—',
+    level: r.level ?? '—',
+    email: r.email ?? '—',
+    phone: r.phone ?? '—',
+    telegram: r.telegram_nickname ?? '—',
+    date: formatDate(r.created_at),
+    avatarBg: avatarBg(r.id),
   };
 }
 
@@ -54,17 +38,9 @@ export function useApplications() {
     setLoading(true);
     setError(null);
     try {
-      const [students, teachers] = await Promise.all([
-        managerApi.getStudents({ is_approved: false }),
-        managerApi.getTeachers(),
-      ]);
-      const mapped: Application[] = [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(students as any[]).map(mapStudent),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(teachers as any[]).map(mapTeacher),
-      ];
-      setData(mapped);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const requests: any[] = await managerApi.getRegistrationRequests();
+      setData(requests.map(mapRequest));
     } catch (e) {
       setError(extractErrorMessage(e));
     } finally {

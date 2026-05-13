@@ -23,11 +23,9 @@ interface Props {
 }
 
 export default function StudentLayout({ children }: Props) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const handleLogout = () => { logout(); void navigate('/'); };
 
   return (
     <div className="flex w-full min-h-screen bg-[#f8f9fb]">
@@ -72,7 +70,7 @@ export default function StudentLayout({ children }: Props) {
         <div className="border-t border-[#dee1e6] p-4 w-full">
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => void navigate('/dashboard')}
             className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>

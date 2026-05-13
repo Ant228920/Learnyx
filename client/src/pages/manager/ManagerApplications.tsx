@@ -106,7 +106,7 @@ const IconX = () => (
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ManagerApplications() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { data: applicants, loading, error, approve, reject } = useApplications();
 
@@ -118,8 +118,6 @@ export default function ManagerApplications() {
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
-
-  const handleLogout = () => { logout(); void navigate('/'); };
 
   const handleToggle = (app: Application) => {
     setSelectedUser((prev) => prev?.id === app.id ? null : app);
@@ -185,7 +183,7 @@ export default function ManagerApplications() {
         <div className="border-t border-[#dee1e6] p-4 w-full">
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => void navigate('/manager')}
             className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>
