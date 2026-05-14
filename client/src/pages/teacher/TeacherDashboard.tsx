@@ -6,12 +6,6 @@ import type { TeacherDashboard as DashboardData } from '../../services/api';
 
 interface UploadedFile { id: number; name: string; size: string; type: string; }
 
-const INITIAL_FILES: UploadedFile[] = [
-  { id: 1, name: 'Конспект_Похідні_Лекція_1.pdf', size: '2.4 MB', type: 'PDF' },
-  { id: 2, name: 'Завдання_на_літо_10_клас.docx', size: '1.1 MB', type: 'DOCX' },
-  { id: 3, name: 'Архів_тестів_2023.zip', size: '14.8 MB', type: 'ZIP' },
-  { id: 4, name: 'Методичні_рекомендації_ЗНО.pdf', size: '3.2 MB', type: 'PDF' },
-];
 
 const FileIcon = ({ type }: { type: string }) => {
   const color = type === 'PDF' ? '#e64c4c' : type === 'DOCX' ? '#1f8cf9' : '#f5a83d';
@@ -23,7 +17,7 @@ export default function TeacherDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState('');
-  const [files, setFiles] = useState<UploadedFile[]>(INITIAL_FILES);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [showAllFiles, setShowAllFiles] = useState(false);
   const [gradeLesson, setGradeLesson] = useState<DashboardData['today_lessons'][0] | null>(null);
   const [linkModal, setLinkModal] = useState(false);
@@ -73,7 +67,7 @@ export default function TeacherDashboard() {
       if (!notConducted) {
         await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'conducted');
       } else {
-        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'missed');
+        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'student_missed');
       }
       setGradedIds(p => [...p, gradeLesson.lesson_id!]);
       setGradeLesson(null);

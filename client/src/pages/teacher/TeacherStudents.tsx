@@ -1,58 +1,31 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import TeacherLayout from './TeacherLayout';
-
-interface Student { id: number; name: string; subject: string; level: string; status: 'Активний' | 'Неактивний'; email: string; phone: string; avatarBg: string; }
-interface Request { id: number; name: string; subject: string; level: string; days: string; time: string; avatarBg: string; }
-
-const ALL_STUDENTS: Student[] = [
-  { id: 1, name: 'Олена Ковальчук', subject: 'Математика', level: 'B2', status: 'Активний', email: 'o.kovalchuk@email.com', phone: '+380 67 123 45 67', avatarBg: 'bg-[#e7eff9]' },
-  { id: 2, name: 'Максим Сидоренко', subject: 'Математика', level: 'A1', status: 'Активний', email: 'm.sydorenko@email.com', phone: '+380 67 234 56 78', avatarBg: 'bg-[#dafdf8]' },
-  { id: 3, name: 'Анна Мельник', subject: 'Англійська мова', level: 'C1', status: 'Неактивний', email: 'a.melnyk@email.com', phone: '+380 67 345 67 89', avatarBg: 'bg-[#ebe3ff]' },
-  { id: 4, name: 'Дмитро Іванов', subject: 'Математика', level: 'B1', status: 'Активний', email: 'd.ivanov@email.com', phone: '+380 67 456 78 90', avatarBg: 'bg-[#e7eff9]' },
-  { id: 5, name: 'Софія Ткаченко', subject: 'Математика', level: 'A2', status: 'Активний', email: 's.tkachenko@email.com', phone: '+380 67 567 89 01', avatarBg: 'bg-[#e7eff9]' },
-  { id: 6, name: 'Василь Петренко', subject: 'Математика', level: 'B1', status: 'Активний', email: 'v.petrenko@email.com', phone: '+380 67 678 90 12', avatarBg: 'bg-[#dafdf8]' },
-  { id: 7, name: 'Катерина Бондаренко', subject: 'Англійська мова', level: 'B2', status: 'Активний', email: 'k.bondarenko@email.com', phone: '+380 67 789 01 23', avatarBg: 'bg-[#ebe3ff]' },
-  { id: 8, name: 'Олег Марченко', subject: 'Математика', level: 'C1', status: 'Активний', email: 'o.marchenko@email.com', phone: '+380 67 890 12 34', avatarBg: 'bg-[#e7eff9]' },
-  { id: 9, name: 'Ірина Шевченко', subject: 'Математика', level: 'A1', status: 'Неактивний', email: 'i.shevchenko@email.com', phone: '+380 67 901 23 45', avatarBg: 'bg-[#dafdf8]' },
-  { id: 10, name: 'Микола Коваль', subject: 'Англійська мова', level: 'B1', status: 'Активний', email: 'm.koval@email.com', phone: '+380 67 012 34 56', avatarBg: 'bg-[#e7eff9]' },
-];
-
-const INITIAL_REQUESTS: Request[] = [
-  { id: 1, name: 'Іван Петренко', subject: 'Математика', level: '5 - 11 клас', days: 'Пн, Ср, Пт', time: '16:00 - 18:00', avatarBg: 'bg-[#e7eff9]' },
-  { id: 2, name: 'Марія Зайцева', subject: 'Англійська мова', level: 'B1 - Середній', days: 'Вт, Чт', time: '14:30 - 16:00', avatarBg: 'bg-[#dafdf8]' },
-];
+import { useTeacherStudents } from '../../features/teacher/students';
+import type { TeacherStudent } from '../../features/teacher/students';
 
 const PAGE_SIZE = 5;
 
+function formatSlotTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }) + ' ' +
+    d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function TeacherStudents() {
+  const { students, slots, selectedSlotId, availableStudents, loading, error, selectSlot, assignStudent } = useTeacherStudents();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [students, setStudents] = useState<Student[]>(ALL_STUDENTS.slice(0, PAGE_SIZE));
-  const [requests, setRequests] = useState<Request[]>(INITIAL_REQUESTS);
-  const [profileStudent, setProfileStudent] = useState<Student | null>(null);
+  const [profileStudent, setProfileStudent] = useState<TeacherStudent | null>(null);
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
-  const nextId = useRef(ALL_STUDENTS.length + 1);
+
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
+
+  const visible = students.slice(0, visibleCount);
 
   const handleLoadMore = () => {
-    const next = visibleCount + PAGE_SIZE;
-    setStudents(ALL_STUDENTS.slice(0, next));
-    setVisibleCount(next);
+    setVisibleCount(prev => prev + PAGE_SIZE);
   };
 
-  const handleConfirmRequest = (req: Request) => {
-    const newStudent: Student = {
-      id: ++nextId.current,
-      name: req.name,
-      subject: req.subject,
-      level: req.level,
-      status: 'Активний',
-      email: `${req.name.toLowerCase().replace(' ', '.')}@email.com`,
-      phone: '+380 67 000 00 00',
-      avatarBg: req.avatarBg,
-    };
-    setStudents(prev => [newStudent, ...prev]);
-    setRequests(prev => prev.filter(r => r.id !== req.id));
-    setConfirmedMsg(`${req.name} доданий до ваших учнів! Години ${req.time} (${req.days}) додано до розкладу.`);
-  };
 
   return (
     <TeacherLayout>
@@ -77,7 +50,7 @@ export default function TeacherStudents() {
           <div className="flex-1 flex flex-col gap-5">
             <h2 className="font-poppins font-bold text-slate-900 text-xl">Ваші учні</h2>
             <div className="flex flex-col gap-3">
-              {students.map(s => (
+              {visible.map(s => (
                 <div key={s.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-[#dee1e6]">
                   <div className={`w-11 h-11 rounded-full ${s.avatarBg} flex items-center justify-center flex-shrink-0`}>
                     <span className="font-inter font-bold text-[#1f8cf9] text-base">{s.name[0]}</span>
@@ -98,60 +71,68 @@ export default function TeacherStudents() {
                   </button>
                 </div>
               ))}
+              {students.length === 0 && (
+                <p className="font-inter text-[#9095a1] text-sm">Немає учнів</p>
+              )}
             </div>
-            {visibleCount < ALL_STUDENTS.length && (
+            {visibleCount < students.length && (
               <button type="button" onClick={handleLoadMore}
                 className="w-full py-4 bg-white border border-[#dee1e6] rounded-2xl font-inter font-medium text-[#565d6d] text-sm hover:bg-gray-50 transition-colors">
-                Завантажити ще ({ALL_STUDENTS.length - visibleCount} залишилось)
+                Завантажити ще ({students.length - visibleCount} залишилось)
               </button>
             )}
           </div>
 
-          {/* Requests */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <h2 className="font-poppins font-bold text-slate-900 text-sm tracking-[0.60px] uppercase">Доступні учні</h2>
-              {requests.length > 0 && (
-                <span className="px-2.5 py-0.5 bg-[#1f8cf9] rounded-full font-inter font-bold text-white text-[10px]">
-                  Нових: {requests.length}
-                </span>
-              )}
-            </div>
-            {requests.length === 0 ? (
-              <p className="font-inter text-[#9095a1] text-sm">Немає нових запитів</p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {requests.map(r => (
-                  <div key={r.id} className="bg-white rounded-2xl border border-[#dee1e6] p-5 flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full ${r.avatarBg} flex items-center justify-center flex-shrink-0`}>
-                        <span className="font-inter font-bold text-[#1f8cf9] text-sm">{r.name[0]}</span>
-                      </div>
-                      <div>
-                        <p className="font-poppins font-bold text-slate-900 text-sm">{r.name}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="font-inter text-[#565d6d] text-xs">{r.subject}</span>
-                          <span className="px-1.5 py-0.5 bg-[#f4f4f6] rounded font-inter font-bold text-[#565d6d] text-[9px]">{r.level}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                        <span className="font-inter text-[#565d6d] text-xs">{r.days}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                        <span className="font-inter text-[#565d6d] text-xs">{r.time}</span>
-                      </div>
-                    </div>
-                    <button type="button" onClick={() => handleConfirmRequest(r)}
-                      className="w-full py-2.5 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors">
-                      Підтвердити запит
-                    </button>
-                  </div>
-                ))}
+          {/* Available students panel */}
+          <div className="w-72 flex-shrink-0 flex flex-col gap-4 sticky top-24">
+            <h2 className="font-poppins font-bold text-slate-900 text-sm tracking-[0.60px] uppercase">Доступні учні</h2>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="slot-select" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оберіть слот</label>
+              <div className="relative">
+                <select
+                  id="slot-select"
+                  value={selectedSlotId ?? ''}
+                  onChange={e => { const v = Number(e.target.value); if (v) void selectSlot(v); }}
+                  className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] pr-8"
+                >
+                  <option value="">— Оберіть слот —</option>
+                  {slots.map(s => (
+                    <option key={s.id} value={s.id}>{formatSlotTime(s.start_time)}</option>
+                  ))}
+                </select>
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
               </div>
+            </div>
+            {selectedSlotId && (
+              <div className="flex flex-col gap-2">
+                {availableStudents.length === 0 ? (
+                  <p className="font-inter text-[#9095a1] text-sm">Немає доступних учнів</p>
+                ) : (
+                  availableStudents.map(s => (
+                    <div key={s.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-[#dee1e6]">
+                      <div className={`w-9 h-9 rounded-full ${s.avatarBg} flex items-center justify-center flex-shrink-0`}>
+                        <span className="font-inter font-bold text-[#1f8cf9] text-sm">{s.name[0]}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-inter font-semibold text-slate-800 text-xs truncate">{s.name}</p>
+                        <p className="font-inter text-[#9095a1] text-[10px]">{s.lessons_balance} занять</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void assignStudent(selectedSlotId, s.id).then(() => setConfirmedMsg(`${s.name} призначено на урок`))}
+                        className="px-3 py-1.5 bg-[#1f8cf9] rounded-lg font-inter font-medium text-white text-xs hover:bg-blue-600 transition-colors flex-shrink-0"
+                      >
+                        Призначити
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            {!selectedSlotId && slots.length === 0 && (
+              <p className="font-inter text-[#9095a1] text-sm">Немає доступних слотів</p>
             )}
           </div>
         </div>
@@ -184,6 +165,7 @@ export default function TeacherStudents() {
                 { label: 'РІВЕНЬ', value: profileStudent.level, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg> },
                 { label: 'EMAIL', value: profileStudent.email, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg> },
                 { label: 'ТЕЛЕФОН', value: profileStudent.phone, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6.29 6.29l1.83-1.83a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg> },
+                { label: 'ЗАЛИШОК ЗАНЯТЬ', value: String(profileStudent.lessons_balance), icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg> },
               ].map(f => (
                 <div key={f.label} className="flex flex-col gap-1 pb-3 border-b border-[#f4f4f6] last:border-0 last:pb-0">
                   <span className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[1px] uppercase">{f.label}</span>

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson
-from users.models import Student
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest
+from users.models import Student, Review
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
@@ -30,8 +30,8 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
 class SlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = Slot
-        fields = ['id', 'teacher', 'start_time', 'end_time', 'is_booked']
-        read_only_fields = ['id', 'teacher', 'is_booked']
+        fields = ['id', 'teacher', 'start_time', 'end_time', 'status']
+        read_only_fields = ['id', 'teacher', 'status']
 
     def validate(self, data):
         start_time = data.get('start_time')
@@ -81,7 +81,7 @@ class LessonCreateSerializer(serializers.ModelSerializer):
         package = data.get('package')
         student = data.get('student')
 
-        if slot and slot.is_booked:
+        if slot and slot.status == 'booked':
             raise serializers.ValidationError({'slot': 'Slot is already booked.'})
 
         if package:
@@ -96,7 +96,7 @@ class LessonCreateSerializer(serializers.ModelSerializer):
 
 
 class LessonStatusSerializer(serializers.Serializer):
-    VALID_STATUSES = ['conducted', 'cancelled', 'missed']
+    VALID_STATUSES = ['conducted', 'canceled_advance', 'student_missed', 'teacher_missed']
     status = serializers.ChoiceField(choices=VALID_STATUSES)
 
 
@@ -174,12 +174,22 @@ class TeacherInlineSerializer(serializers.ModelSerializer):
         fields = ['user_id', 'first_name', 'last_name']
 
 
+class TeacherListSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    email = serializers.EmailField(source='user.email')
+
+    class Meta:
+        model = Teacher
+        fields = ['user_id', 'first_name', 'last_name', 'email']
+
+
 class SlotAvailableSerializer(serializers.ModelSerializer):
     teacher = TeacherInlineSerializer(read_only=True)
 
     class Meta:
         model = Slot
-        fields = ['id', 'teacher', 'start_time', 'end_time', 'is_booked']
+        fields = ['id', 'teacher', 'start_time', 'end_time', 'status']
 
 
 # ── LEAR-182 ────────────────────────────────────────────────────────────────
@@ -206,7 +216,7 @@ class AssignLessonSerializer(serializers.Serializer):
 # ── LEAR-186 ────────────────────────────────────────────────────────────────
 
 class HomeworkSerializer(serializers.Serializer):
-    teacher_homework_task = serializers.CharField()
+    teacher_homework_task = serializers.JSONField()
     homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
 
 
@@ -232,3 +242,52 @@ class LessonArchiveSerializer(serializers.ModelSerializer):
             'id', 'status', 'start_time', 'end_time',
             'teacher_name', 'student_name', 'package', 'meeting_link',
         ]
+
+
+class PackagePlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackagePlan
+        fields = ['id', 'name', 'total_lessons', 'price', 'description', 'is_active']
+
+
+class LearningRequestSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_email = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj):
+        u = obj.student.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    def get_student_email(self, obj):
+        return obj.student.user.email
+
+    class Meta:
+        model = LearningRequest
+        fields = [
+            'id', 'student_name', 'student_email',
+            'subject', 'level', 'preferred_days', 'preferred_time',
+            'notes', 'status', 'created_at', 'package',
+        ]
+        read_only_fields = ['id', 'student_name', 'student_email', 'created_at']
+
+
+class LearningRequestCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LearningRequest
+        fields = ['subject', 'level', 'preferred_days', 'preferred_time', 'notes', 'package']
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ['id', 'text', 'created_at', 'is_visible', 'user_name', 'user_role']
+        read_only_fields = ['id', 'created_at', 'is_visible']
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name()
+
+    def get_user_role(self, obj):
+        return obj.user.role_obj.name if obj.user.role_obj else None

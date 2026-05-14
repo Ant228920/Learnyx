@@ -26,7 +26,7 @@ export default function Dashboard() {
       >
         Ви увійшли як{' '}
         <span className="font-semibold text-[#1f8cf9]">
-          {user.role === 'teacher' ? 'викладач' : 'учень'}
+          {user.role === 'Teacher' ? 'викладач' : 'учень'}
         </span>
         .
       </p>

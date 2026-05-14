@@ -1,55 +1,43 @@
 import { useState } from 'react';
 import TeacherLayout from './TeacherLayout';
-
-type HWStatus = 'НЕ ПЕРЕВІРЕНО' | 'ПЕРЕВІРЕНО';
-
-interface Homework {
-  id: number;
-  student: string;
-  topic: string;
-  subject: string;
-  deadline: string;
-  status: HWStatus;
-  avatarBg: string;
-  file?: string;
-  savedComment?: string;
-  savedGrade?: string;
-}
-
-const INITIAL_HW: Homework[] = [
-  { id: 1, student: 'Олена Ковальчук', topic: 'Тригонометричні рівняння. Частина 2', subject: 'Математика', deadline: '12 Жов, 2023', status: 'НЕ ПЕРЕВІРЕНО', avatarBg: 'bg-[#e7eff9]', file: 'homework_math_kov...' },
-  { id: 2, student: 'Анна Мельник', topic: 'Essay: Future of AI', subject: 'Англійська', deadline: '10 Жов, 2023', status: 'ПЕРЕВІРЕНО', avatarBg: 'bg-[#ebe3ff]', savedComment: 'Чудова робота! Гарна структура есе.', savedGrade: '9/10' },
-  { id: 3, student: 'Максим Сидоренко', topic: 'Закони термодинаміки', subject: 'Математика', deadline: '11 Жов, 2023', status: 'НЕ ПЕРЕВІРЕНО', avatarBg: 'bg-[#dafdf8]', file: 'thermodynamics_hw...' },
-  { id: 4, student: 'Дмитро Іванов', topic: 'Київська Русь: аналіз джерел', subject: 'Математика', deadline: '09 Жов, 2023', status: 'ПЕРЕВІРЕНО', avatarBg: 'bg-[#e7eff9]', savedComment: 'Добре розкрита тема. Зверніть увагу на джерела.', savedGrade: '8/10' },
-  { id: 5, student: 'Софія Ткаченко', topic: 'Органічні сполуки', subject: 'Математика', deadline: '08 Жов, 2023', status: 'НЕ ПЕРЕВІРЕНО', avatarBg: 'bg-[#e7eff9]', file: 'organic_compounds...' },
-];
+import { useTeacherHomework } from '../../features/teacher/homework';
+import type { TeacherHomeworkItem } from '../../features/teacher/homework';
+import { showError } from '../../utils/toast';
+import { extractErrorMessage } from '../../services/api';
 
 export default function TeacherHomework() {
+  const { homeworks, pendingLessons, loading, error, gradeHomework, setHomework } = useTeacherHomework();
   const [search, setSearch] = useState('');
-  const [homeworks, setHomeworks] = useState<Homework[]>(INITIAL_HW);
-  const [selected, setSelected] = useState<Homework | null>(null);
+  const [selected, setSelected] = useState<TeacherHomeworkItem | null>(null);
   const [comment, setComment] = useState('');
   const [grade, setGrade] = useState('');
+  const [hwInputs, setHwInputs] = useState<Record<number, string>>({});
+
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   const filtered = homeworks.filter(hw =>
     hw.student.toLowerCase().includes(search.toLowerCase()) ||
     hw.topic.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSelect = (hw: Homework) => {
+  const handleSelect = (hw: TeacherHomeworkItem) => {
     if (selected?.id === hw.id) { setSelected(null); return; }
     setSelected(hw);
     setComment(hw.savedComment || '');
     setGrade(hw.savedGrade || '');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selected) return;
-    setHomeworks(prev => prev.map(hw =>
-      hw.id === selected.id
-        ? { ...hw, status: 'ПЕРЕВІРЕНО', savedComment: comment, savedGrade: grade }
-        : hw
-    ));
+    const gradeNum = parseInt(grade);
+    try {
+      await gradeHomework(selected.lessonId, {
+        is_present: true,
+        homework_grade: isNaN(gradeNum) ? undefined : gradeNum,
+        teacher_notes: comment,
+      });
+    } catch { /* handled by hook */ }
     setSelected(null);
     setComment('');
     setGrade('');
@@ -64,6 +52,38 @@ export default function TeacherHomework() {
           <h1 className="font-poppins font-bold text-slate-900 text-4xl leading-10">Домашні завдання</h1>
           <p className="font-inter text-[#565d6d] text-lg mt-2">Керуйте навчальним процесом: перевіряйте роботи та виставляйте оцінки в реальному часі.</p>
         </div>
+
+        {pendingLessons.length > 0 && (
+          <div className="flex flex-col gap-3 bg-white rounded-2xl border border-[#dee1e6] p-6">
+            <h2 className="font-poppins font-bold text-slate-900 text-lg">Призначити домашнє завдання</h2>
+            {pendingLessons.map(lesson => (
+              <div key={lesson.id} className="flex items-center gap-3 p-4 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
+                <span className="font-inter font-medium text-slate-800 text-sm flex-shrink-0 w-28">{lesson.studentLabel}</span>
+                <input
+                  type="text"
+                  value={hwInputs[lesson.id] ?? ''}
+                  onChange={e => setHwInputs(prev => ({ ...prev, [lesson.id]: e.target.value }))}
+                  placeholder="Текст завдання..."
+                  className="flex-1 border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+                />
+                <button
+                  type="button"
+                  disabled={!hwInputs[lesson.id]?.trim()}
+                  onClick={() => {
+                    const task = hwInputs[lesson.id]?.trim();
+                    if (!task) return;
+                    setHomework(lesson.id, task)
+                      .then(() => setHwInputs(prev => { const n = { ...prev }; delete n[lesson.id]; return n; }))
+                      .catch(e => showError('Помилка: ' + extractErrorMessage(e)));
+                  }}
+                  className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-50 flex-shrink-0"
+                >
+                  Задати ДЗ
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-start gap-8">
           {/* Table */}
@@ -83,6 +103,11 @@ export default function TeacherHomework() {
                   <span key={h} className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px]">{h}</span>
                 ))}
               </div>
+              {filtered.length === 0 && (
+                <div className="px-6 py-10 text-center">
+                  <p className="font-inter text-[#565d6d] text-sm">Домашніх завдань ще немає</p>
+                </div>
+              )}
               {filtered.map((hw, i) => (
                 <div key={hw.id}
                   onClick={() => handleSelect(hw)}
@@ -112,7 +137,6 @@ export default function TeacherHomework() {
           {/* Side panel */}
           {selected && (
             <aside className="w-[300px] flex-shrink-0 bg-white rounded-2xl shadow-[0px_25px_50px_-12px_#00000040] overflow-hidden sticky top-24 animate-fade-in">
-              {/* Header — БЕЗ 3 крапок */}
               <div className="flex items-center gap-3 p-5 border-b border-[#dee1e6]">
                 <div className={`w-10 h-10 rounded-full ${selected.avatarBg} flex items-center justify-center`}>
                   <span className="font-inter font-bold text-[#1f8cf9] text-sm">{selected.student[0]}</span>
@@ -139,13 +163,13 @@ export default function TeacherHomework() {
                       <div className="flex items-center gap-2">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                         <div>
-                          <p className="font-inter font-semibold text-slate-800 text-xs">{selected.file}</p>
-                          <p className="font-inter text-[#9095a1] text-[10px]">PDF • 2.4 MB</p>
+                          <p className="font-inter font-semibold text-slate-800 text-xs">{selected.file.length > 20 ? selected.file.slice(0, 20) + '...' : selected.file}</p>
+                          <p className="font-inter text-[#9095a1] text-[10px]">URL</p>
                         </div>
                       </div>
-                      <button type="button" aria-label="Завантажити файл" title="Завантажити" className="text-[#1f8cf9]">
+                      <a href={selected.file} target="_blank" rel="noreferrer" aria-label="Переглянути" title="Переглянути" className="text-[#1f8cf9]">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                      </button>
+                      </a>
                     </div>
                   </div>
                 )}
@@ -172,7 +196,7 @@ export default function TeacherHomework() {
                     </div>
                   ) : (
                     <input id="teacher-grade" type="text" value={grade} onChange={e => setGrade(e.target.value)}
-                      placeholder="Наприклад: 8/10"
+                      placeholder="Наприклад: 8"
                       className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
                   )}
                 </div>
@@ -183,7 +207,7 @@ export default function TeacherHomework() {
                     <span className="font-inter font-medium text-[#1a7bd9] text-sm">Робота вже перевірена</span>
                   </div>
                 ) : (
-                  <button type="button" onClick={handleSave}
+                  <button type="button" onClick={() => void handleSave()}
                     className="w-full py-3.5 bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors">
                     Зберегти та надіслати
                   </button>
