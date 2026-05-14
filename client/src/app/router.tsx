@@ -3,16 +3,24 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../app/providers';
 import MainLayout from '../components/layout/MainLayout';
 import HomePage from '../pages/HomePage';
+
+// Student
 import StudentDashboard from '../pages/student/StudentDashboard';
 import StudentHomework from '../pages/student/StudentHomework';
 import StudentSchedule from '../pages/student/StudentSchedule';
 import StudentSubscription from '../pages/student/StudentSubscription';
 import StudentGrades from '../pages/student/StudentGrades';
+import StudentSettings from '../pages/student/StudentSettings';
+
+// Teacher
 import TeacherDashboard from '../pages/teacher/TeacherDashboard';
 import TeacherSchedule from '../pages/teacher/TeacherSchedule';
 import TeacherFinances from '../pages/teacher/TeacherFinances';
 import TeacherStudents from '../pages/teacher/TeacherStudents';
 import TeacherHomework from '../pages/teacher/TeacherHomework';
+import TeacherSettings from '../pages/teacher/TeacherSettings';
+
+// Manager
 import ManagerDashboard from '../pages/manager/ManagerDashboard';
 import ManagerApplications from '../pages/manager/ManagerApplications';
 import ManagerSubscriptions from '../pages/manager/ManagerSubscriptions';

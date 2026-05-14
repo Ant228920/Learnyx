@@ -18,11 +18,16 @@ export default function MainLayout() {
     void navigate('/');
   };
 
+  const initials = user
+    ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase()
+    : '';
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-white">
       <header className="w-full sticky top-0 z-40 bg-white/90 border-b border-[#dee1e6] backdrop-blur-sm">
         <div className="max-w-[1440px] mx-auto w-full h-20 flex items-center justify-between px-20">
 
+          {/* Logo */}
           <a href="/" aria-label="LearNYX — головна сторінка" className="inline-flex items-center gap-2">
             <div className="w-8 h-8 bg-[#1f8cf9] rounded-md flex items-center justify-center" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -32,16 +37,19 @@ export default function MainLayout() {
             <span className="font-poppins font-bold text-[#1f8cf9] text-xl">LearNYX</span>
           </a>
 
+          {/* Nav links — only when not logged in */}
           <nav aria-label="Основна навігація" className="hidden md:flex items-center gap-8">
             {!user && (
               <>
                 <button
+                  type="button"
                   onClick={() => openModal('student')}
                   className="font-inter text-[#9095a1] text-sm font-medium hover:text-slate-900 transition-colors"
                 >
                   Зареєструватись як учень
                 </button>
                 <button
+                  type="button"
                   onClick={() => openModal('teacher')}
                   className="font-inter text-[#9095a1] text-sm font-medium hover:text-slate-900 transition-colors"
                 >
@@ -57,11 +65,25 @@ export default function MainLayout() {
             )}
           </nav>
 
+          {/* Right side */}
           {user ? (
             <div className="flex items-center gap-3">
-              <span className="font-inter text-sm text-slate-700">
-                {user.firstName} {user.lastName}
-              </span>
+              {/* Initials avatar */}
+              <div className="w-9 h-9 rounded-full bg-[#1f8cf9] flex items-center justify-center flex-shrink-0">
+                <span className="font-inter font-bold text-white text-sm">{initials}</span>
+              </div>
+
+              {/* Name */}
+              <div className="flex flex-col leading-tight">
+                <span className="font-inter font-semibold text-sm text-slate-900">
+                  {user.firstName} {user.lastName}
+                </span>
+                <span className="font-inter text-[10px] text-[#1f8cf9] font-medium uppercase tracking-wide">
+                  {user.role === 'student' ? 'Учень' : user.role === 'teacher' ? 'Вчитель' : 'Менеджер'}
+                </span>
+              </div>
+
+              {/* Back to cabinet */}
               <button
                 onClick={() => void navigate(roleDashboard(user.role))}
                 className="font-inter px-5 py-2 rounded-lg bg-[#1f8cf9] text-white text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm"
@@ -70,13 +92,14 @@ export default function MainLayout() {
               </button>
               <button
                 onClick={handleLogout}
-                className="font-inter px-5 py-2 rounded-lg border border-[#dee1e6] text-sm text-[#565d6d] hover:bg-gray-50 transition-colors"
+                className="font-inter px-4 py-2 rounded-lg border border-[#dee1e6] text-sm text-[#565d6d] hover:bg-gray-50 transition-colors"
               >
                 Вийти
               </button>
             </div>
           ) : (
             <button
+              type="button"
               onClick={() => openModal('login')}
               className="font-inter px-6 py-2 bg-[#1f8cf9] rounded-lg text-white text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm"
             >

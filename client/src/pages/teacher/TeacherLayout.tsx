@@ -19,7 +19,7 @@ const IconLogo = () => (
 );
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 

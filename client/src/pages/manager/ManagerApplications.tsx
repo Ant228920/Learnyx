@@ -308,36 +308,24 @@ export default function ManagerApplications() {
 
       {/* Confirm Modal */}
       {confirmAction && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setConfirmAction(null); }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-title"
-        >
-          <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl animate-fade-in p-8 flex flex-col items-center gap-4">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-              confirmAction.type === 'approve' ? 'bg-blue-50 text-[#1f8cf9]' : 'bg-red-50 text-red-500'
-            }`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setConfirmAction(null); }}
+          role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl p-8 flex flex-col items-center gap-5">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${confirmAction.type === 'approve' ? 'bg-blue-50 text-[#1f8cf9]' : 'bg-red-50 text-red-500'}`}>
               {confirmAction.type === 'approve'
-                ? <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                : <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              }
+                ? <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}
             </div>
-            <h2 id="confirm-title" className="font-poppins font-bold text-xl text-slate-900 text-center">
+            <h2 className="font-poppins font-bold text-xl text-slate-900">
               {confirmAction.type === 'approve' ? 'Прийняти заявку?' : 'Відхилити заявку?'}
             </h2>
             <p className="font-inter text-sm text-[#565d6d] text-center">
-              {confirmAction.type === 'approve'
-                ? `Ви підтверджуєте прийняття заявки від ${selectedUser?.name}.`
-                : `Ви підтверджуєте відхилення заявки від ${selectedUser?.name}.`}
+              {`Статус заявки "${confirmAction.req.title}" буде змінено.`}
             </p>
-            <div className="flex gap-3 w-full mt-2">
-              <button
-                type="button"
-                onClick={() => setConfirmAction(null)}
-                className="flex-1 py-3 rounded-xl border border-[#dee1e6] font-inter font-medium text-sm text-[#565d6d] hover:bg-gray-50 transition-colors"
-              >
+            <div className="flex gap-3 w-full">
+              <button type="button" onClick={() => setConfirmAction(null)}
+                className="flex-1 py-3 rounded-xl border border-[#dee1e6] font-inter font-medium text-sm text-[#565d6d] hover:bg-gray-50">
                 Скасувати
               </button>
               <button
@@ -365,18 +353,12 @@ export default function ManagerApplications() {
         >
           <div className="bg-white rounded-2xl p-8 w-full max-w-xs mx-4 flex flex-col items-center gap-4 shadow-2xl animate-fade-in">
             <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-[#1f8cf9]">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             </div>
             <h2 className="font-poppins font-bold text-xl text-slate-900">Готово!</h2>
-            <p className="font-inter text-sm text-[#565d6d] text-center">{successMessage}</p>
-            <button
-              onClick={() => setSuccessMessage(null)}
-              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors"
-            >
-              OK
-            </button>
+            <p className="font-inter text-sm text-[#565d6d] text-center">{successMsg}</p>
+            <button type="button" onClick={() => setSuccessMsg('')}
+              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600">OK</button>
           </div>
         </div>
       )}

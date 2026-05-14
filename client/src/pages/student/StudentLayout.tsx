@@ -23,7 +23,7 @@ interface Props {
 }
 
 export default function StudentLayout({ children }: Props) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
