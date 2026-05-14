@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest
 from users.models import Student
 
 
@@ -248,3 +248,30 @@ class PackagePlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = PackagePlan
         fields = ['id', 'name', 'total_lessons', 'price', 'description', 'is_active']
+
+
+class LearningRequestSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_email = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj):
+        u = obj.student.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    def get_student_email(self, obj):
+        return obj.student.user.email
+
+    class Meta:
+        model = LearningRequest
+        fields = [
+            'id', 'student_name', 'student_email',
+            'subject', 'level', 'preferred_days', 'preferred_time',
+            'notes', 'status', 'created_at', 'package',
+        ]
+        read_only_fields = ['id', 'student_name', 'student_email', 'created_at']
+
+
+class LearningRequestCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LearningRequest
+        fields = ['subject', 'level', 'preferred_days', 'preferred_time', 'notes', 'package']

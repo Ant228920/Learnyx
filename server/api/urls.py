@@ -22,6 +22,10 @@ from api.views import (
     ProfileView,
     TeacherFinancesView,
     ManagerSubscriptionsView,
+    StudentWalletView,
+    StudentBalanceTopUpView,
+    StudentLearningRequestView,
+    ManagerLearningRequestsView,
 )
 from users.views import RequestViewSet
 
@@ -72,6 +76,15 @@ urlpatterns = [
     # ── Teacher finances & Manager subscriptions
     path('v1/teacher/finances/', TeacherFinancesView.as_view(), name='teacher-finances'),
     path('v1/manager/subscriptions/', ManagerSubscriptionsView.as_view(), name='manager-subscriptions'),
+
+    # ── Student wallet
+    path('v1/students/me/wallet/', StudentWalletView.as_view(), name='student-wallet'),
+    path('v1/students/me/topup/', StudentBalanceTopUpView.as_view(), name='student-topup'),
+
+    # ── Learning requests
+    path('v1/students/me/learning-requests/', StudentLearningRequestView.as_view(), name='student-learning-requests'),
+    path('v1/manager/learning-requests/', ManagerLearningRequestsView.as_view(), name='manager-learning-requests'),
+    path('v1/manager/learning-requests/<int:pk>/', ManagerLearningRequestsView.as_view(), name='manager-learning-request-detail'),
 
     # ── ViewSets
     path('', include(router.urls)),

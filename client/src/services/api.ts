@@ -163,6 +163,20 @@ export interface TeacherDashboard {
   };
 }
 
+export interface LearningRequestItem {
+  id: number;
+  student_name: string;
+  student_email: string;
+  subject: string;
+  level: string;
+  preferred_days: string;
+  preferred_time: string;
+  notes: string;
+  status: 'pending' | 'matched' | 'cancelled';
+  created_at: string;
+  package: number | null;
+}
+
 export interface ApiError {
   timestamp: string;
   errorCode: string;
@@ -284,6 +298,29 @@ export const studentApi = {
   purchasePlan: async (planId: number) => {
     const { data } = await apiClient.post(`/packages/${planId}/purchase/`);
     return data;
+  },
+
+  getWallet: async (): Promise<{ money_balance: number; bonus_discount_pct: number; bonus_description: string }> => {
+    const { data } = await apiClient.get('/students/me/wallet/');
+    return data;
+  },
+
+  topUp: async (amount: number): Promise<{ money_balance: number; added: number; message: string }> => {
+    const { data } = await apiClient.post('/students/me/topup/', { amount });
+    return data;
+  },
+
+  getLearningRequests: async () => {
+    const { data } = await apiClient.get('/students/me/learning-requests/');
+    return data as LearningRequestItem[];
+  },
+
+  createLearningRequest: async (payload: {
+    subject: string; level: string; preferred_days?: string;
+    preferred_time?: string; notes?: string; package?: number | null;
+  }) => {
+    const { data } = await apiClient.post('/students/me/learning-requests/', payload);
+    return data as LearningRequestItem;
   },
 };
 
@@ -463,6 +500,17 @@ export const managerApi = {
   getSubscriptions: async () => {
     const { data } = await apiClient.get('/manager/subscriptions/');
     return data;
+  },
+
+  getLearningRequests: async (statusFilter?: string) => {
+    const query = statusFilter ? `?status=${statusFilter}` : '';
+    const { data } = await apiClient.get(`/manager/learning-requests/${query}`);
+    return data as LearningRequestItem[];
+  },
+
+  updateLearningRequest: async (id: number, status: string) => {
+    const { data } = await apiClient.patch(`/manager/learning-requests/${id}/`, { status });
+    return data as LearningRequestItem;
   },
 };
 

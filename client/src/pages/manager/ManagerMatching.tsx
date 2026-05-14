@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
-import { useManagerMatching } from '../../features/manager/matching';
+import { useManagerMatching, useManagerLearningRequests } from '../../features/manager/matching';
 
 interface Slot {
   id: number;
@@ -20,6 +20,13 @@ interface Teacher {
 }
 
 const SUBJECTS = ['Англійська мова', 'Математика', 'Українська мова', 'Історія України', 'Інформатика'];
+const SUBJECT_LABELS: Record<string, string> = {
+  english: 'Англійська мова', math: 'Математика', ukrainian: 'Українська мова',
+  history: 'Історія України', informatics: 'Інформатика',
+};
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Очікує', matched: 'Підібрано', cancelled: 'Скасовано',
+};
 const LEVELS_ENGLISH = ['A1 - Початковий', 'A2 - Елементарний', 'B1 - Середній', 'B2 - Вище середнього', 'C1 - Просунутий', 'C2 - Досконалий'];
 const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
 const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
@@ -67,6 +74,7 @@ export default function ManagerMatching() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { students: rawStudents, teachers: rawTeachers, loading, error } = useManagerMatching();
+  const { requests, loading: reqLoading, updateStatus } = useManagerLearningRequests();
 
   const studentOptions = rawStudents.map(s => `${s.first_name} ${s.last_name}`.trim() || s.email);
   const allTeacherCards: Teacher[] = rawTeachers.map((t, i) => ({
@@ -185,6 +193,49 @@ export default function ManagerMatching() {
                 Налаштуйте параметри запиту та знайдіть ідеального викладача для студента.
               </p>
             </div>
+
+            {/* Learning requests from students */}
+            {!reqLoading && requests.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <h2 className="font-poppins font-bold text-slate-900 text-xl">Запити від студентів</h2>
+                <div className="flex flex-col gap-3">
+                  {requests.map((req) => (
+                    <div key={req.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6]">
+                      <div className="flex flex-col gap-0.5 flex-1">
+                        <span className="font-inter font-bold text-slate-900 text-sm">{req.student_name || req.student_email}</span>
+                        <span className="font-inter text-[#565d6d] text-xs">
+                          {SUBJECT_LABELS[req.subject] ?? req.subject} • {req.level}
+                          {req.preferred_days ? ` • ${req.preferred_days}` : ''}
+                          {req.preferred_time ? ` • ${req.preferred_time}` : ''}
+                        </span>
+                        {req.notes && <span className="font-inter text-[#9095a1] text-xs mt-0.5">{req.notes}</span>}
+                      </div>
+                      <span className={`text-xs font-inter font-bold px-2.5 py-1 rounded-full ${
+                        req.status === 'matched' ? 'bg-green-100 text-green-700' :
+                        req.status === 'cancelled' ? 'bg-red-100 text-red-600' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {STATUS_LABELS[req.status] ?? req.status}
+                      </span>
+                      {req.status === 'pending' && (
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button type="button"
+                            onClick={() => void updateStatus(req.id, 'matched')}
+                            className="px-3 py-1.5 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-xs hover:bg-blue-600 transition-colors">
+                            Підібрано
+                          </button>
+                          <button type="button"
+                            onClick={() => void updateStatus(req.id, 'cancelled')}
+                            className="px-3 py-1.5 border border-[#dee1e6] rounded-xl font-inter font-medium text-[#565d6d] text-xs hover:bg-gray-50 transition-colors">
+                            Скасувати
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex items-start gap-8">
               {/* Left: form */}

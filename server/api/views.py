@@ -39,9 +39,11 @@ from api.serializers import (
     LessonArchiveSerializer,
     PackagePlanSerializer,
     TeacherListSerializer,
+    LearningRequestSerializer,
+    LearningRequestCreateSerializer,
 )
 from users.models import User, Role, Student, Manager
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest
 from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS
 
 logger = logging.getLogger(__name__)
@@ -919,7 +921,18 @@ class PackagePurchaseView(APIView):
             final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
             discount_applied = True
 
+        if role == 'student' and student.money_balance < final_price:
+            return Response({
+                'error': 'Недостатньо коштів на балансі',
+                'required': float(final_price),
+                'available': float(student.money_balance),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
+            student_locked = Student.objects.select_for_update().get(pk=student.pk)
+            student_locked.money_balance -= final_price
+            student_locked.save(update_fields=['money_balance'])
+            Package.objects.filter(student=student, status='active').update(status='completed')
             package = Package.objects.create(
                 student=student,
                 course=course,
@@ -937,7 +950,46 @@ class PackagePurchaseView(APIView):
             'final_price': float(package.final_price),
             'discount_applied': discount_applied,
             'discount_pct': float(discount_pct),
+            'money_balance': float(student_locked.money_balance),
         }, status=status.HTTP_201_CREATED)
+
+
+class StudentWalletView(APIView):
+    """Returns student money balance + bonus discount info."""
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        student = get_object_or_404(Student, user=request.user)
+        bonus = get_bonus_balance(student)
+        return Response({
+            'money_balance': float(student.money_balance),
+            'bonus_discount_pct': bonus.get('available_discount_pct', 0),
+            'bonus_description': bonus.get('description', ''),
+        })
+
+
+class StudentBalanceTopUpView(APIView):
+    """Simulated top-up: adds money to student wallet balance."""
+    permission_classes = [IsStudent]
+
+    def post(self, request):
+        from decimal import Decimal
+        amount = request.data.get('amount', 500)
+        try:
+            amount = float(amount)
+            if amount <= 0 or amount > 10000:
+                return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+        except (TypeError, ValueError):
+            return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+
+        student = get_object_or_404(Student, user=request.user)
+        student.money_balance += Decimal(str(amount))
+        student.save(update_fields=['money_balance'])
+        return Response({
+            'money_balance': float(student.money_balance),
+            'added': amount,
+            'message': f'Баланс поповнено на ₴{amount:.0f}',
+        })
 
 
 class TeacherFinancesView(APIView):
@@ -1039,3 +1091,39 @@ class ProfileView(APIView):
             user.nickname = data['telegram_nickname']
         user.save()
         return Response({'message': 'Профіль оновлено успішно.'})
+
+
+class StudentLearningRequestView(APIView):
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        student = get_object_or_404(Student, user=request.user)
+        qs = LearningRequest.objects.filter(student=student)
+        return Response(LearningRequestSerializer(qs, many=True).data)
+
+    def post(self, request):
+        student = get_object_or_404(Student, user=request.user)
+        serializer = LearningRequestCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        req = serializer.save(student=student)
+        return Response(LearningRequestSerializer(req).data, status=status.HTTP_201_CREATED)
+
+
+class ManagerLearningRequestsView(APIView):
+    permission_classes = [IsManager]
+
+    def get(self, request):
+        qs = LearningRequest.objects.select_related('student__user').all()
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return Response(LearningRequestSerializer(qs, many=True).data)
+
+    def patch(self, request, pk):
+        req = get_object_or_404(LearningRequest, pk=pk)
+        new_status = request.data.get('status')
+        if new_status not in dict(LearningRequest.STATUS_CHOICES):
+            return Response({'detail': 'Invalid status.'}, status=status.HTTP_400_BAD_REQUEST)
+        req.status = new_status
+        req.save(update_fields=['status'])
+        return Response(LearningRequestSerializer(req).data)
