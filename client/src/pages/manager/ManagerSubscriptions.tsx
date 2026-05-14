@@ -1,28 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
+import { useManagerSubscriptions } from '../../features/manager/subscriptions';
+import type { Subscription } from '../../features/manager/subscriptions';
 
 type SubscriptionStatus = 'Активна' | 'Закінчується' | 'Завершена';
 
-interface Subscription {
-  id: number;
-  name: string;
-  email: string;
-  lessons: number;
-  used: number;
-  status: SubscriptionStatus;
-  avatarBg: string;
-}
-
-const SUBSCRIPTIONS: Subscription[] = [
-  { id: 1, name: 'Ковальчук Олена Ігорівна', email: 'o.kovalchuk@email.com', lessons: 12, used: 2, status: 'Активна', avatarBg: 'bg-[#e7eff9]' },
-  { id: 2, name: 'Сидоренко Максим Вікторович', email: 'm.sydorenko@email.com', lessons: 8, used: 6, status: 'Закінчується', avatarBg: 'bg-[#dafdf8]' },
-  { id: 3, name: 'Дмитрук Валерій Павлович', email: 'v.dmytruk@email.com', lessons: 15, used: 15, status: 'Завершена', avatarBg: 'bg-[#e7eff9]' },
-  { id: 4, name: 'Ткаченко Софія Юріївна', email: 's.tkachenko@email.com', lessons: 8, used: 2, status: 'Активна', avatarBg: 'bg-[#ebe3ff]' },
-  { id: 5, name: 'Бондаренко Андрій Сергійович', email: 'a.bond@email.com', lessons: 12, used: 0, status: 'Активна', avatarBg: 'bg-[#e7eff9]' },
-  { id: 6, name: 'Левченко Марія Олександрівна', email: 'm.levchenko@email.com', lessons: 15, used: 12, status: 'Активна', avatarBg: 'bg-[#dafdf8]' },
-  { id: 7, name: 'Павленко Іван Костянтинович', email: 'i.pavlenko@email.com', lessons: 8, used: 8, status: 'Завершена', avatarBg: 'bg-[#e7eff9]' },
-  { id: 8, name: 'Шевченко Вікторія Петрівна', email: 'v.shev@email.com', lessons: 12, used: 10, status: 'Закінчується', avatarBg: 'bg-[#e7eff9]' },
-];
+const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
 
 const NAV_ITEMS = [
   { label: 'Дашборд', active: false, path: '/manager' },
@@ -34,7 +17,12 @@ const NAV_ITEMS = [
 
 const FOOTER_LINKS = ['Політика конфіденційності', 'Центр допомоги', 'Умови використання'];
 
-// ─── Status helpers ───────────────────────────────────────────────────────────
+function getStatusLabel(sub: Subscription): SubscriptionStatus {
+  if (sub.status === 'active') {
+    return sub.balance <= 2 ? 'Закінчується' : 'Активна';
+  }
+  return 'Завершена';
+}
 
 function getStatusStyle(status: SubscriptionStatus) {
   switch (status) {
@@ -58,8 +46,6 @@ function getProgressStyle(status: SubscriptionStatus) {
   }
 }
 
-// ─── Icons ───────────────────────────────────────────────────────────────────
-
 const IconLogo = () => (
   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
     <path d="M11 3L19 7.5V14.5L11 19L3 14.5V7.5L11 3Z" fill="white" />
@@ -73,11 +59,12 @@ const IconBook = () => (
   </svg>
 );
 
-// ─── Component ───────────────────────────────────────────────────────────────
-
 export default function ManagerSubscriptions() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { data, loading, error } = useManagerSubscriptions();
+
+  const subscriptions = data?.subscriptions ?? [];
 
   return (
     <div className="flex w-full min-h-screen bg-white">
@@ -160,6 +147,11 @@ export default function ManagerSubscriptions() {
               </h1>
               <p className="font-inter text-[#565d6d] text-lg leading-7 mt-2">
                 Повний список активних та завершених абонементів учнів платформи.
+                {data && (
+                  <span className="ml-2 font-inter text-[#565d6d] text-base">
+                    (Активних: {data.total_active}, Виручка: {data.total_revenue.toLocaleString('uk')} ₴)
+                  </span>
+                )}
               </p>
             </div>
 
@@ -173,23 +165,33 @@ export default function ManagerSubscriptions() {
                 <span className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Статус</span>
               </div>
 
+              {loading && (
+                <div className="px-6 py-8 text-center font-inter text-[#565d6d]">Завантаження...</div>
+              )}
+              {error && (
+                <div className="px-6 py-8 text-center font-inter text-[#e64c4c]">{error}</div>
+              )}
+              {!loading && !error && subscriptions.length === 0 && (
+                <div className="px-6 py-8 text-center font-inter text-[#565d6d]">Підписок ще немає.</div>
+              )}
+
               {/* Rows */}
-              {SUBSCRIPTIONS.map((sub, index) => {
-                const remaining = sub.lessons - sub.used;
+              {subscriptions.map((sub, index) => {
+                const statusLabel = getStatusLabel(sub);
                 return (
                   <div
                     key={sub.id}
                     className={`grid grid-cols-[2fr_1fr_1fr_1fr] items-center px-6 py-5 ${
-                      index < SUBSCRIPTIONS.length - 1 ? 'border-b border-[#dee1e6]' : ''
+                      index < subscriptions.length - 1 ? 'border-b border-[#dee1e6]' : ''
                     }`}
                   >
                     {/* Student */}
                     <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full ${sub.avatarBg} flex items-center justify-center flex-shrink-0`} aria-hidden="true">
-                        <span className="font-inter font-bold text-[#1f8cf9] text-sm">{sub.name[0]}</span>
+                      <div className={`w-10 h-10 rounded-full ${AVATAR_COLORS[index % AVATAR_COLORS.length]} flex items-center justify-center flex-shrink-0`} aria-hidden="true">
+                        <span className="font-inter font-bold text-[#1f8cf9] text-sm">{sub.student_name[0]}</span>
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-poppins font-bold text-slate-900 text-sm leading-5">{sub.name}</span>
+                        <span className="font-poppins font-bold text-slate-900 text-sm leading-5">{sub.student_name}</span>
                         <span className="font-inter text-[#565d6d] text-xs">{sub.email}</span>
                       </div>
                     </div>
@@ -197,20 +199,20 @@ export default function ManagerSubscriptions() {
                     {/* Subscription type */}
                     <div className="flex items-center gap-2">
                       <IconBook />
-                      <span className="font-inter font-semibold text-slate-800 text-sm">{sub.lessons} занять</span>
+                      <span className="font-inter font-semibold text-slate-800 text-sm">{sub.total_lessons} занять</span>
                     </div>
 
                     {/* Remaining */}
                     <div>
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full font-inter font-bold text-sm ${getProgressStyle(sub.status)}`}>
-                        {remaining} / {sub.lessons}
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full font-inter font-bold text-sm ${getProgressStyle(statusLabel)}`}>
+                        {sub.balance} / {sub.total_lessons}
                       </span>
                     </div>
 
                     {/* Status */}
                     <div>
-                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-inter font-medium text-sm ${getStatusStyle(sub.status)}`}>
-                        {sub.status}
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-inter font-medium text-sm ${getStatusStyle(statusLabel)}`}>
+                        {statusLabel}
                       </span>
                     </div>
                   </div>

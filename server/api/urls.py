@@ -20,6 +20,8 @@ from api.views import (
     LessonArchiveView,
     PackagePurchaseView,
     ProfileView,
+    TeacherFinancesView,
+    ManagerSubscriptionsView,
 )
 from users.views import RequestViewSet
 
@@ -66,6 +68,10 @@ urlpatterns = [
 
     # ── Profile
     path('v1/profile/', ProfileView.as_view(), name='profile'),
+
+    # ── Teacher finances & Manager subscriptions
+    path('v1/teacher/finances/', TeacherFinancesView.as_view(), name='teacher-finances'),
+    path('v1/manager/subscriptions/', ManagerSubscriptionsView.as_view(), name='manager-subscriptions'),
 
     # ── ViewSets
     path('', include(router.urls)),

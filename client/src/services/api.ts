@@ -374,6 +374,11 @@ export const teacherApi = {
     const { data } = await apiClient.get(`/journal/?lesson_id=${lessonId}`);
     return data.results ?? data;
   },
+
+  getFinances: async () => {
+    const { data } = await apiClient.get('/teacher/finances/');
+    return data;
+  },
 };
 
 // ── Manager API ────────────────────────────────────────────────────────────
@@ -452,6 +457,11 @@ export const managerApi = {
     meting_link?: string;
   }) => {
     const { data } = await apiClient.post('/lessons/', payload);
+    return data;
+  },
+
+  getSubscriptions: async () => {
+    const { data } = await apiClient.get('/manager/subscriptions/');
     return data;
   },
 };

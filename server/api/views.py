@@ -940,6 +940,76 @@ class PackagePurchaseView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class TeacherFinancesView(APIView):
+    """Teacher's conducted-lesson transaction history."""
+    permission_classes = [IsTeacher]
+
+    def get(self, request):
+        teacher = get_object_or_404(Teacher, user=request.user)
+        lessons = Lesson.objects.filter(
+            slot__teacher=teacher,
+            status='conducted',
+        ).select_related('slot', 'student__user').order_by('-slot__start_time')
+
+        transactions = []
+        for lesson in lessons:
+            st = lesson.slot.start_time
+            et = lesson.slot.end_time
+            transactions.append({
+                'id': lesson.id,
+                'date': st.strftime('%d.%m.%Y') if st else '—',
+                'time': (
+                    f"{st.strftime('%H:%M')} - {et.strftime('%H:%M')}"
+                    if st and et else '—'
+                ),
+                'student_name': (
+                    f"{lesson.student.user.first_name} {lesson.student.user.last_name}".strip()
+                    or lesson.student.user.email
+                ),
+                'amount': 250,
+                'status': 'paid',
+                'lesson_id': lesson.id,
+            })
+
+        total = len(transactions) * 250
+        return Response({
+            'transactions': transactions,
+            'total_earned': total,
+            'lessons_count': len(transactions),
+        })
+
+
+class ManagerSubscriptionsView(APIView):
+    """Manager view of all student packages (active + completed)."""
+    permission_classes = [IsManager]
+
+    def get(self, request):
+        packages = Package.objects.select_related('student__user').order_by('-id')
+
+        data = []
+        for pkg in packages:
+            data.append({
+                'id': pkg.id,
+                'student_name': (
+                    f"{pkg.student.user.first_name} {pkg.student.user.last_name}".strip()
+                    or pkg.student.user.email
+                ),
+                'email': pkg.student.user.email,
+                'total_lessons': pkg.total_lessons,
+                'balance': pkg.balance,
+                'used_lessons': pkg.total_lessons - pkg.balance,
+                'final_price': float(pkg.final_price),
+                'status': pkg.status,
+                'purchased_at': pkg.purchased_at.strftime('%d.%m.%Y') if pkg.purchased_at else '—',
+            })
+
+        return Response({
+            'subscriptions': data,
+            'total_active': sum(1 for p in data if p['status'] == 'active'),
+            'total_revenue': sum(p['final_price'] for p in data),
+        })
+
+
 class ProfileView(APIView):
     """Shared profile endpoint for all roles."""
     permission_classes = [IsAuthenticated]
