@@ -174,6 +174,16 @@ class TeacherInlineSerializer(serializers.ModelSerializer):
         fields = ['user_id', 'first_name', 'last_name']
 
 
+class TeacherListSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    email = serializers.EmailField(source='user.email')
+
+    class Meta:
+        model = Teacher
+        fields = ['user_id', 'first_name', 'last_name', 'email']
+
+
 class SlotAvailableSerializer(serializers.ModelSerializer):
     teacher = TeacherInlineSerializer(read_only=True)
 

@@ -12,6 +12,7 @@ from api.views import (
     LessonViewSet,
     BonusBalanceView,
     StudentListView,
+    TeacherListView,
     StudentDashboardView,
     TeacherDashboardView,
     JournalListView,
@@ -48,6 +49,7 @@ urlpatterns = [
     path('v1/students/available/', AvailableStudentListView.as_view(), name='student-available'),
     path('v1/students/', StudentListView.as_view(), name='student-list'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),
+    path('v1/teachers/', TeacherListView.as_view(), name='teacher-list'),
 
     # ── Bonus / cashback
     path('v1/bonus/balance/<int:student_id>/', BonusBalanceView.as_view(), name='bonus-balance'),

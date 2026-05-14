@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
+import { useManagerMatching } from '../../features/manager/matching';
 
 interface Slot {
   id: number;
@@ -18,29 +19,15 @@ interface Teacher {
   avatarBg: string;
 }
 
-const STUDENTS = [
-  'Сидоренко Максим (А-12)',
-  'Ковальчук Олена',
-  'Іванов Дмитро',
-  'Ткаченко Софія',
-];
-
 const SUBJECTS = ['Англійська мова', 'Математика', 'Українська мова', 'Історія України', 'Інформатика'];
-
 const LEVELS_ENGLISH = ['A1 - Початковий', 'A2 - Елементарний', 'B1 - Середній', 'B2 - Вище середнього', 'C1 - Просунутий', 'C2 - Досконалий'];
 const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
+const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
+const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
 
 function getLevels(subject: string): string[] {
   return subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER;
 }
-
-const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
-
-const MOCK_TEACHERS: Teacher[] = [
-  { id: 1, name: 'Марія Ковальчук', experience: '8 років', level: 'B2 - C1 (Advanced)', subjects: ['Англійська мова', 'Німецька мова'], avatarBg: 'bg-[#e7eff9]' },
-  { id: 2, name: 'Олег Петренко', experience: '5 років', level: '5-11 класи (Підготовка до ЗНО)', subjects: ['Математика', 'Фізика'], avatarBg: 'bg-[#dafdf8]' },
-  { id: 3, name: 'Анна Сидоренко', experience: '12 років', level: 'C1 - C2 (Mastery)', subjects: ['Англійська мова', 'Підготовка до TOEFL'], avatarBg: 'bg-[#ebe3ff]' },
-];
 
 const NAV_ITEMS = [
   { label: 'Дашборд', active: false, path: '/manager' },
@@ -79,14 +66,32 @@ const IconX = () => (
 export default function ManagerMatching() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { students: rawStudents, teachers: rawTeachers, loading, error } = useManagerMatching();
 
-  const [student, setStudent] = useState(STUDENTS[0]);
+  const studentOptions = rawStudents.map(s => `${s.first_name} ${s.last_name}`.trim() || s.email);
+  const allTeacherCards: Teacher[] = rawTeachers.map((t, i) => ({
+    id: t.id,
+    name: `${t.first_name} ${t.last_name}`.trim() || t.email,
+    experience: '—',
+    level: '—',
+    subjects: [],
+    avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
+  }));
+
+  const [student, setStudent] = useState('');
   const [subject, setSubject] = useState(SUBJECTS[0]);
   const [level, setLevel] = useState(getLevels(SUBJECTS[0])[2]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [searched, setSearched] = useState(false);
   const [successTeacher, setSuccessTeacher] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!student && rawStudents.length > 0) {
+      const first = rawStudents[0];
+      setStudent(`${first.first_name} ${first.last_name}`.trim() || first.email);
+    }
+  }, [student, rawStudents]);
 
   const handleSubjectChange = (newSubject: string) => {
     setSubject(newSubject);
@@ -106,22 +111,25 @@ export default function ManagerMatching() {
   };
 
   const handleSearch = () => {
-    setTeachers(MOCK_TEACHERS);
+    setTeachers(allTeacherCards);
     setSearched(true);
   };
 
   const handleAssign = (name: string) => {
     setSuccessTeacher(name);
-    // Скидаємо всі результати і форму після призначення
     setTeachers([]);
     setSearched(false);
     setSlots([]);
-    setStudent(STUDENTS.filter((s) => s !== student)[0] ?? STUDENTS[0]);
+    const next = studentOptions.filter((s) => s !== student)[0] ?? studentOptions[0] ?? '';
+    setStudent(next);
     setSubject(SUBJECTS[0]);
     setLevel(getLevels(SUBJECTS[0])[0]);
   };
 
   const selectClass = 'border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-full';
+
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   return (
     <div className="flex w-full min-h-screen bg-white">
@@ -147,11 +155,8 @@ export default function ManagerMatching() {
             className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors">
             <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>
           </button>
-          <button
-            type="button"
-            onClick={() => { logout(); void navigate('/'); }}
-            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors"
-          >
+          <button type="button" onClick={() => { logout(); void navigate('/'); }}
+            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors">
             <span className="font-inter text-sm font-medium text-red-500">Вийти</span>
           </button>
         </div>
@@ -185,7 +190,6 @@ export default function ManagerMatching() {
               {/* Left: form */}
               <div className="flex flex-col gap-6 w-[380px] flex-shrink-0">
 
-                {/* Found count */}
                 {searched && (
                   <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase self-end">
                     ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
@@ -203,7 +207,10 @@ export default function ManagerMatching() {
                     <label htmlFor="match-student" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Учень</label>
                     <div className="relative">
                       <select id="match-student" value={student} onChange={(e) => setStudent(e.target.value)} aria-label="Вибір учня" className={selectClass}>
-                        {STUDENTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        {studentOptions.length === 0
+                          ? <option value="">— Немає студентів —</option>
+                          : studentOptions.map((s) => <option key={s} value={s}>{s}</option>)
+                        }
                       </select>
                       <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                     </div>
@@ -238,11 +245,8 @@ export default function ManagerMatching() {
                       <p className="font-poppins font-bold text-slate-900 text-xl leading-7">Вільні слоти учня</p>
                       <p className="font-inter text-[#565d6d] text-sm mt-0.5">Додайте доступні часові інтервали</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={addSlot}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-[#1f8cf9] font-inter font-bold text-[#1f8cf9] text-xs hover:bg-blue-50 transition-colors"
-                    >
+                    <button type="button" onClick={addSlot}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-[#1f8cf9] font-inter font-bold text-[#1f8cf9] text-xs hover:bg-blue-50 transition-colors">
                       <IconPlus />
                       Додати слот
                     </button>
@@ -254,38 +258,24 @@ export default function ManagerMatching() {
                         <IconX />
                       </button>
                       <div className="relative flex-1">
-                        <select
-                          value={slot.day}
-                          onChange={(e) => updateSlot(slot.id, 'day', e.target.value)}
+                        <select value={slot.day} onChange={(e) => updateSlot(slot.id, 'day', e.target.value)}
                           aria-label="День тижня"
-                          className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-full pr-7"
-                        >
+                          className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-full pr-7">
                           {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
                         </select>
                         <svg className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                       </div>
-                      <input
-                        type="time"
-                        value={slot.from}
-                        onChange={(e) => updateSlot(slot.id, 'from', e.target.value)}
+                      <input type="time" value={slot.from} onChange={(e) => updateSlot(slot.id, 'from', e.target.value)}
                         aria-label="Час початку"
-                        className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24"
-                      />
-                      <input
-                        type="time"
-                        value={slot.to}
-                        onChange={(e) => updateSlot(slot.id, 'to', e.target.value)}
+                        className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
+                      <input type="time" value={slot.to} onChange={(e) => updateSlot(slot.id, 'to', e.target.value)}
                         aria-label="Час завершення"
-                        className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24"
-                      />
+                        className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={handleSearch}
-                    className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2"
-                  >
+                  <button type="button" onClick={handleSearch}
+                    className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2">
                     <IconSearch />
                     Знайти викладачів
                   </button>
@@ -299,6 +289,10 @@ export default function ManagerMatching() {
                     ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
                   </p>
 
+                  {teachers.length === 0 && (
+                    <p className="font-inter text-[#9095a1] text-sm">Викладачів не знайдено</p>
+                  )}
+
                   {teachers.map((t) => (
                     <div key={t.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-[#dee1e6]">
                       <div className={`w-12 h-12 rounded-full ${t.avatarBg} flex items-center justify-center flex-shrink-0`} aria-hidden="true">
@@ -309,26 +303,27 @@ export default function ManagerMatching() {
                         <span className="font-inter text-[#565d6d] text-xs">
                           Досвід: {t.experience} • Рівень: {t.level}
                         </span>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {t.subjects.map((s) => (
-                            <span key={s} className="px-2.5 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-medium text-[#565d6d] text-xs">{s}</span>
-                          ))}
-                        </div>
+                        {t.subjects.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {t.subjects.map((s) => (
+                              <span key={s} className="px-2.5 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-medium text-[#565d6d] text-xs">{s}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleAssign(t.name)}
+                      <button type="button" onClick={() => handleAssign(t.name)}
                         aria-label={`Призначити викладача ${t.name}`}
-                        className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0"
-                      >
+                        className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
                         Призначити
                       </button>
                     </div>
                   ))}
 
-                  <button type="button" className="font-inter font-bold text-[#1f8cf9] text-sm text-center hover:underline mt-2">
-                    Показати більше результатів
-                  </button>
+                  {teachers.length > 0 && (
+                    <button type="button" className="font-inter font-bold text-[#1f8cf9] text-sm text-center hover:underline mt-2">
+                      Показати більше результатів
+                    </button>
+                  )}
                 </div>
               )}
             </div>

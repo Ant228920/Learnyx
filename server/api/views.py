@@ -38,6 +38,7 @@ from api.serializers import (
     HomeworkSerializer,
     LessonArchiveSerializer,
     PackagePlanSerializer,
+    TeacherListSerializer,
 )
 from users.models import User, Role, Student, Manager
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course
@@ -597,6 +598,26 @@ class StudentListView(generics.ListAPIView):
                 return Student.objects.none()
             return base_qs.filter(lessons__slot__teacher=teacher).distinct().order_by('lessons_balance')
         return base_qs.order_by('lessons_balance')
+
+
+class TeacherListView(APIView):
+    """Manager fetches all registered teachers."""
+    permission_classes = [IsManager]
+
+    def get(self, request):
+        teachers = Teacher.objects.select_related('user', 'user__role_obj').filter(
+            user__is_approved=True
+        )
+        data = [
+            {
+                'id': t.user.id,
+                'email': t.user.email,
+                'first_name': t.user.first_name,
+                'last_name': t.user.last_name,
+            }
+            for t in teachers
+        ]
+        return Response(data)
 
 
 class StudentDashboardView(APIView):

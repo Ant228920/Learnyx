@@ -390,7 +390,7 @@ export const managerApi = {
   },
 
   getTeachers: async () => {
-    const { data } = await apiClient.get('/students/?role=teacher');
+    const { data } = await apiClient.get('/teachers/');
     return data.results ?? data;
   },
 
