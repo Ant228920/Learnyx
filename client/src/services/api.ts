@@ -79,6 +79,7 @@ export interface Lesson {
   id: number;
   slot: number;
   student: number;
+  student_name: string | null;
   package: number;
   curriculum_lesson: number | null;
   status: string;
@@ -503,6 +504,14 @@ export const managerApi = {
   updateLearningRequest: async (id: number, status: string) => {
     const { data } = await apiClient.patch(`/manager/learning-requests/${id}/`, { status });
     return data as LearningRequestItem;
+  },
+
+  getLessonArchive: async (params?: {
+    date_from?: string; date_to?: string; status?: string; teacher_id?: number;
+  }) => {
+    const q = new URLSearchParams(params as Record<string, string>);
+    const { data } = await apiClient.get(`/admin/lessons/archive/?${q}`);
+    return data;
   },
 };
 

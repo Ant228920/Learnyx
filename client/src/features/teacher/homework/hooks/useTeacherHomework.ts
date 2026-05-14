@@ -30,24 +30,24 @@ export function useTeacherHomework() {
     setLoading(true);
     setError(null);
     try {
-      const lessons = await teacherApi.getLessons({ status: 'conducted' });
+      const [conductedLessons, scheduledLessons] = await Promise.all([
+        teacherApi.getLessons({ status: 'conducted' }),
+        teacherApi.getLessons({ status: 'scheduled' }),
+      ]);
+
+      // Assigned homework: conducted lessons that have a homework task set
       const journals = await Promise.all(
-        lessons.map(l => teacherApi.getJournalForLesson(l.id).catch(() => []))
+        conductedLessons.map(l => teacherApi.getJournalForLesson(l.id).catch(() => []))
       );
       const items: TeacherHomeworkItem[] = [];
-      const pending: PendingLesson[] = [];
-      lessons.forEach((lesson, idx) => {
-        const jList = journals[idx];
-        const j = jList[0];
-        if (!j || !j.teacher_homework_task) {
-          pending.push({ id: lesson.id, studentId: lesson.student, studentLabel: `Студент #${lesson.student}` });
-          return;
-        }
+      conductedLessons.forEach((lesson, idx) => {
+        const j = journals[idx]?.[0];
+        if (!j || typeof j.teacher_homework_task !== 'string' || !j.teacher_homework_task) return;
         items.push({
           id: j.id,
           lessonId: lesson.id,
-          student: `Студент #${lesson.student}`,
-          topic: j.teacher_homework_task || '—',
+          student: lesson.student_name || `Студент #${lesson.student}`,
+          topic: j.teacher_homework_task,
           subject: '—',
           deadline: formatDeadline(j.start_time),
           status: j.homework_grade != null ? 'ПЕРЕВІРЕНО' : 'НЕ ПЕРЕВІРЕНО',
@@ -55,10 +55,18 @@ export function useTeacherHomework() {
           savedComment: j.teacher_notes || '',
           savedGrade: j.homework_grade != null ? `${j.homework_grade}/10` : '',
           homeworkGrade: j.homework_grade,
-          teacherNotes: j.teacher_notes,
+          teacherNotes: j.teacher_notes ?? undefined,
           file: j.homework_answer_url || undefined,
         });
       });
+
+      // Pending: scheduled lessons (upcoming, homework not yet assigned)
+      const pending: PendingLesson[] = scheduledLessons.map(lesson => ({
+        id: lesson.id,
+        studentId: lesson.student,
+        studentLabel: lesson.student_name || `Студент #${lesson.student}`,
+      }));
+
       setHomeworks(items);
       setPendingLessons(pending);
     } catch (e) {

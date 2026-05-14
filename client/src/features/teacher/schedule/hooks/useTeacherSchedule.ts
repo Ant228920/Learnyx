@@ -23,7 +23,7 @@ export function useTeacherSchedule() {
       const item: SlotItem = {
         id: s.id,
         time: `${formatTime(s.start_time)} - ${formatTime(s.end_time)}`,
-        is_booked: s.is_booked,
+        is_booked: s.status === 'booked',
         start_time: s.start_time,
         end_time: s.end_time,
       };
@@ -55,7 +55,7 @@ export function useTeacherSchedule() {
       const item: SlotItem = {
         id: slot.id,
         time: `${formatTime(slot.start_time)} - ${formatTime(slot.end_time)}`,
-        is_booked: slot.is_booked,
+        is_booked: slot.status === 'booked',
         start_time: slot.start_time,
         end_time: slot.end_time,
       };

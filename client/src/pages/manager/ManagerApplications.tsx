@@ -94,7 +94,7 @@ export default function ManagerApplications() {
   const [selectedUser, setSelectedUser] = useState<Application | null>(null);
   const [filterType, setFilterType] = useState<FilterType>('Усі');
   const [filterSubject, setFilterSubject] = useState<FilterSubject>('Усі');
-  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject'; id: number } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject'; id: number; name: string } | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
@@ -283,7 +283,7 @@ export default function ManagerApplications() {
                 <div className="flex flex-col gap-3 pt-3">
                   <button
                     type="button"
-                    onClick={() => setConfirmAction({ type: 'approve', id: selectedUser.id })}
+                    onClick={() => setConfirmAction({ type: 'approve', id: selectedUser.id, name: selectedUser.name })}
                     aria-label={`Прийняти заявку ${selectedUser.name}`}
                     className="flex items-center justify-center gap-2 py-3.5 w-full bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors shadow-[0px_10px_15px_-3px_#bfdbfe]"
                   >
@@ -292,7 +292,7 @@ export default function ManagerApplications() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfirmAction({ type: 'reject', id: selectedUser.id })}
+                    onClick={() => setConfirmAction({ type: 'reject', id: selectedUser.id, name: selectedUser.name })}
                     aria-label={`Відхилити заявку ${selectedUser.name}`}
                     className="flex items-center justify-center gap-2 py-3.5 w-full bg-[#e64c4c] rounded-2xl font-inter font-medium text-white text-sm hover:bg-red-600 transition-colors shadow-[0px_10px_15px_-3px_#fee2e2]"
                   >
@@ -321,7 +321,7 @@ export default function ManagerApplications() {
               {confirmAction.type === 'approve' ? 'Прийняти заявку?' : 'Відхилити заявку?'}
             </h2>
             <p className="font-inter text-sm text-[#565d6d] text-center">
-              {`Статус заявки "${confirmAction.req.title}" буде змінено.`}
+              {`Статус заявки "${confirmAction?.name}" буде змінено.`}
             </p>
             <div className="flex gap-3 w-full">
               <button type="button" onClick={() => setConfirmAction(null)}
@@ -356,8 +356,8 @@ export default function ManagerApplications() {
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             </div>
             <h2 className="font-poppins font-bold text-xl text-slate-900">Готово!</h2>
-            <p className="font-inter text-sm text-[#565d6d] text-center">{successMsg}</p>
-            <button type="button" onClick={() => setSuccessMsg('')}
+            <p className="font-inter text-sm text-[#565d6d] text-center">{successMessage}</p>
+            <button type="button" onClick={() => setSuccessMessage(null)}
               className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600">OK</button>
           </div>
         </div>

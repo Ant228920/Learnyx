@@ -1,17 +1,26 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 import AuthModal from '../../features/auth/AuthModal';
 
 function roleDashboard(role: string): string {
-  if (role === 'Student') return '/dashboard';
-  if (role === 'Teacher') return '/teacher';
-  if (role === 'Manager' || role === 'Admin') return '/manager';
+  const r = role.toLowerCase();
+  if (r === 'student') return '/dashboard';
+  if (r === 'teacher') return '/teacher';
+  if (r === 'manager' || r === 'admin') return '/manager';
   return '/';
 }
 
 export default function MainLayout() {
   const { openModal, user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (user && location.pathname === '/') {
+      void navigate(roleDashboard(user.role));
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -79,7 +88,7 @@ export default function MainLayout() {
                   {user.firstName} {user.lastName}
                 </span>
                 <span className="font-inter text-[10px] text-[#1f8cf9] font-medium uppercase tracking-wide">
-                  {user.role === 'student' ? 'Учень' : user.role === 'teacher' ? 'Вчитель' : 'Менеджер'}
+                  {user.role.toLowerCase() === 'student' ? 'Учень' : user.role.toLowerCase() === 'teacher' ? 'Вчитель' : 'Менеджер'}
                 </span>
               </div>
 

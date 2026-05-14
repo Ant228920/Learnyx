@@ -27,6 +27,7 @@ export default function TeacherDashboard() {
   const [notConductedReason, setNotConductedReason] = useState('');
   const [homeworkTopic, setHomeworkTopic] = useState('');
   const [link, setLink] = useState('');
+  const [linkError, setLinkError] = useState('');
   const [gradedIds, setGradedIds] = useState<number[]>([]);
   const [gradeLoading, setGradeLoading] = useState(false);
   const [gradeError, setGradeError] = useState('');
@@ -58,37 +59,51 @@ export default function TeacherDashboard() {
     setGradeLoading(true);
     setGradeError('');
     try {
-      const gradeNum = notConducted ? 0 : parseInt(gradeValue.split('/')[0]) || undefined;
-      await teacherApi.evaluateLesson(gradeLesson.lesson_id, {
-        is_present: !notConducted,
-        activity_grade: gradeNum,
-        teacher_homework_task: notConducted ? notConductedReason : homeworkTopic,
-      });
-      if (!notConducted) {
-        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'conducted');
-      } else {
+      if (notConducted) {
+        await teacherApi.evaluateLesson(gradeLesson.lesson_id, {
+          is_present: false,
+          teacher_homework_task: notConductedReason,
+        });
         await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'student_missed');
+      } else {
+        const gradeNum = parseInt(gradeValue.split('/')[0]) || undefined;
+        await teacherApi.evaluateLesson(gradeLesson.lesson_id, {
+          is_present: true,
+          activity_grade: gradeNum,
+          teacher_homework_task: homeworkTopic,
+        });
+        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'conducted');
       }
       setGradedIds(p => [...p, gradeLesson.lesson_id!]);
       setGradeLesson(null);
       setGradeValue(''); setNotConducted(false); setNotConductedReason(''); setHomeworkTopic('');
     } catch (err) {
-      setGradeError(extractErrorMessage(err));
+      const data = (err as { response?: { data?: unknown } })?.response?.data;
+      const msg = typeof data === 'string'
+        ? data
+        : (data as Record<string, unknown[]>)?.activity_grade?.[0]?.toString()
+          || (data as Record<string, string>)?.error
+          || 'Помилка збереження оцінки';
+      setGradeError(msg);
     } finally {
       setGradeLoading(false);
     }
   };
 
   const handleSetLink = async () => {
-    if (!linkLessonId || !link) return;
+    if (!link) return;
+    if (!linkLessonId) {
+      setLinkError('Немає заброньованого уроку для цього слоту.');
+      return;
+    }
+    setLinkError('');
     try {
       await teacherApi.setMeetingLink(linkLessonId, link);
       setLinkModal(false);
       setLink('');
-      // Refresh dashboard
       teacherApi.getDashboard().then(setData).catch(() => {});
     } catch (err) {
-      console.error(extractErrorMessage(err));
+      setLinkError(extractErrorMessage(err));
     }
   };
 
@@ -302,23 +317,26 @@ export default function TeacherDashboard() {
       {/* Link Modal */}
       {linkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) setLinkModal(false); }}
+          onClick={e => { if (e.target === e.currentTarget) { setLinkModal(false); setLinkError(''); } }}
           role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl animate-fade-in p-8 flex flex-col gap-5">
             <div className="flex items-center justify-between">
               <h2 className="font-poppins font-bold text-slate-900 text-xl">Надіслати посилання</h2>
-              <button type="button" onClick={() => setLinkModal(false)} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
+              <button type="button" onClick={() => { setLinkModal(false); setLinkError(''); }} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
             <p className="font-inter text-[#565d6d] text-sm text-center">Поділіться посиланням на урок зі своєю групою.</p>
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9095a1" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-              <input type="url" value={link} onChange={e => setLink(e.target.value)}
+              <input type="url" value={link} onChange={e => { setLink(e.target.value); setLinkError(''); }}
                 placeholder="https://meet.google.com/..."
                 aria-label="Посилання на урок"
                 className="w-full border border-[#dee1e6] rounded-xl pl-10 pr-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
             </div>
+            {linkError && (
+              <p className="font-inter text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{linkError}</p>
+            )}
             <button type="button" onClick={() => void handleSetLink()}
               className="w-full py-3.5 bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors">
               Відправити

@@ -114,6 +114,9 @@ class ApproveRegistrationRequestView(APIView):
         if reg_request.status == 'approved':
             return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if User.objects.filter(phone=reg_request.phone).exists():
+            return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
+
         password = generate_password()
 
         try:
@@ -123,7 +126,8 @@ class ApproveRegistrationRequestView(APIView):
                 first_name = name_parts[0] if name_parts else "User"
                 last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-                role_obj, _ = Role.objects.get_or_create(name=reg_request.role)
+                role_name = reg_request.role.strip().capitalize()
+                role_obj, _ = Role.objects.get_or_create(name=role_name)
 
                 # Створення користувача
                 user = User.objects.create_user(
@@ -284,7 +288,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         return LessonSerializer
 
     def get_queryset(self):
-        qs = Lesson.objects.select_related('slot', 'package').all()
+        qs = Lesson.objects.select_related('slot', 'package', 'student__user').all()
 
         # Role-based scoping: students/teachers see only their own lessons
         user = self.request.user
@@ -557,9 +561,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if lesson.status != 'conducted':
+        if lesson.status not in ('conducted', 'scheduled'):
             return Response(
-                {'detail': 'Homework can only be added for conducted lessons.'},
+                {'detail': 'Homework can only be added for conducted or scheduled lessons.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -592,7 +596,7 @@ class StudentListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
-        base_qs = Student.objects.select_related('user').annotate(
+        base_qs = Student.objects.select_related('user', 'level').annotate(
             lessons_balance=Coalesce(
                 Sum('packages__balance', filter=Q(packages__status='active')),
                 0,
@@ -611,15 +615,17 @@ class TeacherListView(APIView):
     permission_classes = [IsManager]
 
     def get(self, request):
-        teachers = Teacher.objects.select_related('user', 'user__role_obj').filter(
+        teachers = Teacher.objects.select_related('user', 'user__role_obj', 'discipline').filter(
             user__is_approved=True
         )
         data = [
             {
-                'id': t.user.id,
+                'user_id': t.user.id,
                 'email': t.user.email,
                 'first_name': t.user.first_name,
                 'last_name': t.user.last_name,
+                'phone': t.user.phone or None,
+                'discipline': t.discipline.name if t.discipline else None,
             }
             for t in teachers
         ]
@@ -862,7 +868,7 @@ class LessonArchiveView(generics.ListAPIView):
 
     def get_queryset(self):
         qs = Lesson.objects.select_related(
-            'slot__teacher__user', 'student__user', 'package'
+            'slot__teacher__user', 'student__user', 'package__discipline'
         )
         p = self.request.query_params
         if p.get('date_from'):
@@ -985,7 +991,7 @@ class StudentWalletView(APIView):
         bonus = get_bonus_balance(student)
         return Response({
             'money_balance': float(student.money_balance),
-            'bonus_discount_pct': bonus.get('available_discount_pct', 0),
+            'bonus_discount_pct': bonus.get('available_cashback_pct', 0),
             'bonus_description': bonus.get('description', ''),
         })
 

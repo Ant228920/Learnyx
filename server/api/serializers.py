@@ -65,9 +65,18 @@ class SlotSerializer(serializers.ModelSerializer):
 
 
 class LessonSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj):
+        try:
+            u = obj.student.user
+            return f'{u.first_name} {u.last_name}'.strip() or None
+        except Exception:
+            return None
+
     class Meta:
         model = Lesson
-        fields = ['id', 'slot', 'student', 'package', 'curriculum_lesson', 'status', 'meeting_link']
+        fields = ['id', 'slot', 'student', 'student_name', 'package', 'curriculum_lesson', 'status', 'meeting_link']
 
 
 class LessonCreateSerializer(serializers.ModelSerializer):
@@ -143,11 +152,13 @@ class StudentListSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
     email = serializers.EmailField(source='user.email')
+    phone = serializers.CharField(source='user.phone', allow_null=True, default=None)
+    level = serializers.CharField(source='level.name', allow_null=True, default=None)
     lessons_balance = serializers.IntegerField()
 
     class Meta:
         model = Student
-        fields = ['user_id', 'first_name', 'last_name', 'email', 'lessons_balance']
+        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'level', 'lessons_balance']
 
 
 class JournalListSerializer(serializers.ModelSerializer):
@@ -227,6 +238,7 @@ class LessonArchiveSerializer(serializers.ModelSerializer):
     end_time = serializers.DateTimeField(source='slot.end_time', read_only=True)
     teacher_name = serializers.SerializerMethodField()
     student_name = serializers.SerializerMethodField()
+    subject = serializers.SerializerMethodField()
 
     def get_teacher_name(self, obj):
         u = obj.slot.teacher.user
@@ -236,11 +248,17 @@ class LessonArchiveSerializer(serializers.ModelSerializer):
         u = obj.student.user
         return f'{u.first_name} {u.last_name}'.strip()
 
+    def get_subject(self, obj):
+        try:
+            return obj.package.discipline.name
+        except Exception:
+            return '—'
+
     class Meta:
         model = Lesson
         fields = [
             'id', 'status', 'start_time', 'end_time',
-            'teacher_name', 'student_name', 'package', 'meeting_link',
+            'teacher_name', 'student_name', 'subject', 'package', 'meeting_link',
         ]
 
 

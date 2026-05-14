@@ -42,7 +42,8 @@ export default function LoginForm({ onSuccess }: Props) {
       // Зберігаємо refresh токен
       localStorage.setItem('refreshToken', data.refreshToken);
 
-      const role = (data.user.role ?? '') as 'Student' | 'Teacher' | 'Manager' | 'Admin';
+      const raw = data.user.role ?? '';
+      const role = (raw.charAt(0).toUpperCase() + raw.slice(1)) as 'Student' | 'Teacher' | 'Manager' | 'Admin';
 
       const normalizedUser = {
         ...data.user,
