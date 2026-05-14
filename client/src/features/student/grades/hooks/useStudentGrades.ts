@@ -37,7 +37,7 @@ export function useStudentGrades() {
             id: j.id * 10 + 1,
             subject: '—',
             date: formatDate(j.start_time),
-            topic: j.teacher_homework_task || '—',
+            topic: typeof j.teacher_homework_task === 'string' ? j.teacher_homework_task : '—',
             type: 'ДЗ',
             score: j.homework_grade,
             maxScore: 10,

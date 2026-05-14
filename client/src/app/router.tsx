@@ -42,6 +42,19 @@ function RoleRedirect() {
   return <Navigate to={roleDashboard(user.role)} replace />;
 }
 
+function roleDashboard(role: string): string {
+  if (role === 'Student') return '/dashboard';
+  if (role === 'Teacher') return '/teacher';
+  if (role === 'Manager' || role === 'Admin') return '/manager';
+  return '/';
+}
+
+function RoleRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/" replace />;
+  return <Navigate to={roleDashboard(user.role)} replace />;
+}
+
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/" replace />;

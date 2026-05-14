@@ -56,7 +56,16 @@ export function useStudentSchedule() {
         }
         return next;
       });
-    } catch (e) { showError('Не вдалось скасувати урок: ' + extractErrorMessage(e)); throw e; }
+    } catch (e) {
+      const errorMessages: Record<string, string> = {
+        "Cannot cancel a lesson with status 'student_missed'": "Неможливо скасувати урок зі статусом 'пропущено'",
+        "Cannot cancel a lesson with status 'conducted'": "Неможливо скасувати вже проведений урок",
+        "Cannot cancel a lesson with status 'canceled_advance'": "Урок вже скасовано",
+      };
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      showError(errorMessages[msg ?? ''] || 'Не вдалось скасувати урок');
+      throw e;
+    }
   }, []);
 
   return { lessonsByDay, loading, error, refetch: fetch, cancelLesson };
