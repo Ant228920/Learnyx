@@ -31,7 +31,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
         aria-label="Навігація викладача"
         className="fixed top-0 left-0 flex h-full w-64 flex-col border-r border-[#dee1e6] bg-white z-30"
       >
-        <Link to="/teacher" className="flex w-full items-center gap-3 p-6">
+        <Link to="/" className="flex w-full items-center gap-3 p-6">
           <div className="w-8 h-8 bg-[#1f8cf9] rounded-md flex items-center justify-center">
             <IconLogo />
           </div>

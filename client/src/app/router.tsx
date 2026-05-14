@@ -42,11 +42,6 @@ function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allow
   return <>{children}</>;
 }
 
-function PublicOnlyRoute({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  if (user) return <Navigate to={roleDashboard(user.role)} replace />;
-  return <>{children}</>;
-}
 
 const S = ['Student'];
 const T = ['Teacher'];
@@ -58,7 +53,7 @@ export default function AppRouter() {
       <Routes>
         {/* Public — redirect to dashboard if already logged in */}
         <Route element={<MainLayout />}>
-          <Route path="/" element={<PublicOnlyRoute><HomePage /></PublicOnlyRoute>} />
+          <Route path="/" element={<HomePage />} />
         </Route>
 
         {/* Student */}
