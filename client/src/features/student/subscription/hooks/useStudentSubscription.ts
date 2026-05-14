@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { studentApi, extractErrorMessage } from '../../../../services/api';
+import { showError } from '../../../../utils/toast';
 import type { PackageItem, SubscriptionData, PackagePlan } from '../types';
 
 function mapPackage(p: {
@@ -55,18 +56,22 @@ export function useStudentSubscription() {
   useEffect(() => { void fetch(); }, [fetch]);
 
   const topUp = useCallback(async (amount: number) => {
-    const result = await studentApi.topUp(amount);
-    setMoneyBalance(result.money_balance);
-    return result;
+    try {
+      const result = await studentApi.topUp(amount);
+      setMoneyBalance(result.money_balance);
+      return result;
+    } catch (e) { showError('Помилка поповнення: ' + extractErrorMessage(e)); throw e; }
   }, []);
 
   const purchase = useCallback(async (planId: number) => {
-    const result = await studentApi.purchasePlan(planId);
-    if (result.money_balance !== undefined) {
-      setMoneyBalance(result.money_balance);
-    }
-    await fetch();
-    return result;
+    try {
+      const result = await studentApi.purchasePlan(planId);
+      if (result.money_balance !== undefined) {
+        setMoneyBalance(result.money_balance);
+      }
+      await fetch();
+      return result;
+    } catch (e) { showError('Помилка платежу: ' + extractErrorMessage(e)); throw e; }
   }, [fetch]);
 
   return { subData, plans, loading, error, refetch: fetch, purchase, moneyBalance, bonusDiscountPct, topUp };

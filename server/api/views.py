@@ -273,7 +273,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             return [(IsManager | IsStudent)()]
         if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign'):
             return [IsTeacher()]
-        if self.action == 'cancel':
+        if self.action in ('upcoming', 'cancel'):
             return [IsStudent()]
         return [IsAuthenticated()]
 
@@ -366,6 +366,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
             lesson.status = new_status
             lesson.save()
+
+            if new_status in {'conducted', 'student_missed', 'teacher_missed'}:
+                Slot.objects.filter(pk=lesson.slot_id).update(status='available')
 
             package_balance_remaining = None
             cashback_earned = None

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { managerApi, extractErrorMessage } from '../../../../services/api';
+import { showError } from '../../../../utils/toast';
 import type { Application } from '../types';
 
 const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
@@ -51,13 +52,17 @@ export function useApplications() {
   useEffect(() => { void fetch(); }, [fetch]);
 
   const approve = async (id: number) => {
-    await managerApi.approveUser(id);
-    setData(prev => prev.filter(a => a.id !== id));
+    try {
+      await managerApi.approveUser(id);
+      setData(prev => prev.filter(a => a.id !== id));
+    } catch (e) { showError('Помилка: ' + extractErrorMessage(e)); throw e; }
   };
 
   const reject = async (id: number) => {
-    await managerApi.rejectUser(id);
-    setData(prev => prev.filter(a => a.id !== id));
+    try {
+      await managerApi.rejectUser(id);
+      setData(prev => prev.filter(a => a.id !== id));
+    } catch (e) { showError('Помилка: ' + extractErrorMessage(e)); throw e; }
   };
 
   return { data, loading, error, refetch: fetch, approve, reject };

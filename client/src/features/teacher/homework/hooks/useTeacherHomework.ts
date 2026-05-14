@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { teacherApi, extractErrorMessage } from '../../../../services/api';
+import { showError } from '../../../../utils/toast';
 import type { TeacherHomeworkItem } from '../types';
 
 const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
@@ -73,13 +74,17 @@ export function useTeacherHomework() {
     lessonId: number,
     payload: { is_present: boolean; homework_grade?: number; teacher_notes?: string }
   ) => {
-    await teacherApi.evaluateLesson(lessonId, payload);
-    await fetch();
+    try {
+      await teacherApi.evaluateLesson(lessonId, payload);
+      await fetch();
+    } catch (e) { showError('Помилка збереження оцінки: ' + extractErrorMessage(e)); throw e; }
   }, [fetch]);
 
   const setHomework = useCallback(async (lessonId: number, task: string, answerUrl?: string) => {
-    await teacherApi.setHomework(lessonId, { teacher_homework_task: task, homework_answer_url: answerUrl });
-    await fetch();
+    try {
+      await teacherApi.setHomework(lessonId, { teacher_homework_task: task, homework_answer_url: answerUrl });
+      await fetch();
+    } catch (e) { showError('Помилка збереження ДЗ: ' + extractErrorMessage(e)); throw e; }
   }, [fetch]);
 
   return { homeworks, pendingLessons, loading, error, refetch: fetch, gradeHomework, setHomework };

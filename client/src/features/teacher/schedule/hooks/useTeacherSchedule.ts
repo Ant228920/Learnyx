@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { teacherApi, extractErrorMessage } from '../../../../services/api';
+import { showError } from '../../../../utils/toast';
 import type { SlotsByDay, SlotItem } from '../types';
 
 function formatTime(iso: string): string {
@@ -48,28 +49,32 @@ export function useTeacherSchedule() {
   useEffect(() => { void fetch(); }, [fetch]);
 
   const createSlot = useCallback(async (startIso: string, endIso: string) => {
-    const slot = await teacherApi.createSlot(startIso, endIso);
-    const day = dayOf(slot.start_time);
-    const item: SlotItem = {
-      id: slot.id,
-      time: `${formatTime(slot.start_time)} - ${formatTime(slot.end_time)}`,
-      is_booked: slot.is_booked,
-      start_time: slot.start_time,
-      end_time: slot.end_time,
-    };
-    setSlotsByDay(prev => ({ ...prev, [day]: [...(prev[day] ?? []), item] }));
+    try {
+      const slot = await teacherApi.createSlot(startIso, endIso);
+      const day = dayOf(slot.start_time);
+      const item: SlotItem = {
+        id: slot.id,
+        time: `${formatTime(slot.start_time)} - ${formatTime(slot.end_time)}`,
+        is_booked: slot.is_booked,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+      };
+      setSlotsByDay(prev => ({ ...prev, [day]: [...(prev[day] ?? []), item] }));
+    } catch (e) { showError('Помилка створення слоту: ' + extractErrorMessage(e)); throw e; }
   }, []);
 
   const deleteSlot = useCallback(async (slotId: number) => {
-    await teacherApi.deleteSlot(slotId);
-    setSlotsByDay(prev => {
-      const next = { ...prev };
-      for (const day of Object.keys(next)) {
-        next[+day] = next[+day].filter(s => s.id !== slotId);
-        if (next[+day].length === 0) delete next[+day];
-      }
-      return next;
-    });
+    try {
+      await teacherApi.deleteSlot(slotId);
+      setSlotsByDay(prev => {
+        const next = { ...prev };
+        for (const day of Object.keys(next)) {
+          next[+day] = next[+day].filter(s => s.id !== slotId);
+          if (next[+day].length === 0) delete next[+day];
+        }
+        return next;
+      });
+    } catch (e) { showError('Помилка видалення слоту: ' + extractErrorMessage(e)); throw e; }
   }, []);
 
   return { slotsByDay, loading, error, refetch: fetch, createSlot, deleteSlot };

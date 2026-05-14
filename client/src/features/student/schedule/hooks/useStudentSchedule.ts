@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { studentApi, extractErrorMessage } from '../../../../services/api';
+import { showError } from '../../../../utils/toast';
 import type { LessonsByDay, UpcomingLesson } from '../types';
 
 function formatTime(iso: string): string {
@@ -45,15 +46,17 @@ export function useStudentSchedule() {
   useEffect(() => { void fetch(); }, [fetch]);
 
   const cancelLesson = useCallback(async (lessonId: number) => {
-    await studentApi.cancelLesson(lessonId);
-    setLessonsByDay(prev => {
-      const next = { ...prev };
-      for (const day of Object.keys(next)) {
-        next[+day] = next[+day].filter(l => l.id !== lessonId);
-        if (next[+day].length === 0) delete next[+day];
-      }
-      return next;
-    });
+    try {
+      await studentApi.cancelLesson(lessonId);
+      setLessonsByDay(prev => {
+        const next = { ...prev };
+        for (const day of Object.keys(next)) {
+          next[+day] = next[+day].filter(l => l.id !== lessonId);
+          if (next[+day].length === 0) delete next[+day];
+        }
+        return next;
+      });
+    } catch (e) { showError('Не вдалось скасувати урок: ' + extractErrorMessage(e)); throw e; }
   }, []);
 
   return { lessonsByDay, loading, error, refetch: fetch, cancelLesson };

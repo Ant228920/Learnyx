@@ -2,6 +2,8 @@ import { useState } from 'react';
 import TeacherLayout from './TeacherLayout';
 import { useTeacherHomework } from '../../features/teacher/homework';
 import type { TeacherHomeworkItem } from '../../features/teacher/homework';
+import { showError } from '../../utils/toast';
+import { extractErrorMessage } from '../../services/api';
 
 export default function TeacherHomework() {
   const { homeworks, pendingLessons, loading, error, gradeHomework, setHomework } = useTeacherHomework();
@@ -70,9 +72,9 @@ export default function TeacherHomework() {
                   onClick={() => {
                     const task = hwInputs[lesson.id]?.trim();
                     if (!task) return;
-                    void setHomework(lesson.id, task).then(() =>
-                      setHwInputs(prev => { const n = { ...prev }; delete n[lesson.id]; return n; })
-                    );
+                    setHomework(lesson.id, task)
+                      .then(() => setHwInputs(prev => { const n = { ...prev }; delete n[lesson.id]; return n; }))
+                      .catch(e => showError('Помилка: ' + extractErrorMessage(e)));
                   }}
                   className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-50 flex-shrink-0"
                 >

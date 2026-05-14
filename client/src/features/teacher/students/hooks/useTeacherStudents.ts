@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { teacherApi, extractErrorMessage } from '../../../../services/api';
+import { showError } from '../../../../utils/toast';
 import type { Slot } from '../../../../services/api';
 import type { TeacherStudent } from '../types';
 
@@ -75,10 +76,12 @@ export function useTeacherStudents() {
   }, []);
 
   const assignStudent = useCallback(async (slotId: number, studentId: number) => {
-    await teacherApi.assignLesson({ slot: slotId, student: studentId });
-    setSelectedSlotId(null);
-    setAvailableStudents([]);
-    await fetch();
+    try {
+      await teacherApi.assignLesson({ slot: slotId, student: studentId });
+      setSelectedSlotId(null);
+      setAvailableStudents([]);
+      await fetch();
+    } catch (e) { showError('Помилка призначення учня: ' + extractErrorMessage(e)); throw e; }
   }, [fetch]);
 
   return { students, slots, selectedSlotId, availableStudents, loading, error, refetch: fetch, selectSlot, assignStudent };
