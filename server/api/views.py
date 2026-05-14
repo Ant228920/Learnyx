@@ -828,12 +828,30 @@ class AvailableStudentListView(generics.ListAPIView):
         if not slot_id:
             return Student.objects.none()
         slot = get_object_or_404(Slot, pk=slot_id)
+
         busy_ids = Lesson.objects.filter(
             status='scheduled',
             slot__start_time__lt=slot.end_time,
             slot__end_time__gt=slot.start_time,
         ).values_list('student_id', flat=True)
-        return Student.objects.select_related('user').exclude(pk__in=busy_ids)
+
+        qs = (
+            Student.objects
+            .select_related('user')
+            .filter(packages__balance__gt=0, packages__status='active')
+            .exclude(pk__in=busy_ids)
+            .distinct()
+        )
+
+        teacher = Teacher.objects.filter(user=self.request.user).first()
+        if teacher:
+            already_ids = Lesson.objects.filter(
+                status='scheduled',
+                slot__teacher=teacher,
+            ).values_list('student_id', flat=True)
+            qs = qs.exclude(pk__in=already_ids)
+
+        return qs
 
 
 class LessonArchiveView(generics.ListAPIView):
