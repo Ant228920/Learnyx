@@ -1,23 +1,23 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
+// docker-compose: VITE_API_URL=http://localhost:8000/api/v1
+// Всі ендпоінти БЕЗ /v1/ — він вже в BASE_URL
+const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000/api/v1';
 
-// ── Axios instance ─────────────────────────────────────────────────────────
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 15000,
 });
 
-// Додаємо токен до кожного запиту
+// JWT interceptor
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Обробка 401 — refresh або logout
+// Auto-refresh on 401
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -28,8 +28,9 @@ apiClient.interceptors.response.use(
         const refresh = localStorage.getItem('refreshToken');
         if (refresh) {
           const { data } = await axios.post(`${BASE_URL}/auth/token/refresh/`, { refresh });
-          localStorage.setItem('token', data.accessToken ?? data.access);
-          original.headers.Authorization = `Bearer ${data.accessToken ?? data.access}`;
+          const newToken = (data as { accessToken?: string; access?: string }).accessToken ?? (data as { access?: string }).access ?? '';
+          localStorage.setItem('token', newToken);
+          original.headers.Authorization = `Bearer ${newToken}`;
           return apiClient(original);
         }
       } catch {
@@ -62,6 +63,8 @@ export interface User {
   role: 'student' | 'teacher' | 'manager' | 'admin';
   firstName: string;
   lastName: string;
+  phone?: string;
+  nickname?: string;
 }
 
 export interface Slot {
@@ -69,7 +72,7 @@ export interface Slot {
   teacher: number;
   start_time: string;
   end_time: string;
-  is_booked: boolean;
+  status: 'available' | 'booked';
 }
 
 export interface Lesson {
@@ -78,33 +81,30 @@ export interface Lesson {
   student: number;
   package: number;
   curriculum_lesson: number | null;
-  status: 'scheduled' | 'conducted' | 'missed' | 'cancelled';
+  status: string;
   meeting_link: string | null;
 }
 
 export interface LessonWithSlot {
   id: number;
-  slot: {
-    id: number;
-    start_time: string;
-    end_time: string;
-  };
+  slot: { id: number; start_time: string; end_time: string; };
   student: number;
   package: number;
   curriculum_lesson: number | null;
-  status: 'scheduled' | 'conducted' | 'missed' | 'cancelled';
+  status: string;
   meeting_link: string | null;
 }
 
 export interface Package {
   id: number;
-  student_id: number;
-  discipline: string;
+  student: number;
+  course: number;
+  discipline: number | null;
   total_lessons: number;
   balance: number;
-  final_price: number;
-  discount: number;
-  status: 'active' | 'completed' | 'expired';
+  final_price: string;
+  discount: string;
+  status: string;
   purchased_at: string;
 }
 
@@ -114,9 +114,10 @@ export interface JournalRecord {
   is_present: boolean;
   activity_grade: number | null;
   homework_grade: number | null;
-  teacher_homework_task: string;
-  homework_answer_url: string;
-  teacher_notes: string;
+  grade: number | null;
+  teacher_homework_task: unknown;
+  homework_answer_url: string | null;
+  teacher_notes: string | null;
   start_time?: string;
   lesson_status?: string;
 }
@@ -163,39 +164,43 @@ export interface TeacherDashboard {
   };
 }
 
-export interface ApiError {
-  timestamp: string;
-  errorCode: string;
-  message: string;
-  path: string;
-  details?: string[];
+export interface RegistrationRequest {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string;
+  telegram_nickname: string | null;
+  role: 'student' | 'teacher';
+  subject: string | null;
+  level: string | null;
+  status: string;
+  created_at: string;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-/** Витягує зрозуміле повідомлення з помилки axios */
+// ── Error helper ────────────────────────────────────────────────────────────
 export function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const data = error.response?.data;
-    if (data?.message) return data.message;
-    if (data?.detail) return data.detail;
-    if (data?.non_field_errors) return data.non_field_errors[0];
-    // DRF field errors
-    const firstField = Object.values(data ?? {})[0];
+    const data = error.response?.data as Record<string, unknown> | undefined;
+    if (data?.message) return data.message as string;
+    if (data?.detail) return data.detail as string;
+    if (data?.non_field_errors) return (data.non_field_errors as string[])[0];
+    const firstField = data ? Object.values(data)[0] : undefined;
     if (Array.isArray(firstField)) return firstField[0] as string;
     if (typeof firstField === 'string') return firstField;
-    if (error.message) return error.message;
   }
   return 'Щось пішло не так. Спробуйте ще раз.';
 }
 
-// ── Auth API ───────────────────────────────────────────────────────────────
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+// POST /api/v1/auth/login/
+// POST /api/v1/auth/register/
+// POST /api/v1/auth/token/refresh/
 export const authApi = {
   login: async (dto: LoginDTO) => {
     const { data } = await apiClient.post<{
       accessToken: string;
       refreshToken: string;
-      user: User;
+      user: { id: number; email: string; role: string; firstName: string; lastName: string };
     }>('/auth/login/', { email: dto.email, password: dto.password });
     return data;
   },
@@ -204,106 +209,100 @@ export const authApi = {
     const { data } = await apiClient.post('/auth/register/', dto);
     return data;
   },
-
-  refreshToken: async (refresh: string) => {
-    const { data } = await apiClient.post<{ accessToken: string }>(
-      '/auth/token/refresh/', { refresh }
-    );
-    return data;
-  },
-
-  getMe: async (): Promise<User> => {
-    const { data } = await apiClient.get('/users/me/');
-    return {
-      id: data.id,
-      email: data.email,
-      role: data.role,
-      firstName: data.first_name,
-      lastName: data.last_name,
-    };
-  },
 };
 
-// ── Student API ────────────────────────────────────────────────────────────
+// ── STUDENT ───────────────────────────────────────────────────────────────────
+// GET /api/v1/student/dashboard/
+// GET /api/v1/lessons/upcoming/
+// GET /api/v1/lessons/?status=...
+// PATCH /api/v1/lessons/{id}/cancel/
+// GET /api/v1/journal/
+// GET /api/v1/packages/
+// GET /api/v1/students/me/balance/
 export const studentApi = {
   getDashboard: async (): Promise<StudentDashboard> => {
     const { data } = await apiClient.get('/student/dashboard/');
-    return data;
-  },
-
-  getPackages: async (): Promise<Package[]> => {
-    const { data } = await apiClient.get('/packages/?status=active');
-    return data.results ?? data;
+    return data as StudentDashboard;
   },
 
   getUpcomingLessons: async (): Promise<LessonWithSlot[]> => {
     const { data } = await apiClient.get('/lessons/upcoming/');
-    return data;
+    return data as LessonWithSlot[];
   },
 
-  getLessons: async (status?: string): Promise<Lesson[]> => {
-    const params = status ? `?status=${status}` : '';
-    const { data } = await apiClient.get(`/lessons/${params}`);
-    return data.results ?? data;
+  getLessons: async (status?: string): Promise<LessonWithSlot[]> => {
+    const q = status ? `?status=${status}` : '';
+    const { data } = await apiClient.get(`/lessons/${q}`);
+    const arr = (data as { results?: LessonWithSlot[] }).results ?? data;
+    return arr as LessonWithSlot[];
   },
 
   cancelLesson: async (lessonId: number): Promise<Lesson> => {
-    const { data } = await apiClient.patch(`/lessons/${lessonId}/cancel/`);
-    return data;
+    const { data } = await apiClient.patch(`/lessons/${lessonId}/cancel/`, { status: 'canceled_advance' });
+    return data as Lesson;
   },
 
   getJournal: async (): Promise<JournalRecord[]> => {
     const { data } = await apiClient.get('/journal/');
-    return data.results ?? data;
+    const arr = (data as { results?: JournalRecord[] }).results ?? data;
+    return arr as JournalRecord[];
   },
 
-  getBonusBalance: async (studentId: number) => {
-    const { data } = await apiClient.get(`/bonus/balance/${studentId}/`);
-    return data;
+  getPackages: async (): Promise<Package[]> => {
+    const { data } = await apiClient.get('/packages/?status=active');
+    const arr = (data as { results?: Package[] }).results ?? data;
+    return arr as Package[];
   },
 
-  purchasePackage: async (packageId: number) => {
-    const { data } = await apiClient.post(`/packages/${packageId}/purchase/`);
+  getBalance: async () => {
+    const { data } = await apiClient.get('/students/me/balance/');
     return data;
   },
 };
 
-// ── Teacher API ────────────────────────────────────────────────────────────
+// ── TEACHER ───────────────────────────────────────────────────────────────────
+// GET /api/v1/teacher/dashboard/
+// GET/POST/DELETE /api/v1/slots/
+// GET /api/v1/lessons/
+// PATCH /api/v1/lessons/{id}/status/
+// POST /api/v1/lessons/{id}/evaluate/
+// PATCH /api/v1/lessons/{id}/meeting-link/
+// POST /api/v1/lessons/{id}/homework/
+// POST /api/v1/lessons/assign/
+// GET /api/v1/students/
+// GET /api/v1/students/available/?slot_id=X
 export const teacherApi = {
   getDashboard: async (): Promise<TeacherDashboard> => {
     const { data } = await apiClient.get('/teacher/dashboard/');
-    return data;
+    return data as TeacherDashboard;
   },
 
-  getSlots: async (params?: { date?: string; is_booked?: boolean }): Promise<Slot[]> => {
-    const query = new URLSearchParams();
-    if (params?.date) query.set('date', params.date);
-    if (params?.is_booked !== undefined) query.set('is_booked', String(params.is_booked));
-    const { data } = await apiClient.get(`/slots/?${query}`);
-    return data.results ?? data;
+  getSlots: async (params?: { date?: string; status?: string }): Promise<Slot[]> => {
+    const q = new URLSearchParams(params as Record<string, string>);
+    const { data } = await apiClient.get(`/slots/?${q}`);
+    const arr = (data as { results?: Slot[] }).results ?? data;
+    return arr as Slot[];
   },
 
   createSlot: async (start_time: string, end_time: string): Promise<Slot> => {
     const { data } = await apiClient.post('/slots/', { start_time, end_time });
-    return data;
+    return data as Slot;
   },
 
   deleteSlot: async (slotId: number): Promise<void> => {
     await apiClient.delete(`/slots/${slotId}/`);
   },
 
-  getLessons: async (params?: { status?: string; date_from?: string; date_to?: string }): Promise<Lesson[]> => {
-    const query = new URLSearchParams(params as Record<string, string>);
-    const { data } = await apiClient.get(`/lessons/?${query}`);
-    return data.results ?? data;
+  getLessons: async (params?: { status?: string }): Promise<Lesson[]> => {
+    const q = new URLSearchParams(params as Record<string, string>);
+    const { data } = await apiClient.get(`/lessons/?${q}`);
+    const arr = (data as { results?: Lesson[] }).results ?? data;
+    return arr as Lesson[];
   },
 
-  setLessonStatus: async (
-    lessonId: number,
-    status: 'conducted' | 'cancelled' | 'missed'
-  ): Promise<Lesson> => {
+  setLessonStatus: async (lessonId: number, status: string): Promise<Lesson> => {
     const { data } = await apiClient.patch(`/lessons/${lessonId}/status/`, { status });
-    return data;
+    return data as Lesson;
   },
 
   evaluateLesson: async (lessonId: number, payload: {
@@ -311,15 +310,14 @@ export const teacherApi = {
     activity_grade?: number;
     teacher_homework_task?: string;
     homework_grade?: number;
-    homework_answer_url?: string;
   }): Promise<JournalRecord> => {
     const { data } = await apiClient.post(`/lessons/${lessonId}/evaluate/`, payload);
-    return data;
+    return data as JournalRecord;
   },
 
   setMeetingLink: async (lessonId: number, meeting_link: string): Promise<Lesson> => {
     const { data } = await apiClient.patch(`/lessons/${lessonId}/meeting-link/`, { meeting_link });
-    return data;
+    return data as Lesson;
   },
 
   setHomework: async (lessonId: number, payload: {
@@ -327,112 +325,95 @@ export const teacherApi = {
     homework_answer_url?: string;
   }): Promise<JournalRecord> => {
     const { data } = await apiClient.post(`/lessons/${lessonId}/homework/`, payload);
-    return data;
+    return data as JournalRecord;
   },
 
-  assignLesson: async (payload: {
-    slot_id: number;
-    student_id: number;
-    package_id?: number;
-  }): Promise<Lesson> => {
+  assignLesson: async (payload: { slot_id: number; student_id: number; package_id?: number }): Promise<Lesson> => {
     const { data } = await apiClient.post('/lessons/assign/', payload);
-    return data;
+    return data as Lesson;
   },
 
-  getStudents: async (): Promise<Array<{
-    user_id: number; first_name: string; last_name: string; email: string; lessons_balance: number;
-  }>> => {
-    const { data } = await apiClient.get('/users/students/');
-    return data.results ?? data;
+  getStudents: async () => {
+    const { data } = await apiClient.get('/students/');
+    const arr = (data as { results?: unknown[] }).results ?? data;
+    return arr;
   },
 
   getAvailableStudents: async (slotId: number) => {
-    const { data } = await apiClient.get(`/lessons/available-students/?slot_id=${slotId}`);
+    const { data } = await apiClient.get(`/students/available/?slot_id=${slotId}`);
     return data;
   },
 
   getJournalForLesson: async (lessonId: number): Promise<JournalRecord[]> => {
     const { data } = await apiClient.get(`/journal/?lesson_id=${lessonId}`);
-    return data.results ?? data;
+    const arr = (data as { results?: JournalRecord[] }).results ?? data;
+    return arr as JournalRecord[];
   },
 };
 
-// ── Manager API ────────────────────────────────────────────────────────────
+// ── MANAGER ───────────────────────────────────────────────────────────────────
+// GET /api/v1/requests/          ← реєстраційні заявки (RegistrationRequest)
+// POST /api/v1/applicants/{id}/approve/
+// GET /api/v1/students/
+// GET /api/v1/packages/
+// GET /api/v1/admin/lessons/archive/
+// GET /api/v1/slots/available/
+// POST /api/v1/lessons/
+// GET /api/v1/user-requests/     ← запити до менеджера (Request model)
 export const managerApi = {
-  getStudents: async (params?: { is_approved?: boolean }) => {
-    const query = params?.is_approved !== undefined ? `?is_approved=${params.is_approved}` : '';
-    const { data } = await apiClient.get(`/users/students/${query}`);
-    return data.results ?? data;
+  // Реєстраційні заявки — для сторінки Applications
+  getRegistrationRequests: async (): Promise<RegistrationRequest[]> => {
+    const { data } = await apiClient.get('/requests/');
+    const arr = (data as { results?: RegistrationRequest[] }).results ?? data;
+    return arr as RegistrationRequest[];
   },
 
-  getTeachers: async () => {
-    const { data } = await apiClient.get('/users/teachers/');
-    return data.results ?? data;
-  },
-
-  approveUser: async (userId: number) => {
-    const { data } = await apiClient.patch(`/users/approve/${userId}/`, { is_approved: true });
+  approveApplicant: async (id: number) => {
+    const { data } = await apiClient.post(`/applicants/${id}/approve/`);
     return data;
   },
 
-  rejectUser: async (userId: number) => {
-    const { data } = await apiClient.patch(`/users/approve/${userId}/`, { is_approved: false });
-    return data;
+  getStudents: async () => {
+    const { data } = await apiClient.get('/students/');
+    const arr = (data as { results?: unknown[] }).results ?? data;
+    return arr;
   },
 
   getPackages: async (params?: { student_id?: number; status?: string }) => {
-    const query = new URLSearchParams(params as Record<string, string>);
-    const { data } = await apiClient.get(`/packages/?${query}`);
-    return data.results ?? data;
+    const q = new URLSearchParams(params as Record<string, string>);
+    const { data } = await apiClient.get(`/packages/?${q}`);
+    const arr = (data as { results?: Package[] }).results ?? data;
+    return arr as Package[];
   },
 
-  createPackage: async (payload: {
-    student_id: number;
-    course_id: number;
-    discipline_id: number;
-    total_lessons: number;
-    final_price: number;
-    discount?: number;
-  }) => {
-    const { data } = await apiClient.post('/packages/', payload);
+  activatePackage: async (packageId: number) => {
+    const { data } = await apiClient.post(`/packages/${packageId}/activate/`);
     return data;
   },
 
-  getLessonArchive: async (params?: {
-    date_from?: string;
-    date_to?: string;
-    status?: string;
-    teacher_id?: number;
-  }) => {
-    const query = new URLSearchParams(params as Record<string, string>);
-    const { data } = await apiClient.get(`/admin/lessons/archive/?${query}`);
-    return data;
-  },
-
-  getRequests: async (status?: string) => {
-    const query = status ? `?status=${status}` : '';
-    const { data } = await apiClient.get(`/requests/${query}`);
-    return data.results ?? data;
-  },
-
-  processRequest: async (id: number, payload: { status: string; manager_id?: number }) => {
-    const { data } = await apiClient.patch(`/requests/${id}/process/`, payload);
-    return data;
+  getLessonArchive: async (params?: { date_from?: string; date_to?: string; status?: string }) => {
+    const q = new URLSearchParams(params as Record<string, string>);
+    const { data } = await apiClient.get(`/admin/lessons/archive/?${q}`);
+    const arr = (data as { results?: unknown[] }).results ?? data;
+    return arr;
   },
 
   getAvailableSlots: async (params?: { teacher_id?: number; date?: string }) => {
-    const query = new URLSearchParams(params as Record<string, string>);
-    const { data } = await apiClient.get(`/slots/available/?${query}`);
+    const q = new URLSearchParams(params as Record<string, string>);
+    const { data } = await apiClient.get(`/slots/available/?${q}`);
     return data;
   },
 
-  bookLesson: async (payload: {
-    slot_id: number;
-    student_id: number;
-    package_id: number;
-    meting_link?: string;
-  }) => {
+  bookLesson: async (payload: { slot_id: number; student_id: number; package_id: number }) => {
     const { data } = await apiClient.post('/lessons/', payload);
     return data;
+  },
+
+  // Запити до менеджера (Request model — окремо від реєстраційних заявок)
+  getUserRequests: async (status?: string) => {
+    const q = status ? `?status=${status}` : '';
+    const { data } = await apiClient.get(`/user-requests/${q}`);
+    const arr = (data as { results?: unknown[] }).results ?? data;
+    return arr;
   },
 };

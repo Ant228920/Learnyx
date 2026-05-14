@@ -6,6 +6,8 @@ export interface User {
   role: 'student' | 'teacher' | 'manager' | 'admin';
   firstName: string;
   lastName: string;
+  phone?: string;
+  nickname?: string;
 }
 
 export interface AuthContextType {
