@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../app/providers';
 import { useManagerMatching, useManagerLearningRequests } from '../../features/manager/matching';
+import ManagerLayout from './ManagerLayout';
 
 interface Slot {
   id: number;
@@ -36,22 +35,6 @@ function getLevels(subject: string): string[] {
   return subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER;
 }
 
-const NAV_ITEMS = [
-  { label: 'Дашборд', active: false, path: '/manager' },
-  { label: 'Заявки', active: false, path: '/manager/applications' },
-  { label: 'Підписки', active: false, path: '/manager/subscriptions' },
-  { label: 'Звітність', active: false, path: '/manager/reports' },
-  { label: 'Підбір', active: true, path: '/manager/matching' },
-];
-
-const FOOTER_LINKS = ['Політика конфіденційності', 'Центр допомоги', 'Умови використання'];
-
-const IconLogo = () => (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-    <path d="M11 3L19 7.5V14.5L11 19L3 14.5V7.5L11 3Z" fill="white" />
-  </svg>
-);
-
 const IconSearch = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" aria-hidden="true">
     <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -71,8 +54,6 @@ const IconX = () => (
 );
 
 export default function ManagerMatching() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const { students: rawStudents, teachers: rawTeachers, loading, error } = useManagerMatching();
   const { requests, loading: reqLoading, updateStatus } = useManagerLearningRequests();
 
@@ -140,257 +121,200 @@ export default function ManagerMatching() {
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   return (
-    <div className="flex w-full min-h-screen bg-white">
-      {/* Sidebar */}
-      <aside className="fixed top-0 left-0 flex h-full w-64 flex-col border-r border-[#dee1e6] bg-white z-30">
-        <div className="flex w-full items-center gap-3 p-6">
-          <div className="w-8 h-8 bg-[#1f8cf9] rounded-md flex items-center justify-center"><IconLogo /></div>
-          <span className="font-poppins font-bold text-[#1f8cf9] text-xl">LearNYX</span>
-        </div>
-        <div className="flex flex-1 flex-col w-full pt-4">
-          <nav aria-label="Розділи" className="flex flex-1 flex-col gap-2 px-4">
-            {NAV_ITEMS.map((item) => (
-              <button key={item.label} type="button" aria-current={item.active ? 'page' : undefined}
-                onClick={() => void navigate(item.path)}
-                className={`flex w-full items-center gap-3 px-4 py-2.5 rounded-2xl text-left transition-colors ${item.active ? 'bg-[#1f8cf9] shadow-[0px_2px_4px_#1f8cf933]' : 'hover:bg-gray-50'}`}>
-                <span className={`font-inter text-sm font-medium ${item.active ? 'text-white' : 'text-[#565d6d]'}`}>{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-        <div className="border-t border-[#dee1e6] p-4 w-full flex flex-col gap-1">
-          <button type="button" onClick={() => void navigate('/manager/settings')}
-            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors">
-            <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>
-          </button>
-          <button type="button" onClick={() => { logout(); void navigate('/'); }}
-            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors">
-            <span className="font-inter text-sm font-medium text-red-500">Вийти</span>
-          </button>
-        </div>
-      </aside>
+    <ManagerLayout>
+      <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
 
-      {/* Main */}
-      <div className="flex flex-col flex-1 pl-64 min-h-screen">
-        <header className="h-16 flex items-center justify-end px-10 bg-white border-b border-[#dee1e6] sticky top-0 z-20">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-end">
-              <span className="font-inter font-bold text-slate-900 text-sm">{user?.firstName} {user?.lastName}</span>
-              <span className="font-inter font-bold text-[#1f8cf9] text-[10px] tracking-[0.50px] uppercase">Адміністратор</span>
-            </div>
-            <div className="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-[#f4f4f6]">
-              <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}</span>
-              <div className="absolute right-0 bottom-0 w-2.5 h-2.5 bg-[#26d962] rounded-full border-2 border-white" />
+        <div>
+          <h1 className="font-poppins font-bold text-slate-900 text-4xl leading-10">Підбір викладача</h1>
+          <p className="font-inter text-[#565d6d] text-lg leading-7 mt-2">
+            Налаштуйте параметри запиту та знайдіть ідеального викладача для студента.
+          </p>
+        </div>
+
+        {/* Learning requests from students */}
+        {!reqLoading && requests.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <h2 className="font-poppins font-bold text-slate-900 text-xl">Запити від студентів</h2>
+            <div className="flex flex-col gap-3">
+              {requests.map((req) => (
+                <div key={req.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6]">
+                  <div className="flex flex-col gap-0.5 flex-1">
+                    <span className="font-inter font-bold text-slate-900 text-sm">{req.student_name || req.student_email}</span>
+                    <span className="font-inter text-[#565d6d] text-xs">
+                      {SUBJECT_LABELS[req.subject] ?? req.subject} • {req.level}
+                      {req.preferred_days ? ` • ${req.preferred_days}` : ''}
+                      {req.preferred_time ? ` • ${req.preferred_time}` : ''}
+                    </span>
+                    {req.notes && <span className="font-inter text-[#9095a1] text-xs mt-0.5">{req.notes}</span>}
+                  </div>
+                  <span className={`text-xs font-inter font-bold px-2.5 py-1 rounded-full ${
+                    req.status === 'matched' ? 'bg-green-100 text-green-700' :
+                    req.status === 'cancelled' ? 'bg-red-100 text-red-600' :
+                    'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {STATUS_LABELS[req.status] ?? req.status}
+                  </span>
+                  {req.status === 'pending' && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button type="button"
+                        onClick={() => void updateStatus(req.id, 'matched')}
+                        className="px-3 py-1.5 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-xs hover:bg-blue-600 transition-colors">
+                        Підібрано
+                      </button>
+                      <button type="button"
+                        onClick={() => void updateStatus(req.id, 'cancelled')}
+                        className="px-3 py-1.5 border border-[#dee1e6] rounded-xl font-inter font-medium text-[#565d6d] text-xs hover:bg-gray-50 transition-colors">
+                        Скасувати
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        </header>
+        )}
 
-        <main className="flex-1 px-16 py-10 w-full">
-          <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
-            <div>
-              <h1 className="font-poppins font-bold text-slate-900 text-4xl leading-10">Підбір викладача</h1>
-              <p className="font-inter text-[#565d6d] text-lg leading-7 mt-2">
-                Налаштуйте параметри запиту та знайдіть ідеального викладача для студента.
+        <div className="flex items-start gap-8">
+          {/* Left: form */}
+          <div className="flex flex-col gap-6 w-[380px] flex-shrink-0">
+
+            {searched && (
+              <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase self-end">
+                ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
               </p>
-            </div>
-
-            {/* Learning requests from students */}
-            {!reqLoading && requests.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <h2 className="font-poppins font-bold text-slate-900 text-xl">Запити від студентів</h2>
-                <div className="flex flex-col gap-3">
-                  {requests.map((req) => (
-                    <div key={req.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6]">
-                      <div className="flex flex-col gap-0.5 flex-1">
-                        <span className="font-inter font-bold text-slate-900 text-sm">{req.student_name || req.student_email}</span>
-                        <span className="font-inter text-[#565d6d] text-xs">
-                          {SUBJECT_LABELS[req.subject] ?? req.subject} • {req.level}
-                          {req.preferred_days ? ` • ${req.preferred_days}` : ''}
-                          {req.preferred_time ? ` • ${req.preferred_time}` : ''}
-                        </span>
-                        {req.notes && <span className="font-inter text-[#9095a1] text-xs mt-0.5">{req.notes}</span>}
-                      </div>
-                      <span className={`text-xs font-inter font-bold px-2.5 py-1 rounded-full ${
-                        req.status === 'matched' ? 'bg-green-100 text-green-700' :
-                        req.status === 'cancelled' ? 'bg-red-100 text-red-600' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {STATUS_LABELS[req.status] ?? req.status}
-                      </span>
-                      {req.status === 'pending' && (
-                        <div className="flex gap-2 flex-shrink-0">
-                          <button type="button"
-                            onClick={() => void updateStatus(req.id, 'matched')}
-                            className="px-3 py-1.5 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-xs hover:bg-blue-600 transition-colors">
-                            Підібрано
-                          </button>
-                          <button type="button"
-                            onClick={() => void updateStatus(req.id, 'cancelled')}
-                            className="px-3 py-1.5 border border-[#dee1e6] rounded-xl font-inter font-medium text-[#565d6d] text-xs hover:bg-gray-50 transition-colors">
-                            Скасувати
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
             )}
 
-            <div className="flex items-start gap-8">
-              {/* Left: form */}
-              <div className="flex flex-col gap-6 w-[380px] flex-shrink-0">
+            {/* Main params */}
+            <div className="flex flex-col gap-5 p-6 bg-white rounded-2xl border border-[#dee1e6]">
+              <div>
+                <p className="font-poppins font-bold text-slate-900 text-xl leading-7">Основні параметри</p>
+                <p className="font-inter text-[#565d6d] text-sm mt-1">Виберіть учня та предмет для навчання</p>
+              </div>
 
-                {searched && (
-                  <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase self-end">
-                    ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
-                  </p>
-                )}
-
-                {/* Main params */}
-                <div className="flex flex-col gap-5 p-6 bg-white rounded-2xl border border-[#dee1e6]">
-                  <div>
-                    <p className="font-poppins font-bold text-slate-900 text-xl leading-7">Основні параметри</p>
-                    <p className="font-inter text-[#565d6d] text-sm mt-1">Виберіть учня та предмет для навчання</p>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="match-student" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Учень</label>
-                    <div className="relative">
-                      <select id="match-student" value={student} onChange={(e) => setStudent(e.target.value)} aria-label="Вибір учня" className={selectClass}>
-                        {studentOptions.length === 0
-                          ? <option value="">— Немає студентів —</option>
-                          : studentOptions.map((s) => <option key={s} value={s}>{s}</option>)
-                        }
-                      </select>
-                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor="match-subject" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Предмет</label>
-                      <div className="relative">
-                        <select id="match-subject" value={subject} onChange={(e) => handleSubjectChange(e.target.value)} aria-label="Вибір предмету" className={selectClass}>
-                          {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor="match-level" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Рівень</label>
-                      <div className="relative">
-                        <select id="match-level" value={level} onChange={(e) => setLevel(e.target.value)} aria-label="Вибір рівня" className={selectClass}>
-                          {getLevels(subject).map((l) => <option key={l} value={l}>{l}</option>)}
-                        </select>
-                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Slots */}
-                <div className="flex flex-col gap-4 p-6 bg-white rounded-2xl border border-[#dee1e6]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-poppins font-bold text-slate-900 text-xl leading-7">Вільні слоти учня</p>
-                      <p className="font-inter text-[#565d6d] text-sm mt-0.5">Додайте доступні часові інтервали</p>
-                    </div>
-                    <button type="button" onClick={addSlot}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-[#1f8cf9] font-inter font-bold text-[#1f8cf9] text-xs hover:bg-blue-50 transition-colors">
-                      <IconPlus />
-                      Додати слот
-                    </button>
-                  </div>
-
-                  {slots.map((slot) => (
-                    <div key={slot.id} className="flex items-center gap-2">
-                      <button type="button" onClick={() => removeSlot(slot.id)} aria-label="Видалити слот" className="text-[#565d6d] hover:text-red-500 transition-colors flex-shrink-0">
-                        <IconX />
-                      </button>
-                      <div className="relative flex-1">
-                        <select value={slot.day} onChange={(e) => updateSlot(slot.id, 'day', e.target.value)}
-                          aria-label="День тижня"
-                          className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-full pr-7">
-                          {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-                        </select>
-                        <svg className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                      </div>
-                      <input type="time" value={slot.from} onChange={(e) => updateSlot(slot.id, 'from', e.target.value)}
-                        aria-label="Час початку"
-                        className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
-                      <input type="time" value={slot.to} onChange={(e) => updateSlot(slot.id, 'to', e.target.value)}
-                        aria-label="Час завершення"
-                        className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
-                    </div>
-                  ))}
-
-                  <button type="button" onClick={handleSearch}
-                    className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2">
-                    <IconSearch />
-                    Знайти викладачів
-                  </button>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="match-student" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Учень</label>
+                <div className="relative">
+                  <select id="match-student" value={student} onChange={(e) => setStudent(e.target.value)} aria-label="Вибір учня" className={selectClass}>
+                    {studentOptions.length === 0
+                      ? <option value="">— Немає студентів —</option>
+                      : studentOptions.map((s) => <option key={s} value={s}>{s}</option>)
+                    }
+                  </select>
+                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
               </div>
 
-              {/* Right: results */}
-              {searched && (
-                <div className="flex flex-col gap-4 flex-1 animate-fade-in">
-                  <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">
-                    ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
-                  </p>
-
-                  {teachers.length === 0 && (
-                    <p className="font-inter text-[#9095a1] text-sm">Викладачів не знайдено</p>
-                  )}
-
-                  {teachers.map((t) => (
-                    <div key={t.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-[#dee1e6]">
-                      <div className={`w-12 h-12 rounded-full ${t.avatarBg} flex items-center justify-center flex-shrink-0`} aria-hidden="true">
-                        <span className="font-inter font-bold text-[#1f8cf9] text-lg">{t.name[0]}</span>
-                      </div>
-                      <div className="flex flex-col gap-1.5 flex-1">
-                        <span className="font-poppins font-bold text-slate-900 text-base">{t.name}</span>
-                        <span className="font-inter text-[#565d6d] text-xs">
-                          Досвід: {t.experience} • Рівень: {t.level}
-                        </span>
-                        {t.subjects.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-1">
-                            {t.subjects.map((s) => (
-                              <span key={s} className="px-2.5 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-medium text-[#565d6d] text-xs">{s}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button type="button" onClick={() => handleAssign(t.name)}
-                        aria-label={`Призначити викладача ${t.name}`}
-                        className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
-                        Призначити
-                      </button>
-                    </div>
-                  ))}
-
-                  {teachers.length > 0 && (
-                    <button type="button" className="font-inter font-bold text-[#1f8cf9] text-sm text-center hover:underline mt-2">
-                      Показати більше результатів
-                    </button>
-                  )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="match-subject" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Предмет</label>
+                  <div className="relative">
+                    <select id="match-subject" value={subject} onChange={(e) => handleSubjectChange(e.target.value)} aria-label="Вибір предмету" className={selectClass}>
+                      {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
                 </div>
-              )}
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="match-level" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Рівень</label>
+                  <div className="relative">
+                    <select id="match-level" value={level} onChange={(e) => setLevel(e.target.value)} aria-label="Вибір рівня" className={selectClass}>
+                      {getLevels(subject).map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                    <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Slots */}
+            <div className="flex flex-col gap-4 p-6 bg-white rounded-2xl border border-[#dee1e6]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-poppins font-bold text-slate-900 text-xl leading-7">Вільні слоти учня</p>
+                  <p className="font-inter text-[#565d6d] text-sm mt-0.5">Додайте доступні часові інтервали</p>
+                </div>
+                <button type="button" onClick={addSlot}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-[#1f8cf9] font-inter font-bold text-[#1f8cf9] text-xs hover:bg-blue-50 transition-colors">
+                  <IconPlus />
+                  Додати слот
+                </button>
+              </div>
+
+              {slots.map((slot) => (
+                <div key={slot.id} className="flex items-center gap-2">
+                  <button type="button" onClick={() => removeSlot(slot.id)} aria-label="Видалити слот" className="text-[#565d6d] hover:text-red-500 transition-colors flex-shrink-0">
+                    <IconX />
+                  </button>
+                  <div className="relative flex-1">
+                    <select value={slot.day} onChange={(e) => updateSlot(slot.id, 'day', e.target.value)}
+                      aria-label="День тижня"
+                      className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-full pr-7">
+                      {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <svg className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
+                  <input type="time" value={slot.from} onChange={(e) => updateSlot(slot.id, 'from', e.target.value)}
+                    aria-label="Час початку"
+                    className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
+                  <input type="time" value={slot.to} onChange={(e) => updateSlot(slot.id, 'to', e.target.value)}
+                    aria-label="Час завершення"
+                    className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
+                </div>
+              ))}
+
+              <button type="button" onClick={handleSearch}
+                className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2">
+                <IconSearch />
+                Знайти викладачів
+              </button>
             </div>
           </div>
-        </main>
 
-        <footer className="px-16 py-6 bg-white border-t border-[#dee1e6]">
-          <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-            <p className="font-inter font-medium text-[#565d6d] text-xs">© 2024 LearnYX Ecosystem. Платформа для професійного навчання та зростання.</p>
-            <nav aria-label="Нижня навігація" className="flex items-center gap-6">
-              {FOOTER_LINKS.map((link) => (
-                <a key={link} href="#" className="font-inter font-bold text-[#565d6d] text-xs hover:text-slate-900 transition-colors">{link}</a>
+          {/* Right: results */}
+          {searched && (
+            <div className="flex flex-col gap-4 flex-1 animate-fade-in">
+              <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">
+                ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
+              </p>
+
+              {teachers.length === 0 && (
+                <p className="font-inter text-[#9095a1] text-sm">Викладачів не знайдено</p>
+              )}
+
+              {teachers.map((t) => (
+                <div key={t.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-[#dee1e6]">
+                  <div className={`w-12 h-12 rounded-full ${t.avatarBg} flex items-center justify-center flex-shrink-0`} aria-hidden="true">
+                    <span className="font-inter font-bold text-[#1f8cf9] text-lg">{t.name[0]}</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5 flex-1">
+                    <span className="font-poppins font-bold text-slate-900 text-base">{t.name}</span>
+                    <span className="font-inter text-[#565d6d] text-xs">
+                      Досвід: {t.experience} • Рівень: {t.level}
+                    </span>
+                    {t.subjects.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {t.subjects.map((s) => (
+                          <span key={s} className="px-2.5 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-medium text-[#565d6d] text-xs">{s}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => handleAssign(t.name)}
+                    aria-label={`Призначити викладача ${t.name}`}
+                    className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
+                    Призначити
+                  </button>
+                </div>
               ))}
-            </nav>
-          </div>
-        </footer>
+
+              {teachers.length > 0 && (
+                <button type="button" className="font-inter font-bold text-[#1f8cf9] text-sm text-center hover:underline mt-2">
+                  Показати більше результатів
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Success Modal */}
@@ -414,6 +338,6 @@ export default function ManagerMatching() {
           </div>
         </div>
       )}
-    </div>
+    </ManagerLayout>
   );
 }
