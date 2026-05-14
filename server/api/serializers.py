@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan
 from users.models import Student
 
 
@@ -232,3 +232,9 @@ class LessonArchiveSerializer(serializers.ModelSerializer):
             'id', 'status', 'start_time', 'end_time',
             'teacher_name', 'student_name', 'package', 'meeting_link',
         ]
+
+
+class PackagePlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackagePlan
+        fields = ['id', 'name', 'total_lessons', 'price', 'description', 'is_active']

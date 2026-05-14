@@ -16,3 +16,12 @@ export interface SubscriptionData {
   packages: PackageItem[];
   discountPct: number;
 }
+
+export interface PackagePlan {
+  id: number;
+  name: string;
+  total_lessons: number;
+  price: number;
+  description: string;
+  is_active: boolean;
+}

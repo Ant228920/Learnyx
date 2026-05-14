@@ -8,6 +8,16 @@ function formatDeadline(iso?: string): string {
   return `До ${d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}, ${d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
+const hasHomework = (val: unknown): boolean => {
+  if (!val) return false;
+  if (typeof val === 'string') return val.trim() !== '';
+  if (typeof val === 'object') return Object.keys(val as Record<string, unknown>).length > 0;
+  return false;
+};
+
+const taskText = (val: unknown): string =>
+  typeof val === 'string' ? val : JSON.stringify(val);
+
 export function useStudentHomework() {
   const [homeworks, setHomeworks] = useState<StudentHomeworkTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,13 +29,13 @@ export function useStudentHomework() {
     try {
       const journal = await studentApi.getJournal();
       const tasks: StudentHomeworkTask[] = journal
-        .filter(j => j.teacher_homework_task && j.teacher_homework_task.trim() !== '')
+        .filter(j => hasHomework(j.teacher_homework_task as unknown))
         .map(j => ({
           id: j.id,
           lessonId: j.lesson,
           subject: '—',
-          title: j.teacher_homework_task,
-          description: j.teacher_homework_task,
+          title: taskText(j.teacher_homework_task as unknown),
+          description: taskText(j.teacher_homework_task as unknown),
           deadline: formatDeadline(j.start_time),
           deadlineDate: j.start_time ? new Date(j.start_time) : new Date(),
           urgent: false,

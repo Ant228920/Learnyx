@@ -37,9 +37,10 @@ from api.serializers import (
     AssignLessonSerializer,
     HomeworkSerializer,
     LessonArchiveSerializer,
+    PackagePlanSerializer,
 )
 from users.models import User, Role, Student, Manager
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course
 from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,19 @@ class RegistrationRequestView(APIView):
             'message': 'Готово! Ваша заявка успішно відправлена менеджеру.',
             'id': reg_request.id
         }, status=status.HTTP_201_CREATED)
+
+
+class ApplicantRejectView(APIView):
+    permission_classes = [IsManager]
+
+    def post(self, request, pk):
+        try:
+            req = RegistrationRequest.objects.get(pk=pk)
+            req.status = 'rejected'
+            req.save()
+            return Response({'message': 'Заявку відхилено.'})
+        except RegistrationRequest.DoesNotExist:
+            return Response({'error': 'Not found'}, status=404)
 
 
 class ApproveRegistrationRequestView(APIView):
@@ -832,31 +846,66 @@ class LessonArchiveView(generics.ListAPIView):
         return response
 
 
+class PackagePlanListView(generics.ListAPIView):
+    """Returns all active package plans available for purchase."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = PackagePlanSerializer
+    queryset = PackagePlan.objects.filter(is_active=True)
+
+
 class PackagePurchaseView(APIView):
-    """LEAR-203: Student (or Manager) purchases a package with optional bonus discount."""
+    """Purchase a PackagePlan — creates a new Package for the student."""
     permission_classes = [(IsStudent | IsManager)]
 
     def post(self, request, pk):
-        package = get_object_or_404(Package, pk=pk)
+        plan = get_object_or_404(PackagePlan, pk=pk)
 
-        # Resolve student: student role → own profile; manager → package's student
         role = request.user.role_obj.name.lower() if request.user.role_obj else ''
         if role == 'student':
             student = get_object_or_404(Student, user=request.user)
-            if package.student_id != student.pk:
-                return Response(
-                    {'detail': 'Package does not belong to you.'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
         else:
-            student = package.student
+            student_id = request.data.get('student_id')
+            if not student_id:
+                return Response({'detail': 'student_id required for manager.'}, status=status.HTTP_400_BAD_REQUEST)
+            student = get_object_or_404(Student, pk=student_id)
 
-        try:
-            result = purchase_package(package, student)
-        except ValueError as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        course = Course.objects.first()
+        if not course:
+            return Response({'detail': 'No course configured.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(result, status=status.HTTP_200_OK)
+        from decimal import Decimal
+        final_price = plan.price
+        discount_pct = Decimal('0')
+        discount_applied = False
+
+        completion = CourseCompletion.objects.filter(
+            student=student, is_discount_used=False, earned_discount__gt=0
+        ).order_by('-id').first()
+
+        if completion:
+            discount_pct = completion.earned_discount
+            final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
+            discount_applied = True
+
+        with transaction.atomic():
+            package = Package.objects.create(
+                student=student,
+                course=course,
+                total_lessons=plan.total_lessons,
+                balance=plan.total_lessons,
+                final_price=round(final_price, 2),
+                status='active',
+            )
+            if completion:
+                completion.is_discount_used = True
+                completion.save(update_fields=['is_discount_used'])
+
+        return Response({
+            'package_id': package.id,
+            'final_price': float(package.final_price),
+            'discount_applied': discount_applied,
+            'discount_pct': float(discount_pct),
+        }, status=status.HTTP_201_CREATED)
 
 
 class ProfileView(APIView):

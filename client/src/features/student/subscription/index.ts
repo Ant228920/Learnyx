@@ -1,2 +1,2 @@
 export { useStudentSubscription } from './hooks/useStudentSubscription';
-export type { PackageItem, SubscriptionData } from './types';
+export type { PackageItem, SubscriptionData, PackagePlan } from './types';

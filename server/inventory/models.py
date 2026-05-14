@@ -146,6 +146,21 @@ class Package(models.Model):
             CheckConstraint(condition=Q(balance__gte=0), name='check_positive_package_balance')
         ]
 
+class PackagePlan(models.Model):
+    name = models.CharField(max_length=100)
+    total_lessons = models.IntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    description = models.CharField(max_length=255, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['total_lessons']
+
+    def __str__(self):
+        return f"{self.name} ({self.total_lessons} занять)"
+
+
 class LessonQuerySet(models.QuerySet):
     def with_full_relations(self):
         # Complex Join: глибока оптимізація запиту до БД для відображення уроку

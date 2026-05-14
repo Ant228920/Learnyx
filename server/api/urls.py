@@ -4,6 +4,8 @@ from users.views import LoginView, TokenRefreshView
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
+    ApplicantRejectView,
+    PackagePlanListView,
     ActivatePackageView,
     StudentBalanceView,
     SlotViewSet,
@@ -32,6 +34,7 @@ urlpatterns = [
     path('v1/auth/register/', RegistrationRequestView.as_view(), name='auth-register'),
     path('v1/applicants/', RegistrationRequestView.as_view(), name='applicants-list'),
     path('v1/applicants/<int:pk>/approve/', ApproveRegistrationRequestView.as_view(), name='approve-applicant'),
+    path('v1/applicants/<int:pk>/reject/', ApplicantRejectView.as_view(), name='applicant-reject'),
 
     # ── Auth (legacy aliases — kept for backward compatibility)
     path('v1/tokens', LoginView.as_view(), name='login-legacy'),
@@ -39,8 +42,9 @@ urlpatterns = [
     path('v1/requests/<int:pk>/approve/', ApproveRegistrationRequestView.as_view(), name='approve-request-legacy'),
 
     # ── Packages & Students
+    path('v1/packages/', PackagePlanListView.as_view(), name='package-plans'),
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
-    path('v1/packages/<int:pk>/purchase/', PackagePurchaseView.as_view(), name='purchase-package'),
+    path('v1/packages/<int:pk>/purchase/', PackagePurchaseView.as_view(), name='package-purchase'),
     path('v1/students/available/', AvailableStudentListView.as_view(), name='student-available'),
     path('v1/students/', StudentListView.as_view(), name='student-list'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),

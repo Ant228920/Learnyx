@@ -232,8 +232,19 @@ export const studentApi = {
   },
 
   getPackages: async (): Promise<Package[]> => {
-    const { data } = await apiClient.get('/packages/?status=active');
-    return data.results ?? data;
+    const { data } = await apiClient.get('/students/me/balance/');
+    if (!data.package_id) return [];
+    return [{
+      id: data.package_id,
+      student_id: 0,
+      discipline: '',
+      total_lessons: data.total_lessons ?? 0,
+      balance: data.remaining_lessons ?? 0,
+      final_price: 0,
+      discount: 0,
+      status: (data.status ?? 'active') as Package['status'],
+      purchased_at: '',
+    }];
   },
 
   getUpcomingLessons: async (): Promise<LessonWithSlot[]> => {
@@ -264,6 +275,19 @@ export const studentApi = {
 
   purchasePackage: async (packageId: number) => {
     const { data } = await apiClient.post(`/packages/${packageId}/purchase/`);
+    return data;
+  },
+
+  getPackagePlans: async () => {
+    const { data } = await apiClient.get('/packages/');
+    return (data.results ?? data) as Array<{
+      id: number; name: string; total_lessons: number;
+      price: number; description: string; is_active: boolean;
+    }>;
+  },
+
+  purchasePlan: async (planId: number) => {
+    const { data } = await apiClient.post(`/packages/${planId}/purchase/`);
     return data;
   },
 };
@@ -347,7 +371,7 @@ export const teacherApi = {
   },
 
   getAvailableStudents: async (slotId: number) => {
-    const { data } = await apiClient.get(`/lessons/available-students/?slot_id=${slotId}`);
+    const { data } = await apiClient.get(`/students/available/?slot_id=${slotId}`);
     return data;
   },
 

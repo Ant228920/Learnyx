@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { studentApi, extractErrorMessage } from '../../../../services/api';
 import { useAuth } from '../../../../app/providers';
-import type { PackageItem, SubscriptionData } from '../types';
+import type { PackageItem, SubscriptionData, PackagePlan } from '../types';
 
 function mapPackage(p: {
   id: number; discipline: string; total_lessons: number; balance: number;
@@ -24,6 +24,7 @@ function mapPackage(p: {
 export function useStudentSubscription() {
   const { user } = useAuth();
   const [subData, setSubData] = useState<SubscriptionData | null>(null);
+  const [plans, setPlans] = useState<PackagePlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,15 +32,18 @@ export function useStudentSubscription() {
     setLoading(true);
     setError(null);
     try {
-      const [packages, bonusRaw] = await Promise.all([
+      const [packagesRaw, bonusRaw, plansRaw] = await Promise.all([
         studentApi.getPackages(),
         user ? studentApi.getBonusBalance(user.id) : Promise.resolve(null),
+        studentApi.getPackagePlans(),
       ]);
-      const mapped = packages.map((p, i) => mapPackage(p, i));
+      const pkgArray = Array.isArray(packagesRaw) ? packagesRaw : (packagesRaw ? [packagesRaw] : []);
+      const mapped = pkgArray.map((p, i) => mapPackage(p, i));
       const active = mapped.find(p => p.status === 'active') ?? null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const discountPct = (bonusRaw as any)?.available_discount_pct ?? 0;
       setSubData({ activePackage: active, packages: mapped, discountPct });
+      setPlans(plansRaw);
     } catch (e) {
       setError(extractErrorMessage(e));
     } finally {
@@ -49,10 +53,10 @@ export function useStudentSubscription() {
 
   useEffect(() => { void fetch(); }, [fetch]);
 
-  const purchase = useCallback(async (packageId: number) => {
-    await studentApi.purchasePackage(packageId);
+  const purchase = useCallback(async (planId: number) => {
+    await studentApi.purchasePlan(planId);
     await fetch();
   }, [fetch]);
 
-  return { subData, loading, error, refetch: fetch, purchase };
+  return { subData, plans, loading, error, refetch: fetch, purchase };
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import StudentLayout from './StudentLayout';
 import { useStudentSubscription } from '../../features/student/subscription';
-import type { PackageItem } from '../../features/student/subscription';
+import type { PackagePlan } from '../../features/student/subscription';
 
 const PLAN_FEATURES = ['Доступ до всіх лекцій 24/7', 'Стандартна підтримка куратора', 'Доступ через мобільний додаток', 'Сертифікат про завершення курсу'];
 const FEATURES = [
@@ -11,18 +11,16 @@ const FEATURES = [
 ];
 
 export default function StudentSubscription() {
-  const { subData, loading, error, purchase } = useStudentSubscription();
-  const [selectedPlan, setSelectedPlan] = useState<PackageItem | null>(null);
+  const { subData, plans, loading, error, purchase } = useStudentSubscription();
+  const [selectedPlan, setSelectedPlan] = useState<PackagePlan | null>(null);
   const [purchasing, setPurchasing] = useState(false);
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
-  const packages = subData?.packages ?? [];
   const activePackage = subData?.activePackage ?? null;
   const discountPct = subData?.discountPct ?? 0;
-  const displayPlan = selectedPlan ?? activePackage;
-  const finalPrice = displayPlan ? Math.round(displayPlan.price * (1 - discountPct / 100)) : 0;
+  const finalPrice = selectedPlan ? Math.round(selectedPlan.price * (1 - discountPct / 100)) : 0;
 
   const handlePurchase = async () => {
     if (!selectedPlan) return;
@@ -65,29 +63,30 @@ export default function StudentSubscription() {
         </div>
 
         {/* Plans */}
-        {packages.length > 0 && (
+        {plans.length > 0 && (
           <div className="flex flex-col gap-6">
             <div className="text-center">
               <h2 className="font-poppins font-bold text-slate-900 text-2xl">Оберіть свій ідеальний абонемент</h2>
               <p className="font-inter text-[#565d6d] text-base mt-1">Змінюйте план у будь-який час. Ми підберемо найкраще рішення для вашого темпу.</p>
             </div>
             <div className="grid grid-cols-3 gap-6">
-              {packages.map(p => {
-                const isCurrent = p.id === activePackage?.id && !selectedPlan;
-                const isSelected = p.id === selectedPlan?.id;
+              {plans.map((plan, idx) => {
+                const isCurrent = activePackage?.total_lessons === plan.total_lessons && !selectedPlan;
+                const isSelected = selectedPlan?.id === plan.id;
+                const isPopular = idx === 1;
                 return (
-                  <div key={p.id} className={`relative flex flex-col gap-5 p-6 bg-white rounded-2xl border-2 transition-all ${isCurrent || isSelected ? 'border-[#1f8cf9]' : 'border-[#dee1e6]'}`}>
-                    {p.popular && (
+                  <div key={plan.id} className={`relative flex flex-col gap-5 p-6 bg-white rounded-2xl border-2 transition-all ${isCurrent || isSelected ? 'border-[#1f8cf9]' : 'border-[#dee1e6]'}`}>
+                    {isPopular && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                         <span className="px-4 py-1 bg-[#f5a83d] rounded-full font-inter font-bold text-white text-[10px] uppercase whitespace-nowrap">Найпопулярніший</span>
                       </div>
                     )}
                     <div>
-                      <p className="font-poppins font-bold text-slate-900 text-2xl">{p.label}</p>
-                      <p className="font-inter text-[#565d6d] text-sm mt-1">{p.subtitle}</p>
+                      <p className="font-poppins font-bold text-slate-900 text-2xl">{plan.name}</p>
+                      <p className="font-inter text-[#565d6d] text-sm mt-1">{plan.total_lessons} занять</p>
                     </div>
                     <div>
-                      <span className="font-inter font-black text-slate-900 text-3xl">₴{p.price}</span>
+                      <span className="font-inter font-black text-slate-900 text-3xl">₴{plan.price}</span>
                       <span className="font-inter text-[#565d6d] text-sm"> /міс</span>
                     </div>
                     <ul className="flex flex-col gap-2">
@@ -98,8 +97,12 @@ export default function StudentSubscription() {
                         </li>
                       ))}
                     </ul>
-                    <button type="button" onClick={() => setSelectedPlan(isSelected ? null : p)}
-                      className="py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">
+                    <button
+                      type="button"
+                      disabled={isCurrent}
+                      onClick={() => setSelectedPlan(isSelected ? null : plan)}
+                      className="py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                       {isCurrent ? 'Поточний' : isSelected ? 'Вибрано' : 'Вибрати'}
                     </button>
                   </div>
@@ -130,7 +133,7 @@ export default function StudentSubscription() {
                 <p className="font-inter text-[#565d6d] text-sm mt-1">Завершіть покупку, обравши метод оплати</p>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-inter text-[#565d6d] text-sm">План: {selectedPlan.label}</span>
+                <span className="font-inter text-[#565d6d] text-sm">План: {selectedPlan.name} ({selectedPlan.total_lessons} занять)</span>
                 <span className="font-inter font-bold text-slate-900 text-sm">₴{selectedPlan.price}</span>
               </div>
               {discountPct > 0 && (
