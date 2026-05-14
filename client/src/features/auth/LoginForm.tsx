@@ -9,11 +9,11 @@ interface Props {
 }
 
 function getRedirectPath(role: string): string {
-  switch (role) {
-    case 'Student':  return '/dashboard';
-    case 'Teacher':  return '/teacher';
-    case 'Manager':  return '/manager';
-    case 'Admin':    return '/manager';
+  switch (role.toLowerCase()) {
+    case 'student':  return '/dashboard';
+    case 'teacher':  return '/teacher';
+    case 'manager':  return '/manager';
+    case 'admin':    return '/manager';
     default:         return '/';
   }
 }
@@ -42,18 +42,16 @@ export default function LoginForm({ onSuccess }: Props) {
       // Зберігаємо refresh токен
       localStorage.setItem('refreshToken', data.refreshToken);
 
-      const role = (data.user.role ?? '') as 'Student' | 'Teacher' | 'Manager' | 'Admin';
-
       const normalizedUser = {
         ...data.user,
-        role,
+        role: (data.user.role ?? '').toLowerCase() as 'student' | 'teacher' | 'manager' | 'admin',
       };
 
       login(data.accessToken, normalizedUser);
       onSuccess?.();
 
       setTimeout(() => {
-        void navigate(getRedirectPath(role));
+        void navigate(getRedirectPath(normalizedUser.role));
       }, 0);
     } catch (err) {
       setError(extractErrorMessage(err));

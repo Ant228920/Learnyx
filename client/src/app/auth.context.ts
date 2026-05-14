@@ -3,7 +3,7 @@ export type ModalType = 'student' | 'teacher' | 'login' | null;
 export interface User {
   id: number;
   email: string;
-  role: 'Student' | 'Teacher' | 'Manager' | 'Admin';
+  role: 'student' | 'teacher' | 'manager' | 'admin' | 'Student' | 'Teacher' | 'Manager' | 'Admin';
   firstName: string;
   lastName: string;
   phone?: string;

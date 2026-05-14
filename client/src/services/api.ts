@@ -509,7 +509,7 @@ export const managerApi = {
 // ── Profile API ────────────────────────────────────────────────────────────
 export const profileApi = {
   get: async () => {
-    const { data } = await apiClient.get('/profile/');
+    const { data } = await apiClient.get('/users/me/');
     return data;
   },
 
@@ -519,7 +519,7 @@ export const profileApi = {
     phone?: string;
     telegram_nickname?: string;
   }) => {
-    const { data } = await apiClient.patch('/profile/', payload);
+    const { data } = await apiClient.patch('/users/me/', payload);
     return data;
   },
 };

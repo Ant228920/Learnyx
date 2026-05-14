@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { profileApi, extractErrorMessage } from '../../../services/api';
+import { useAuth } from '../../../app/providers';
 import type { ProfileData } from '../types';
 
 export function useProfile() {
+  const { user, token, login } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +35,17 @@ export function useProfile() {
     setSaving(true);
     setError(null);
     try {
-      await profileApi.update(data);
+      const updated = await profileApi.update(data);
       setProfile(prev => prev ? { ...prev, ...data } : prev);
+      if (user && token) {
+        login(token, {
+          ...user,
+          firstName: (updated as ProfileData).first_name ?? user.firstName,
+          lastName: (updated as ProfileData).last_name ?? user.lastName,
+          phone: (updated as ProfileData).phone ?? user.phone,
+          nickname: (updated as ProfileData).telegram_nickname ?? user.nickname,
+        });
+      }
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {

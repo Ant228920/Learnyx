@@ -3,9 +3,10 @@ import { useAuth } from '../../app/providers';
 import AuthModal from '../../features/auth/AuthModal';
 
 function roleDashboard(role: string): string {
-  if (role === 'Student') return '/dashboard';
-  if (role === 'Teacher') return '/teacher';
-  if (role === 'Manager' || role === 'Admin') return '/manager';
+  const r = role.toLowerCase();
+  if (r === 'student') return '/dashboard';
+  if (r === 'teacher') return '/teacher';
+  if (r === 'manager' || r === 'admin') return '/manager';
   return '/';
 }
 

@@ -1,9 +1,11 @@
+import { useState } from 'react';
+
 const subjects = [
-  { icon: '🔤', name: 'Англійська мова' },
-  { icon: '📖', name: 'Українська мова' },
-  { icon: '📐', name: 'Математика' },
-  { icon: '🕐', name: 'Історія України' },
-  { icon: '💻', name: 'Інформатика' },
+  { icon: '🔤', name: 'Англійська мова', description: 'Рівні A1–C2, підготовка до IELTS/TOEFL, розмовна практика та граматика з досвідченими носіями та сертифікованими викладачами.' },
+  { icon: '📖', name: 'Українська мова', description: 'Граматика, правопис, орфографія, підготовка до НМТ та ЗНО. Поглиблене вивчення літературної норми та стилістики.' },
+  { icon: '📐', name: 'Математика', description: 'Шкільна програма 1–11 клас, алгебра, геометрія, підготовка до НМТ та олімпіад різного рівня.' },
+  { icon: '🕐', name: 'Історія України', description: 'Шкільна програма з давніх часів до сучасності, підготовка до НМТ, поглиблене вивчення ключових подій.' },
+  { icon: '💻', name: 'Інформатика', description: 'Програмування (Python, JavaScript, C++), алгоритми, структури даних, підготовка до олімпіад та профільних ЗНО.' },
 ];
 
 const stats = ['500+ ВИКЛАДАЧІВ', '10,000+ УЧНІВ', '15+ МОВ НАВЧАННЯ'];
@@ -30,6 +32,9 @@ const footerLinks = ['Конфіденційність', 'Умови викор�
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const [selectedSubject, setSelectedSubject] = useState<typeof subjects[0] | null>(null);
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
   return (
     <div className="flex w-full flex-col bg-white">
 
@@ -80,12 +85,12 @@ export default function HomePage() {
           </p>
           <div className="grid grid-cols-3 gap-6 pt-12 w-full">
             {subjects.slice(0, 3).map((s) => (
-              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow">
+              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedSubject(s)}>
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">{s.icon}</div>
                 <div className="flex flex-col pt-7">
                   <h3 className="font-bold text-slate-900 text-2xl leading-8" style={{ fontFamily: "'Poppins', sans-serif" }}>{s.name}</h3>
                 </div>
-                <button type="button" className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedSubject(s); }} className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
                   ПЕРЕГЛЯНУТИ ІНФОРМАЦІЮ
                 </button>
               </article>
@@ -93,12 +98,12 @@ export default function HomePage() {
           </div>
           <div className="grid grid-cols-2 gap-6 pt-8 max-w-4xl w-full">
             {subjects.slice(3).map((s) => (
-              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow">
+              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedSubject(s)}>
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">{s.icon}</div>
                 <div className="flex flex-col pt-7">
                   <h3 className="font-bold text-slate-900 text-2xl leading-8" style={{ fontFamily: "'Poppins', sans-serif" }}>{s.name}</h3>
                 </div>
-                <button type="button" className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedSubject(s); }} className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
                   ПЕРЕГЛЯНУТИ ІНФОРМАЦІЮ
                 </button>
               </article>
@@ -109,22 +114,45 @@ export default function HomePage() {
 
       {/* ── Testimonials ── */}
       <section aria-label="Відгуки" className="w-full px-80 py-24 border-t border-[#dee1e6]">
-        <div className="grid grid-cols-2 gap-16 max-w-[1440px] mx-auto">
-          {testimonials.map((t) => (
-            <article key={t.title} className="flex flex-col items-start gap-12">
-              <h2 className="font-bold text-slate-900 text-4xl leading-10" style={{ fontFamily: "'Poppins', sans-serif" }}>{t.title}</h2>
-              <div className="flex flex-col gap-6 p-8 bg-gray-50 rounded-2xl w-full">
-                <div className="flex items-center gap-4">
-                  <img src={t.avatar} alt={t.name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
-                  <div>
-                    <p className="font-bold text-slate-900 text-lg leading-7" style={{ fontFamily: "'Poppins', sans-serif" }}>{t.name}</p>
-                    <p className="text-[#565d6d] text-sm leading-5" style={{ fontFamily: "'Inter', sans-serif" }}>{t.role}</p>
-                  </div>
-                </div>
-                <blockquote className="italic text-[#565d6d] text-base leading-[26px]" style={{ fontFamily: "'Inter', sans-serif" }}>{t.quote}</blockquote>
+        <div className="max-w-[1440px] mx-auto flex flex-col gap-10">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-slate-900 text-4xl leading-10" style={{ fontFamily: "'Poppins', sans-serif" }}>
+              {testimonials[activeTestimonial].title}
+            </h2>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveTestimonial(i => (i - 1 + testimonials.length) % testimonials.length)}
+                aria-label="Попередній відгук"
+                className="w-10 h-10 rounded-full border border-[#dee1e6] flex items-center justify-center hover:bg-gray-50 transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2" aria-hidden="true">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <span className="font-inter text-[#565d6d] text-sm">{activeTestimonial + 1} / {testimonials.length}</span>
+              <button
+                type="button"
+                onClick={() => setActiveTestimonial(i => (i + 1) % testimonials.length)}
+                aria-label="Наступний відгук"
+                className="w-10 h-10 rounded-full border border-[#dee1e6] flex items-center justify-center hover:bg-gray-50 transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2" aria-hidden="true">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-6 p-8 bg-gray-50 rounded-2xl w-full">
+            <div className="flex items-center gap-4">
+              <img src={testimonials[activeTestimonial].avatar} alt={testimonials[activeTestimonial].name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
+              <div>
+                <p className="font-bold text-slate-900 text-lg leading-7" style={{ fontFamily: "'Poppins', sans-serif" }}>{testimonials[activeTestimonial].name}</p>
+                <p className="text-[#565d6d] text-sm leading-5" style={{ fontFamily: "'Inter', sans-serif" }}>{testimonials[activeTestimonial].role}</p>
               </div>
-            </article>
-          ))}
+            </div>
+            <blockquote className="italic text-[#565d6d] text-base leading-[26px]" style={{ fontFamily: "'Inter', sans-serif" }}>{testimonials[activeTestimonial].quote}</blockquote>
+          </div>
         </div>
       </section>
 
@@ -186,6 +214,49 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
+
+      {/* ── Subject Info Modal ── */}
+      {selectedSubject && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setSelectedSubject(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Інформація про ${selectedSubject.name}`}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-[0px_25px_50px_-12px_#00000040] w-full max-w-md mx-4 p-8 flex flex-col gap-5"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">
+                  {selectedSubject.icon}
+                </div>
+                <h2 className="font-poppins font-bold text-slate-900 text-2xl">{selectedSubject.name}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSubject(null)}
+                aria-label="Закрити"
+                className="text-[#9095a1] hover:text-slate-600"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <p className="font-inter text-[#565d6d] text-base leading-7">{selectedSubject.description}</p>
+            <button
+              type="button"
+              onClick={() => setSelectedSubject(null)}
+              className="w-full py-3 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors"
+            >
+              Зрозуміло
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

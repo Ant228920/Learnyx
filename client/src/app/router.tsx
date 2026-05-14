@@ -27,13 +27,12 @@ import ManagerSubscriptions from '../pages/manager/ManagerSubscriptions';
 import ManagerReports from '../pages/manager/ManagerReports';
 import ManagerMatching from '../pages/manager/ManagerMatching';
 import ManagerSettings from '../pages/manager/ManagerSettings';
-import TeacherSettings from '../pages/teacher/TeacherSettings';
-import StudentSettings from '../pages/student/StudentSettings';
 
 function roleDashboard(role: string): string {
-  if (role === 'Student') return '/dashboard';
-  if (role === 'Teacher') return '/teacher';
-  if (role === 'Manager' || role === 'Admin') return '/manager';
+  const r = role.toLowerCase();
+  if (r === 'student') return '/dashboard';
+  if (r === 'teacher') return '/teacher';
+  if (r === 'manager' || r === 'admin') return '/manager';
   return '/';
 }
 
@@ -46,14 +45,14 @@ function RoleRedirect() {
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/" replace />;
-  if (!allowedRoles.includes(user.role)) return <Navigate to={roleDashboard(user.role)} replace />;
+  if (!allowedRoles.includes(user.role.toLowerCase())) return <Navigate to={roleDashboard(user.role)} replace />;
   return <>{children}</>;
 }
 
 
-const S = ['Student'];
-const T = ['Teacher'];
-const M = ['Manager', 'Admin'];
+const S = ['student'];
+const T = ['teacher'];
+const M = ['manager', 'admin'];
 
 export default function AppRouter() {
   return (
