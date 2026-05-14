@@ -41,8 +41,9 @@ from api.serializers import (
     TeacherListSerializer,
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
+    ReviewSerializer,
 )
-from users.models import User, Role, Student, Manager
+from users.models import User, Role, Student, Manager, Review
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest
 from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS
 
@@ -1148,3 +1149,20 @@ class ManagerLearningRequestsView(APIView):
         req.status = new_status
         req.save(update_fields=['status'])
         return Response(LearningRequestSerializer(req).data)
+
+
+class ReviewView(APIView):
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
+    def get(self, request):
+        reviews = Review.objects.filter(is_visible=True).select_related('user').order_by('-created_at')
+        return Response(ReviewSerializer(reviews, many=True).data)
+
+    def post(self, request):
+        serializer = ReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

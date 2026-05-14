@@ -128,6 +128,7 @@ class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    is_visible = models.BooleanField(default=True)
 
     class Meta:
         indexes = [

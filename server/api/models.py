@@ -1,6 +1,7 @@
 from django.db import models
 
 
+
 class RegistrationRequest(models.Model):
     """
     UC-08: Заявка на реєстрацію від гостя (без акаунту).

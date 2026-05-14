@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
 from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest
-from users.models import Student
+from users.models import Student, Review
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
@@ -275,3 +275,19 @@ class LearningRequestCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = LearningRequest
         fields = ['subject', 'level', 'preferred_days', 'preferred_time', 'notes', 'package']
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ['id', 'text', 'created_at', 'is_visible', 'user_name', 'user_role']
+        read_only_fields = ['id', 'created_at', 'is_visible']
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name()
+
+    def get_user_role(self, obj):
+        return obj.user.role_obj.name if obj.user.role_obj else None
