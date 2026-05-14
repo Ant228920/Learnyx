@@ -27,12 +27,9 @@ from api.views import (
     StudentLearningRequestView,
     ManagerLearningRequestsView,
 )
-from users.views import RequestViewSet
-
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
 router.register(r'v1/lessons', LessonViewSet, basename='lesson')
-router.register(r'v1/user-requests', RequestViewSet, basename='user-request')
 
 urlpatterns = [
     # ── Auth (canonical)
@@ -42,11 +39,6 @@ urlpatterns = [
     path('v1/applicants/', RegistrationRequestView.as_view(), name='applicants-list'),
     path('v1/applicants/<int:pk>/approve/', ApproveRegistrationRequestView.as_view(), name='approve-applicant'),
     path('v1/applicants/<int:pk>/reject/', ApplicantRejectView.as_view(), name='applicant-reject'),
-
-    # ── Auth (legacy aliases — kept for backward compatibility)
-    path('v1/tokens', LoginView.as_view(), name='login-legacy'),
-    path('v1/requests/', RegistrationRequestView.as_view(), name='registration-request-legacy'),
-    path('v1/requests/<int:pk>/approve/', ApproveRegistrationRequestView.as_view(), name='approve-request-legacy'),
 
     # ── Packages & Students
     path('v1/packages/', PackagePlanListView.as_view(), name='package-plans'),

@@ -226,16 +226,6 @@ export const authApi = {
     return data;
   },
 
-  getMe: async (): Promise<User> => {
-    const { data } = await apiClient.get('/profile/');
-    return {
-      id: data.id,
-      email: data.email,
-      role: data.role,
-      firstName: data.first_name,
-      lastName: data.last_name,
-    };
-  },
 };
 
 // ── Student API ────────────────────────────────────────────────────────────
@@ -245,20 +235,11 @@ export const studentApi = {
     return data;
   },
 
-  getPackages: async (): Promise<Package[]> => {
+  getActiveBalance: async (): Promise<{
+    remaining_lessons: number; total_lessons: number; package_id: number; status: string;
+  } | null> => {
     const { data } = await apiClient.get('/students/me/balance/');
-    if (!data.package_id) return [];
-    return [{
-      id: data.package_id,
-      student_id: 0,
-      discipline: '',
-      total_lessons: data.total_lessons ?? 0,
-      balance: data.remaining_lessons ?? 0,
-      final_price: 0,
-      discount: 0,
-      status: (data.status ?? 'active') as Package['status'],
-      purchased_at: '',
-    }];
+    return data.package_id ? data : null;
   },
 
   getUpcomingLessons: async (): Promise<LessonWithSlot[]> => {
@@ -356,7 +337,7 @@ export const teacherApi = {
 
   setLessonStatus: async (
     lessonId: number,
-    status: 'conducted' | 'cancelled' | 'missed'
+    status: 'conducted' | 'canceled_advance' | 'student_missed' | 'teacher_missed'
   ): Promise<Lesson> => {
     const { data } = await apiClient.patch(`/lessons/${lessonId}/status/`, { status });
     return data;
@@ -491,7 +472,7 @@ export const managerApi = {
     slot_id: number;
     student_id: number;
     package_id: number;
-    meting_link?: string;
+    meeting_link?: string;
   }) => {
     const { data } = await apiClient.post('/lessons/', payload);
     return data;

@@ -67,7 +67,7 @@ export default function TeacherDashboard() {
       if (!notConducted) {
         await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'conducted');
       } else {
-        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'missed');
+        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'student_missed');
       }
       setGradedIds(p => [...p, gradeLesson.lesson_id!]);
       setGradeLesson(null);

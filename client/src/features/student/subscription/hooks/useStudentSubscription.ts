@@ -3,24 +3,6 @@ import { studentApi, extractErrorMessage } from '../../../../services/api';
 import { showError } from '../../../../utils/toast';
 import type { PackageItem, SubscriptionData, PackagePlan } from '../types';
 
-function mapPackage(p: {
-  id: number; discipline: string; total_lessons: number; balance: number;
-  final_price: number; discount: number; status: string; purchased_at: string;
-}, idx: number): PackageItem {
-  return {
-    id: p.id,
-    label: `${p.total_lessons} занять`,
-    subtitle: p.discipline || 'Абонемент',
-    price: Number(p.final_price),
-    popular: idx === 1,
-    status: p.status as PackageItem['status'],
-    balance: p.balance,
-    total_lessons: p.total_lessons,
-    purchased_at: p.purchased_at || null,
-    discipline: p.discipline,
-  };
-}
-
 export function useStudentSubscription() {
   const [subData, setSubData] = useState<SubscriptionData | null>(null);
   const [plans, setPlans] = useState<PackagePlan[]>([]);
@@ -33,16 +15,25 @@ export function useStudentSubscription() {
     setLoading(true);
     setError(null);
     try {
-      const [packagesRaw, plansRaw, walletRaw] = await Promise.all([
-        studentApi.getPackages(),
+      const [balanceRaw, plansRaw, walletRaw] = await Promise.all([
+        studentApi.getActiveBalance(),
         studentApi.getPackagePlans(),
         studentApi.getWallet(),
       ]);
-      const pkgArray = Array.isArray(packagesRaw) ? packagesRaw : (packagesRaw ? [packagesRaw] : []);
-      const mapped = pkgArray.map((p, i) => mapPackage(p, i));
-      const active = mapped.find(p => p.status === 'active') ?? null;
+      const active: PackageItem | null = balanceRaw ? {
+        id: balanceRaw.package_id,
+        label: `${balanceRaw.total_lessons} занять`,
+        subtitle: 'Абонемент',
+        price: 0,
+        popular: false,
+        status: balanceRaw.status as PackageItem['status'],
+        balance: balanceRaw.remaining_lessons,
+        total_lessons: balanceRaw.total_lessons,
+        purchased_at: null,
+        discipline: '',
+      } : null;
       const discountPct = walletRaw?.bonus_discount_pct ?? 0;
-      setSubData({ activePackage: active, packages: mapped, discountPct });
+      setSubData({ activePackage: active, packages: active ? [active] : [], discountPct });
       setPlans(plansRaw);
       setMoneyBalance(walletRaw?.money_balance ?? 0);
       setBonusDiscountPct(discountPct);
