@@ -1,33 +1,6 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
-
-type LessonStatus = 'Проведено' | 'Не проведено — по вині учня' | 'Не проведено — по вині викладача';
-
-interface Lesson {
-  id: number;
-  date: string;
-  time: string;
-  subject: string;
-  teacher: string;
-  student: string;
-  status: LessonStatus;
-}
-
-const ALL_LESSONS: Lesson[] = [
-  { id: 1, date: '24.10.2024', time: '14:00', subject: 'Англійська мова', teacher: 'Ковальчук О.І.', student: 'Сидоренко М.В.', status: 'Проведено' },
-  { id: 2, date: '24.10.2024', time: '15:30', subject: 'Математика', teacher: 'Петренко В.С.', student: 'Група А-12', status: 'Не проведено — по вині учня' },
-  { id: 3, date: '23.10.2024', time: '10:00', subject: 'Математика', teacher: 'Іванов П.М.', student: 'Ткаченко С.Ю.', status: 'Проведено' },
-  { id: 4, date: '23.10.2024', time: '11:30', subject: 'Англійська мова', teacher: 'Ковальчук О.І.', student: 'Бондаренко А.С.', status: 'Не проведено — по вині викладача' },
-  { id: 5, date: '22.10.2024', time: '16:00', subject: 'Українська мова', teacher: 'Сидорчук Л.П.', student: 'Левченко М.О.', status: 'Проведено' },
-  { id: 6, date: '22.10.2024', time: '17:30', subject: 'Історія', teacher: 'Мельник Д.В.', student: 'Павленко І.К.', status: 'Проведено' },
-  { id: 7, date: '21.10.2024', time: '09:00', subject: 'Англійська мова', teacher: 'Ковальчук О.І.', student: 'Шевченко В.П.', status: 'Проведено' },
-  { id: 8, date: '21.10.2024', time: '13:00', subject: 'Математика', teacher: 'Петренко В.С.', student: 'Сидоренко М.В.', status: 'Проведено' },
-  { id: 9, date: '20.10.2024', time: '11:00', subject: 'Інформатика', teacher: 'Іванов П.М.', student: 'Ткаченко С.Ю.', status: 'Не проведено — по вині учня' },
-  { id: 10, date: '20.10.2024', time: '15:00', subject: 'Історія України', teacher: 'Сидорчук Л.П.', student: 'Левченко М.О.', status: 'Проведено' },
-];
-
-const TEACHERS = ['Всі викладачі', 'Ковальчук О.І.', 'Петренко В.С.', 'Іванов П.М.', 'Сидорчук Л.П.', 'Мельник Д.В.'];
+import { useManagerReports } from '../../features/manager/reports';
 
 const NAV_ITEMS = [
   { label: 'Дашборд', active: false, path: '/manager' },
@@ -39,15 +12,18 @@ const NAV_ITEMS = [
 
 const FOOTER_LINKS = ['Політика конфіденційності', 'Центр допомоги', 'Умови використання'];
 
-function getStatusStyle(status: LessonStatus) {
+function getStatusLabel(status: string): string {
   switch (status) {
-    case 'Проведено':
-      return 'bg-[#e0faea] text-[#1a7bd9]';
-    case 'Не проведено — по вині учня':
-      return 'bg-[#fff0f0] text-[#e64c4c]';
-    case 'Не проведено — по вині викладача':
-      return 'bg-[#fff0f0] text-[#e64c4c]';
+    case 'conducted': return 'Проведено';
+    case 'missed': return 'Не проведено — по вині учня';
+    case 'cancelled': return 'Не проведено — по вині викладача';
+    default: return status;
   }
+}
+
+function getStatusStyle(status: string): string {
+  if (status === 'conducted') return 'bg-[#e0faea] text-[#1a7bd9]';
+  return 'bg-[#fff0f0] text-[#e64c4c]';
 }
 
 const IconLogo = () => (
@@ -65,16 +41,10 @@ const IconBook = () => (
 export default function ManagerReports() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [teacher, setTeacher] = useState('Всі викладачі');
-  const [showAll, setShowAll] = useState(false);
+  const { lessons, loading, error } = useManagerReports();
 
-  const filtered = ALL_LESSONS.filter(
-    (l) => teacher === 'Всі викладачі' || l.teacher === teacher
-  );
-
-  const conducted = filtered.filter((l) => l.status === 'Проведено').length;
-  const cancelled = filtered.filter((l) => l.status !== 'Проведено').length;
-  const displayed = showAll ? filtered : filtered.slice(0, 7);
+  const conducted = lessons.filter(l => l.status === 'conducted').length;
+  const cancelled = lessons.filter(l => l.status !== 'conducted').length;
 
   return (
     <div className="flex w-full min-h-screen bg-white">
@@ -100,11 +70,8 @@ export default function ManagerReports() {
             className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors">
             <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>
           </button>
-          <button
-            type="button"
-            onClick={() => { logout(); void navigate('/'); }}
-            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors"
-          >
+          <button type="button" onClick={() => { logout(); void navigate('/'); }}
+            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors">
             <span className="font-inter text-sm font-medium text-red-500">Вийти</span>
           </button>
         </div>
@@ -132,93 +99,71 @@ export default function ManagerReports() {
               <p className="font-inter text-[#565d6d] text-lg leading-7 mt-2">Аналіз проведених занять та активності викладачів.</p>
             </div>
 
-            {/* Teacher filter */}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="teacher-filter" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Викладач</label>
-              <div className="relative w-48">
-                <select
-                  id="teacher-filter"
-                  value={teacher}
-                  onChange={(e) => setTeacher(e.target.value)}
-                  aria-label="Фільтр за викладачем"
-                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-2.5 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] pr-8"
-                >
-                  {TEACHERS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </div>
-            </div>
+            {loading && <p className="font-inter text-[#565d6d] text-sm">Завантаження...</p>}
+            {error && <p className="font-inter text-red-500 text-sm">Помилка: {error}</p>}
 
-            {/* Stats cards */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="flex items-center gap-5 p-6 bg-[#f0f7ff] rounded-2xl border border-[#dee1e6]">
-                <div className="w-12 h-12 rounded-full bg-[#1f8cf9] flex items-center justify-center flex-shrink-0">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" aria-hidden="true">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-inter font-medium text-[#565d6d] text-sm">Кількість проведених уроків</p>
-                  <p className="font-inter font-black text-slate-900 text-4xl leading-10 mt-0.5">{conducted}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-5 p-6 bg-[#fff5f5] rounded-2xl border border-[#dee1e6]">
-                <div className="w-12 h-12 rounded-full bg-[#e64c4c] flex items-center justify-center flex-shrink-0">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-inter font-medium text-[#565d6d] text-sm">Кількість відмінених уроків</p>
-                  <p className="font-inter font-black text-slate-900 text-4xl leading-10 mt-0.5">{cancelled}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="bg-white rounded-2xl border border-[#dee1e6] overflow-hidden">
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_0.6fr_1.2fr_1fr_1fr_1.5fr] px-6 py-4 border-b border-[#dee1e6]">
-                {['ДАТА', 'ЧАС', 'ПРЕДМЕТ', 'ВИКЛАДАЧ', 'ГРУПА/УЧЕНЬ', 'СТАТУС'].map((h) => (
-                  <span key={h} className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">{h}</span>
-                ))}
-              </div>
-
-              {/* Rows */}
-              {displayed.map((lesson, i) => (
-                <div
-                  key={lesson.id}
-                  className={`grid grid-cols-[1fr_0.6fr_1.2fr_1fr_1fr_1.5fr] items-center px-6 py-4 ${i < displayed.length - 1 ? 'border-b border-[#dee1e6]' : ''}`}
-                >
-                  <span className="font-inter font-medium text-slate-800 text-sm">{lesson.date}</span>
-                  <span className="font-inter font-medium text-slate-800 text-sm">{lesson.time}</span>
-                  <div className="flex items-center gap-2">
-                    <IconBook />
-                    <span className="font-inter font-semibold text-slate-800 text-sm">{lesson.subject}</span>
+            {!loading && !error && (
+              <>
+                {/* Stats cards */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="flex items-center gap-5 p-6 bg-[#f0f7ff] rounded-2xl border border-[#dee1e6]">
+                    <div className="w-12 h-12 rounded-full bg-[#1f8cf9] flex items-center justify-center flex-shrink-0">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" aria-hidden="true">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-inter font-medium text-[#565d6d] text-sm">Кількість проведених уроків</p>
+                      <p className="font-inter font-black text-slate-900 text-4xl leading-10 mt-0.5">{conducted}</p>
+                    </div>
                   </div>
-                  <span className="font-inter text-[#565d6d] text-sm">{lesson.teacher}</span>
-                  <span className="font-inter text-[#565d6d] text-sm">{lesson.student}</span>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full font-inter font-semibold text-xs w-fit ${getStatusStyle(lesson.status)}`}>
-                    {lesson.status}
-                  </span>
+                  <div className="flex items-center gap-5 p-6 bg-[#fff5f5] rounded-2xl border border-[#dee1e6]">
+                    <div className="w-12 h-12 rounded-full bg-[#e64c4c] flex items-center justify-center flex-shrink-0">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-inter font-medium text-[#565d6d] text-sm">Кількість відмінених уроків</p>
+                      <p className="font-inter font-black text-slate-900 text-4xl leading-10 mt-0.5">{cancelled}</p>
+                    </div>
+                  </div>
                 </div>
-              ))}
 
-              {/* Show more */}
-              {!showAll && filtered.length > 7 && (
-                <div className="flex justify-center py-4 border-t border-[#dee1e6]">
-                  <button
-                    type="button"
-                    onClick={() => setShowAll(true)}
-                    className="font-inter font-bold text-[#1f8cf9] text-sm hover:underline"
-                  >
-                    Показати більше
-                  </button>
+                {/* Table */}
+                <div className="bg-white rounded-2xl border border-[#dee1e6] overflow-hidden">
+                  <div className="grid grid-cols-[1fr_0.6fr_1.2fr_1fr_1fr_1.5fr] px-6 py-4 border-b border-[#dee1e6]">
+                    {['ДАТА', 'ЧАС', 'ПРЕДМЕТ', 'ВИКЛАДАЧ', 'УЧЕНЬ', 'СТАТУС'].map((h) => (
+                      <span key={h} className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">{h}</span>
+                    ))}
+                  </div>
+
+                  {lessons.length === 0 && (
+                    <div className="px-6 py-10 text-center">
+                      <p className="font-inter text-[#565d6d] text-sm">Занять ще немає</p>
+                    </div>
+                  )}
+
+                  {lessons.map((lesson, i) => (
+                    <div key={lesson.id}
+                      className={`grid grid-cols-[1fr_0.6fr_1.2fr_1fr_1fr_1.5fr] items-center px-6 py-4 ${i < lessons.length - 1 ? 'border-b border-[#dee1e6]' : ''}`}
+                    >
+                      <span className="font-inter font-medium text-slate-800 text-sm">{lesson.date}</span>
+                      <span className="font-inter font-medium text-slate-800 text-sm">{lesson.time}</span>
+                      <div className="flex items-center gap-2">
+                        <IconBook />
+                        <span className="font-inter font-semibold text-slate-800 text-sm">{lesson.subject}</span>
+                      </div>
+                      <span className="font-inter text-[#565d6d] text-sm">{lesson.teacher}</span>
+                      <span className="font-inter text-[#565d6d] text-sm">{lesson.student}</span>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full font-inter font-semibold text-xs w-fit ${getStatusStyle(lesson.status)}`}>
+                        {getStatusLabel(lesson.status)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </main>
 

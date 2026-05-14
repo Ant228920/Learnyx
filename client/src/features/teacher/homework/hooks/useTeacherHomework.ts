@@ -13,8 +13,15 @@ function formatDeadline(iso?: string): string {
   return new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+export interface PendingLesson {
+  id: number;
+  studentId: number;
+  studentLabel: string;
+}
+
 export function useTeacherHomework() {
   const [homeworks, setHomeworks] = useState<TeacherHomeworkItem[]>([]);
+  const [pendingLessons, setPendingLessons] = useState<PendingLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,10 +34,14 @@ export function useTeacherHomework() {
         lessons.map(l => teacherApi.getJournalForLesson(l.id).catch(() => []))
       );
       const items: TeacherHomeworkItem[] = [];
+      const pending: PendingLesson[] = [];
       lessons.forEach((lesson, idx) => {
         const jList = journals[idx];
         const j = jList[0];
-        if (!j || !j.teacher_homework_task) return;
+        if (!j || !j.teacher_homework_task) {
+          pending.push({ id: lesson.id, studentId: lesson.student, studentLabel: `Студент #${lesson.student}` });
+          return;
+        }
         items.push({
           id: j.id,
           lessonId: lesson.id,
@@ -48,6 +59,7 @@ export function useTeacherHomework() {
         });
       });
       setHomeworks(items);
+      setPendingLessons(pending);
     } catch (e) {
       setError(extractErrorMessage(e));
     } finally {
@@ -65,5 +77,10 @@ export function useTeacherHomework() {
     await fetch();
   }, [fetch]);
 
-  return { homeworks, loading, error, refetch: fetch, gradeHomework };
+  const setHomework = useCallback(async (lessonId: number, task: string, answerUrl?: string) => {
+    await teacherApi.setHomework(lessonId, { teacher_homework_task: task, homework_answer_url: answerUrl });
+    await fetch();
+  }, [fetch]);
+
+  return { homeworks, pendingLessons, loading, error, refetch: fetch, gradeHomework, setHomework };
 }

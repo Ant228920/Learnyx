@@ -213,7 +213,7 @@ export const authApi = {
   },
 
   getMe: async (): Promise<User> => {
-    const { data } = await apiClient.get('/users/me/');
+    const { data } = await apiClient.get('/profile/');
     return {
       id: data.id,
       email: data.email,
@@ -270,11 +270,6 @@ export const studentApi = {
 
   getBonusBalance: async (studentId: number) => {
     const { data } = await apiClient.get(`/bonus/balance/${studentId}/`);
-    return data;
-  },
-
-  purchasePackage: async (packageId: number) => {
-    const { data } = await apiClient.post(`/packages/${packageId}/purchase/`);
     return data;
   },
 
@@ -442,11 +437,6 @@ export const managerApi = {
     const query = status ? `?status=${status}` : '';
     const { data } = await apiClient.get(`/requests/${query}`);
     return data.results ?? data;
-  },
-
-  processRequest: async (id: number, payload: { status: string; manager_id?: number }) => {
-    const { data } = await apiClient.patch(`/requests/${id}/process/`, payload);
-    return data;
   },
 
   getAvailableSlots: async (params?: { teacher_id?: number; date?: string }) => {

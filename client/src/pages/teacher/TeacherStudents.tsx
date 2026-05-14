@@ -5,8 +5,14 @@ import type { TeacherStudent } from '../../features/teacher/students';
 
 const PAGE_SIZE = 5;
 
+function formatSlotTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }) + ' ' +
+    d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function TeacherStudents() {
-  const { students, loading, error } = useTeacherStudents();
+  const { students, slots, selectedSlotId, availableStudents, loading, error, selectSlot, assignStudent } = useTeacherStudents();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [profileStudent, setProfileStudent] = useState<TeacherStudent | null>(null);
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
@@ -77,12 +83,57 @@ export default function TeacherStudents() {
             )}
           </div>
 
-          {/* Available requests panel */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <h2 className="font-poppins font-bold text-slate-900 text-sm tracking-[0.60px] uppercase">Доступні учні</h2>
+          {/* Available students panel */}
+          <div className="w-72 flex-shrink-0 flex flex-col gap-4 sticky top-24">
+            <h2 className="font-poppins font-bold text-slate-900 text-sm tracking-[0.60px] uppercase">Доступні учні</h2>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="slot-select" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оберіть слот</label>
+              <div className="relative">
+                <select
+                  id="slot-select"
+                  value={selectedSlotId ?? ''}
+                  onChange={e => { const v = Number(e.target.value); if (v) void selectSlot(v); }}
+                  className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] pr-8"
+                >
+                  <option value="">— Оберіть слот —</option>
+                  {slots.map(s => (
+                    <option key={s.id} value={s.id}>{formatSlotTime(s.start_time)}</option>
+                  ))}
+                </select>
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
             </div>
-            <p className="font-inter text-[#9095a1] text-sm">Виберіть слот для перегляду вільних учнів</p>
+            {selectedSlotId && (
+              <div className="flex flex-col gap-2">
+                {availableStudents.length === 0 ? (
+                  <p className="font-inter text-[#9095a1] text-sm">Немає доступних учнів</p>
+                ) : (
+                  availableStudents.map(s => (
+                    <div key={s.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-[#dee1e6]">
+                      <div className={`w-9 h-9 rounded-full ${s.avatarBg} flex items-center justify-center flex-shrink-0`}>
+                        <span className="font-inter font-bold text-[#1f8cf9] text-sm">{s.name[0]}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-inter font-semibold text-slate-800 text-xs truncate">{s.name}</p>
+                        <p className="font-inter text-[#9095a1] text-[10px]">{s.lessons_balance} занять</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void assignStudent(selectedSlotId, s.id).then(() => setConfirmedMsg(`${s.name} призначено на урок`))}
+                        className="px-3 py-1.5 bg-[#1f8cf9] rounded-lg font-inter font-medium text-white text-xs hover:bg-blue-600 transition-colors flex-shrink-0"
+                      >
+                        Призначити
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            {!selectedSlotId && slots.length === 0 && (
+              <p className="font-inter text-[#9095a1] text-sm">Немає доступних слотів</p>
+            )}
           </div>
         </div>
       </div>

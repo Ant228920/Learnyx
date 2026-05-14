@@ -4,11 +4,12 @@ import { useTeacherHomework } from '../../features/teacher/homework';
 import type { TeacherHomeworkItem } from '../../features/teacher/homework';
 
 export default function TeacherHomework() {
-  const { homeworks, loading, error, gradeHomework } = useTeacherHomework();
+  const { homeworks, pendingLessons, loading, error, gradeHomework, setHomework } = useTeacherHomework();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<TeacherHomeworkItem | null>(null);
   const [comment, setComment] = useState('');
   const [grade, setGrade] = useState('');
+  const [hwInputs, setHwInputs] = useState<Record<number, string>>({});
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
@@ -49,6 +50,38 @@ export default function TeacherHomework() {
           <h1 className="font-poppins font-bold text-slate-900 text-4xl leading-10">Домашні завдання</h1>
           <p className="font-inter text-[#565d6d] text-lg mt-2">Керуйте навчальним процесом: перевіряйте роботи та виставляйте оцінки в реальному часі.</p>
         </div>
+
+        {pendingLessons.length > 0 && (
+          <div className="flex flex-col gap-3 bg-white rounded-2xl border border-[#dee1e6] p-6">
+            <h2 className="font-poppins font-bold text-slate-900 text-lg">Призначити домашнє завдання</h2>
+            {pendingLessons.map(lesson => (
+              <div key={lesson.id} className="flex items-center gap-3 p-4 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
+                <span className="font-inter font-medium text-slate-800 text-sm flex-shrink-0 w-28">{lesson.studentLabel}</span>
+                <input
+                  type="text"
+                  value={hwInputs[lesson.id] ?? ''}
+                  onChange={e => setHwInputs(prev => ({ ...prev, [lesson.id]: e.target.value }))}
+                  placeholder="Текст завдання..."
+                  className="flex-1 border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+                />
+                <button
+                  type="button"
+                  disabled={!hwInputs[lesson.id]?.trim()}
+                  onClick={() => {
+                    const task = hwInputs[lesson.id]?.trim();
+                    if (!task) return;
+                    void setHomework(lesson.id, task).then(() =>
+                      setHwInputs(prev => { const n = { ...prev }; delete n[lesson.id]; return n; })
+                    );
+                  }}
+                  className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-50 flex-shrink-0"
+                >
+                  Задати ДЗ
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-start gap-8">
           {/* Table */}
