@@ -767,18 +767,29 @@ class TeacherDashboardView(APIView):
 
 
 class JournalListView(generics.ListAPIView):
-    """Student views their own journal records ordered by lesson date descending."""
-    permission_classes = [IsStudent]
+    """Journal records: student sees own, teacher sees records for their lessons."""
+    permission_classes = [IsStudent | IsTeacher | IsManager]
     serializer_class = JournalListSerializer
 
     def get_queryset(self):
-        student = get_object_or_404(Student, user=self.request.user)
-        return (
-            JournalRecord.objects
-            .filter(lesson__student=student)
-            .select_related('lesson__slot')
-            .order_by('-lesson__slot__start_time')
-        )
+        user = self.request.user
+        qs = JournalRecord.objects.select_related('lesson__slot')
+        lesson_id = self.request.query_params.get('lesson_id')
+
+        try:
+            teacher = Teacher.objects.get(user=user)
+            qs = qs.filter(lesson__slot__teacher=teacher)
+        except Teacher.DoesNotExist:
+            try:
+                student = Student.objects.get(user=user)
+                qs = qs.filter(lesson__student=student)
+            except Student.DoesNotExist:
+                pass  # Manager: no ownership filter
+
+        if lesson_id:
+            qs = qs.filter(lesson_id=lesson_id)
+
+        return qs.order_by('-lesson__slot__start_time')
 
 
 class AvailableStudentListView(generics.ListAPIView):

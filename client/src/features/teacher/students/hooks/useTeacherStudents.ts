@@ -75,7 +75,7 @@ export function useTeacherStudents() {
   }, []);
 
   const assignStudent = useCallback(async (slotId: number, studentId: number) => {
-    await teacherApi.assignLesson({ slot_id: slotId, student_id: studentId });
+    await teacherApi.assignLesson({ slot: slotId, student: studentId });
     setSelectedSlotId(null);
     setAvailableStudents([]);
     await fetch();

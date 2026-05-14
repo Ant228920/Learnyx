@@ -350,9 +350,9 @@ export const teacherApi = {
   },
 
   assignLesson: async (payload: {
-    slot_id: number;
-    student_id: number;
-    package_id?: number;
+    slot: number;
+    student: number;
+    package?: number;
   }): Promise<Lesson> => {
     const { data } = await apiClient.post('/lessons/assign/', payload);
     return data;
