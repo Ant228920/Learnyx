@@ -27,8 +27,6 @@ import ManagerSubscriptions from '../pages/manager/ManagerSubscriptions';
 import ManagerReports from '../pages/manager/ManagerReports';
 import ManagerMatching from '../pages/manager/ManagerMatching';
 import ManagerSettings from '../pages/manager/ManagerSettings';
-import TeacherSettings from '../pages/teacher/TeacherSettings';
-import StudentSettings from '../pages/student/StudentSettings';
 
 function roleDashboard(role: string): string {
   if (role === 'Student') return '/dashboard';
