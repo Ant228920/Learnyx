@@ -63,7 +63,7 @@ export default function StudentGrades() {
                 </div>
                 <span className="font-inter text-slate-800 text-sm">{g.topic}</span>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-inter font-bold text-xs w-fit ${g.type === 'ДЗ' ? 'bg-[#e0f0ff] text-[#1f8cf9]' : 'bg-[#fff0e0] text-[#f5a83d]'}`}>{g.type}</span>
-                <div className={`w-9 h-9 rounded-full border-2 border-[#dee1e6] flex items-center justify-center font-inter font-black text-sm ${getScoreColor(g.score, g.maxScore)}`}>{g.score}</div>
+                <div className={`w-12 h-9 rounded-full border-2 border-[#dee1e6] flex items-center justify-center font-inter font-black text-xs ${getScoreColor(g.score, g.maxScore)}`}>{g.score}/{g.maxScore}</div>
               </div>
             ))}
             {filtered.length > 5 && (

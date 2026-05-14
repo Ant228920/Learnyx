@@ -72,6 +72,7 @@ class StudentQuerySet(models.QuerySet):
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='student_profile')
     level = models.ForeignKey(StudentLevel, on_delete=models.SET_NULL, null=True, related_name='students')
+    money_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     objects = StudentQuerySet.as_manager()
 

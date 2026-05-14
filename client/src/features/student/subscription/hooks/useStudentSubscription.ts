@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { studentApi, extractErrorMessage } from '../../../../services/api';
-import { useAuth } from '../../../../app/providers';
 import type { PackageItem, SubscriptionData, PackagePlan } from '../types';
 
 function mapPackage(p: {
@@ -22,41 +21,53 @@ function mapPackage(p: {
 }
 
 export function useStudentSubscription() {
-  const { user } = useAuth();
   const [subData, setSubData] = useState<SubscriptionData | null>(null);
   const [plans, setPlans] = useState<PackagePlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [moneyBalance, setMoneyBalance] = useState(0);
+  const [bonusDiscountPct, setBonusDiscountPct] = useState(0);
 
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [packagesRaw, bonusRaw, plansRaw] = await Promise.all([
+      const [packagesRaw, plansRaw, walletRaw] = await Promise.all([
         studentApi.getPackages(),
-        user ? studentApi.getBonusBalance(user.id) : Promise.resolve(null),
         studentApi.getPackagePlans(),
+        studentApi.getWallet(),
       ]);
       const pkgArray = Array.isArray(packagesRaw) ? packagesRaw : (packagesRaw ? [packagesRaw] : []);
       const mapped = pkgArray.map((p, i) => mapPackage(p, i));
       const active = mapped.find(p => p.status === 'active') ?? null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const discountPct = (bonusRaw as any)?.available_discount_pct ?? 0;
+      const discountPct = walletRaw?.bonus_discount_pct ?? 0;
       setSubData({ activePackage: active, packages: mapped, discountPct });
       setPlans(plansRaw);
+      setMoneyBalance(walletRaw?.money_balance ?? 0);
+      setBonusDiscountPct(discountPct);
     } catch (e) {
       setError(extractErrorMessage(e));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => { void fetch(); }, [fetch]);
 
+  const topUp = useCallback(async (amount: number) => {
+    const result = await studentApi.topUp(amount);
+    setMoneyBalance(result.money_balance);
+    return result;
+  }, []);
+
   const purchase = useCallback(async (planId: number) => {
-    await studentApi.purchasePlan(planId);
+    const result = await studentApi.purchasePlan(planId);
+    if (result.money_balance !== undefined) {
+      setMoneyBalance(result.money_balance);
+    }
     await fetch();
+    return result;
   }, [fetch]);
 
-  return { subData, plans, loading, error, refetch: fetch, purchase };
+  return { subData, plans, loading, error, refetch: fetch, purchase, moneyBalance, bonusDiscountPct, topUp };
 }
