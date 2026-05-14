@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StudentLayout from './StudentLayout';
 import { useStudentSubscription } from '../../features/student/subscription';
 import type { PackagePlan } from '../../features/student/subscription';
@@ -18,6 +18,10 @@ const FEATURES = [
   'Доступ до ком\'юніті студентів', 'Завантаження матеріалів',
 ];
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
+const ENGLISH_LEVELS = ['A1 - Початковий', 'A2 - Елементарний', 'B1 - Середній', 'B2 - Вище середнього', 'C1 - Просунутий', 'C2 - Досконалий'];
+const CLASS_LEVELS = ['1 - 4 клас', '5 - 8 клас', '9 - 11 клас'];
+const LR_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const TIME_OPTIONS = ['Ранок (9:00-12:00)', 'День (12:00-17:00)', 'Вечір (17:00-21:00)'];
 
 export default function StudentSubscription() {
   const { subData, plans, loading, error, purchase, moneyBalance, bonusDiscountPct, topUp } = useStudentSubscription();
@@ -30,13 +34,22 @@ export default function StudentSubscription() {
   const [topUpMsg, setTopUpMsg] = useState('');
   const [showLearningReq, setShowLearningReq] = useState(false);
   const [lrSubject, setLrSubject] = useState('english');
-  const [lrLevel, setLrLevel] = useState('');
-  const [lrDays, setLrDays] = useState('');
-  const [lrTime, setLrTime] = useState('');
+  const [lrLevel, setLrLevel] = useState(ENGLISH_LEVELS[0]);
+  const [lrDays, setLrDays] = useState<string[]>([]);
+  const [lrTime, setLrTime] = useState(TIME_OPTIONS[0]);
   const [lrNotes, setLrNotes] = useState('');
   const [lrSending, setLrSending] = useState(false);
   const [lrSent, setLrSent] = useState(false);
   const [purchasedPackageId, setPurchasedPackageId] = useState<number | null>(null);
+
+  const lrLevels = lrSubject === 'english' ? ENGLISH_LEVELS : CLASS_LEVELS;
+
+  useEffect(() => {
+    setLrLevel(lrSubject === 'english' ? ENGLISH_LEVELS[0] : CLASS_LEVELS[0]);
+  }, [lrSubject]);
+
+  const toggleDay = (d: string) =>
+    setLrDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
@@ -60,13 +73,12 @@ export default function StudentSubscription() {
   };
 
   const handleLearningReqSubmit = async () => {
-    if (!lrLevel.trim()) return;
     setLrSending(true);
     try {
       await studentApi.createLearningRequest({
         subject: lrSubject,
         level: lrLevel,
-        preferred_days: lrDays,
+        preferred_days: lrDays.join(', '),
         preferred_time: lrTime,
         notes: lrNotes,
         package: purchasedPackageId,
@@ -330,40 +342,43 @@ export default function StudentSubscription() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label htmlFor="lr-level" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Рівень <span className="text-red-400">*</span></label>
-                    <input
+                    <label htmlFor="lr-level" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Рівень</label>
+                    <select
                       id="lr-level"
-                      type="text"
                       value={lrLevel}
                       onChange={e => setLrLevel(e.target.value)}
-                      placeholder="напр. B1, 7 клас, початківець…"
-                      className="border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                    />
+                      className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+                    >
+                      {lrLevels.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor="lr-days" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Зручні дні</label>
-                      <input
-                        id="lr-days"
-                        type="text"
-                        value={lrDays}
-                        onChange={e => setLrDays(e.target.value)}
-                        placeholder="пн, ср, пт"
-                        className="border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                      />
+                  <div className="flex flex-col gap-1">
+                    <span className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Зручні дні</span>
+                    <div className="flex gap-2 flex-wrap">
+                      {LR_DAYS.map(d => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => toggleDay(d)}
+                          className={`px-3 py-2 rounded-xl border font-inter text-sm font-medium transition-colors ${lrDays.includes(d) ? 'bg-[#1f8cf9] text-white border-[#1f8cf9]' : 'bg-white text-[#565d6d] border-[#dee1e6] hover:border-[#1f8cf9]'}`}
+                        >
+                          {d}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor="lr-time" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Зручний час</label>
-                      <input
-                        id="lr-time"
-                        type="text"
-                        value={lrTime}
-                        onChange={e => setLrTime(e.target.value)}
-                        placeholder="16:00 – 19:00"
-                        className="border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                      />
-                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="lr-time" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Зручний час</label>
+                    <select
+                      id="lr-time"
+                      value={lrTime}
+                      onChange={e => setLrTime(e.target.value)}
+                      className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+                    >
+                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </div>
 
                   <div className="flex flex-col gap-1">
@@ -389,7 +404,7 @@ export default function StudentSubscription() {
                   </button>
                   <button
                     type="button"
-                    disabled={lrSending || !lrLevel.trim()}
+                    disabled={lrSending}
                     onClick={() => void handleLearningReqSubmit()}
                     className="flex-1 py-3 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
