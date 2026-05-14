@@ -2,13 +2,11 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 import AuthModal from '../../features/auth/AuthModal';
 
-function getDashboardPath(role: string): string {
-  switch (role) {
-    case 'teacher': return '/teacher';
-    case 'manager':
-    case 'admin':   return '/manager';
-    default:        return '/dashboard';
-  }
+function roleDashboard(role: string): string {
+  if (role === 'Student') return '/dashboard';
+  if (role === 'Teacher') return '/teacher';
+  if (role === 'Manager' || role === 'Admin') return '/manager';
+  return '/';
 }
 
 export default function MainLayout() {
@@ -87,16 +85,12 @@ export default function MainLayout() {
 
               {/* Back to cabinet */}
               <button
-                type="button"
-                onClick={() => void navigate(getDashboardPath(user.role))}
-                className="font-inter px-4 py-2 bg-[#1f8cf9] rounded-lg text-white text-sm font-medium hover:bg-blue-600 transition-colors"
+                onClick={() => void navigate(roleDashboard(user.role))}
+                className="font-inter px-5 py-2 rounded-lg bg-[#1f8cf9] text-white text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm"
               >
                 До кабінету
               </button>
-
-              {/* Logout */}
               <button
-                type="button"
                 onClick={handleLogout}
                 className="font-inter px-4 py-2 rounded-lg border border-[#dee1e6] text-sm text-[#565d6d] hover:bg-gray-50 transition-colors"
               >

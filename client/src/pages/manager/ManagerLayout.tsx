@@ -1,13 +1,13 @@
 import { type ReactNode } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 
 const NAV_ITEMS = [
-  { label: 'Дашборд',   path: '/manager' },
-  { label: 'Заявки',    path: '/manager/applications' },
-  { label: 'Підписки',  path: '/manager/subscriptions' },
-  { label: 'Звітність', path: '/manager/reports' },
-  { label: 'Підбір',    path: '/manager/matching' },
+  { label: 'Дашборд',  path: '/manager' },
+  { label: 'Заявки',   path: '/manager/applications' },
+  { label: 'Підписки', path: '/manager/subscriptions' },
+  { label: 'Звітність',path: '/manager/reports' },
+  { label: 'Підбір',   path: '/manager/matching' },
 ];
 
 const FOOTER_LINKS = ['Політика конфіденційності', 'Центр допомоги', 'Умови використання'];
@@ -19,24 +19,26 @@ const IconLogo = () => (
 );
 
 export default function ManagerLayout({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isSettings = location.pathname === '/manager/settings';
 
   return (
     <div className="flex w-full min-h-screen bg-[#f8f9fb]">
 
       {/* Sidebar */}
       <aside
-        aria-label="Основна навігація адміністратора"
+        aria-label="Навігація адміністратора"
         className="fixed top-0 left-0 flex h-full w-64 flex-col border-r border-[#dee1e6] bg-white z-30"
       >
-        <div className="flex w-full items-center gap-3 p-6">
+        <Link to="/" className="flex w-full items-center gap-3 p-6">
           <div className="w-8 h-8 bg-[#1f8cf9] rounded-md flex items-center justify-center">
             <IconLogo />
           </div>
           <span className="font-poppins font-bold text-[#1f8cf9] text-xl">LearNYX</span>
-        </div>
+        </Link>
 
         <div className="flex flex-1 flex-col w-full pt-4">
           <nav aria-label="Розділи" className="flex flex-1 flex-col gap-2 px-4">
@@ -61,13 +63,24 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
           </nav>
         </div>
 
-        <div className="border-t border-[#dee1e6] p-4 w-full">
+        <div className="border-t border-[#dee1e6] p-4 w-full flex flex-col gap-1">
           <button
             type="button"
             onClick={() => void navigate('/manager/settings')}
-            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors"
+            className={`flex w-full items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isSettings ? 'bg-[#f0f7ff]' : 'hover:bg-gray-50'
+            }`}
           >
-            <span className="font-inter text-sm font-medium text-[#565d6d]">Налаштування</span>
+            <span className={`font-inter text-sm font-medium ${isSettings ? 'text-[#1f8cf9]' : 'text-[#565d6d]'}`}>
+              Налаштування
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { logout(); void navigate('/'); }}
+            className="flex w-full items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <span className="font-inter text-sm font-medium text-red-500">Вийти</span>
           </button>
         </div>
       </aside>

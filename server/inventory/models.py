@@ -146,6 +146,51 @@ class Package(models.Model):
             CheckConstraint(condition=Q(balance__gte=0), name='check_positive_package_balance')
         ]
 
+class PackagePlan(models.Model):
+    name = models.CharField(max_length=100)
+    total_lessons = models.IntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    description = models.CharField(max_length=255, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['total_lessons']
+
+    def __str__(self):
+        return f"{self.name} ({self.total_lessons} занять)"
+
+
+class LearningRequest(models.Model):
+    SUBJECT_CHOICES = [
+        ('english', 'Англійська мова'),
+        ('math', 'Математика'),
+        ('ukrainian', 'Українська мова'),
+        ('history', 'Історія України'),
+        ('informatics', 'Інформатика'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Очікує'),
+        ('matched', 'Підібрано викладача'),
+        ('cancelled', 'Скасовано'),
+    ]
+    student = models.ForeignKey('users.Student', on_delete=models.CASCADE, related_name='learning_requests')
+    package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True, related_name='learning_requests')
+    subject = models.CharField(max_length=50, choices=SUBJECT_CHOICES)
+    level = models.CharField(max_length=20)
+    preferred_days = models.CharField(max_length=200, blank=True, default='')
+    preferred_time = models.CharField(max_length=100, blank=True, default='')
+    notes = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.student.user.email} — {self.subject} ({self.status})"
+
+
 class LessonQuerySet(models.QuerySet):
     def with_full_relations(self):
         # Complex Join: глибока оптимізація запиту до БД для відображення уроку

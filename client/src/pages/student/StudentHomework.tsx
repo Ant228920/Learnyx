@@ -1,25 +1,26 @@
 import { useState } from 'react';
 import StudentLayout from './StudentLayout';
+import { useStudentHomework } from '../../features/student/homework';
+import type { StudentHomeworkTask } from '../../features/student/homework';
 
 type FilterTab = 'Всі' | 'Нові';
-interface Homework { id: number; subject: string; title: string; description: string; deadline: string; deadlineDate: Date; urgent: boolean; }
 
-const now = new Date('2024-05-24T12:00:00');
-const HW: Homework[] = [
-  { id: 1, subject: 'АНГЛІЙСЬКА МОВА', title: 'Есе: Вплив технологій на освіту', description: 'Написати твір обсягом 250-300 слів про позитивні та негативні аспекти...', deadline: 'До 25 Травня, 18:00', deadlineDate: new Date('2024-05-25T18:00:00'), urgent: true },
-  { id: 2, subject: 'МАТЕМАТИКА', title: 'Тригонометричні тотожності', description: "Розв'язати вправи №45-52 зі сторінки 112 підручника.", deadline: 'До 26 Травня, 10:00', deadlineDate: new Date('2024-05-26T10:00:00'), urgent: false },
-  { id: 3, subject: 'УКРАЇНСЬКА МОВА', title: 'Аналіз поезії "Каменярі"', description: 'Виписати художні засоби та визначити головну ідею твору.', deadline: 'До 27 Травня, 15:00', deadlineDate: new Date('2024-05-27T15:00:00'), urgent: false },
-  { id: 4, subject: 'ІНФОРМАТИКА', title: 'Проєкт на Python: Калькулятор', description: 'Створити консольну програму з базовими арифметичними операціями.', deadline: 'До 24 Травня, 23:59', deadlineDate: new Date('2024-05-24T23:59:00'), urgent: false },
-];
+const now = new Date();
 
 export default function StudentHomework() {
+  const { homeworks, loading, error } = useStudentHomework();
   const [tab, setTab] = useState<FilterTab>('Всі');
-  const [selected, setSelected] = useState<Homework | null>(null);
+  const [selected, setSelected] = useState<StudentHomeworkTask | null>(null);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<number[]>([]);
 
-  const isExpired = (hw: Homework) => hw.deadlineDate < now;
-  const filtered = tab === 'Нові' ? HW.filter(hw => !isExpired(hw) && !submitted.includes(hw.id)) : HW;
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
+
+  const isExpired = (hw: StudentHomeworkTask) => hw.deadlineDate < now;
+  const filtered = tab === 'Нові'
+    ? homeworks.filter(hw => !isExpired(hw) && !submitted.includes(hw.id))
+    : homeworks;
 
   return (
     <StudentLayout>
@@ -40,6 +41,11 @@ export default function StudentHomework() {
         <div className="flex items-start gap-8">
           {/* Grid */}
           <div className="grid grid-cols-2 gap-5 flex-1">
+            {filtered.length === 0 && (
+              <div className="col-span-2 py-10 text-center">
+                <p className="font-inter text-[#565d6d] text-sm">Домашніх завдань ще немає</p>
+              </div>
+            )}
             {filtered.map(hw => {
               const expired = isExpired(hw);
               const done = submitted.includes(hw.id);
@@ -84,7 +90,7 @@ export default function StudentHomework() {
                   <div className="flex items-center gap-4 mt-2">
                     <span className="flex items-center gap-1 font-inter text-[#565d6d] text-xs">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-                      {selected.subject.charAt(0) + selected.subject.slice(1).toLowerCase()}
+                      {selected.subject}
                     </span>
                     <span className="flex items-center gap-1 font-inter text-[#565d6d] text-xs">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>

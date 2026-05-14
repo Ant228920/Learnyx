@@ -164,17 +164,26 @@ export interface TeacherDashboard {
   };
 }
 
-export interface RegistrationRequest {
+export interface LearningRequestItem {
   id: number;
-  full_name: string;
-  email: string;
-  phone: string;
-  telegram_nickname: string | null;
-  role: 'student' | 'teacher';
-  subject: string | null;
-  level: string | null;
-  status: string;
+  student_name: string;
+  student_email: string;
+  subject: string;
+  level: string;
+  preferred_days: string;
+  preferred_time: string;
+  notes: string;
+  status: 'pending' | 'matched' | 'cancelled';
   created_at: string;
+  package: number | null;
+}
+
+export interface ApiError {
+  timestamp: string;
+  errorCode: string;
+  message: string;
+  path: string;
+  details?: string[];
 }
 
 // ── Error helper ────────────────────────────────────────────────────────────
@@ -209,6 +218,14 @@ export const authApi = {
     const { data } = await apiClient.post('/auth/register/', dto);
     return data;
   },
+
+  refreshToken: async (refresh: string) => {
+    const { data } = await apiClient.post<{ accessToken: string }>(
+      '/auth/token/refresh/', { refresh }
+    );
+    return data;
+  },
+
 };
 
 // ── STUDENT ───────────────────────────────────────────────────────────────────
@@ -222,7 +239,14 @@ export const authApi = {
 export const studentApi = {
   getDashboard: async (): Promise<StudentDashboard> => {
     const { data } = await apiClient.get('/student/dashboard/');
-    return data as StudentDashboard;
+    return data;
+  },
+
+  getActiveBalance: async (): Promise<{
+    remaining_lessons: number; total_lessons: number; package_id: number; status: string;
+  } | null> => {
+    const { data } = await apiClient.get('/students/me/balance/');
+    return data.package_id ? data : null;
   },
 
   getUpcomingLessons: async (): Promise<LessonWithSlot[]> => {
@@ -254,9 +278,40 @@ export const studentApi = {
     return arr as Package[];
   },
 
-  getBalance: async () => {
-    const { data } = await apiClient.get('/students/me/balance/');
+  getPackagePlans: async () => {
+    const { data } = await apiClient.get('/packages/');
+    return (data.results ?? data) as Array<{
+      id: number; name: string; total_lessons: number;
+      price: number; description: string; is_active: boolean;
+    }>;
+  },
+
+  purchasePlan: async (planId: number) => {
+    const { data } = await apiClient.post(`/packages/${planId}/purchase/`);
     return data;
+  },
+
+  getWallet: async (): Promise<{ money_balance: number; bonus_discount_pct: number; bonus_description: string }> => {
+    const { data } = await apiClient.get('/students/me/wallet/');
+    return data;
+  },
+
+  topUp: async (amount: number): Promise<{ money_balance: number; added: number; message: string }> => {
+    const { data } = await apiClient.post('/students/me/topup/', { amount });
+    return data;
+  },
+
+  getLearningRequests: async () => {
+    const { data } = await apiClient.get('/students/me/learning-requests/');
+    return data as LearningRequestItem[];
+  },
+
+  createLearningRequest: async (payload: {
+    subject: string; level: string; preferred_days?: string;
+    preferred_time?: string; notes?: string; package?: number | null;
+  }) => {
+    const { data } = await apiClient.post('/students/me/learning-requests/', payload);
+    return data as LearningRequestItem;
   },
 };
 
@@ -300,7 +355,10 @@ export const teacherApi = {
     return arr as Lesson[];
   },
 
-  setLessonStatus: async (lessonId: number, status: string): Promise<Lesson> => {
+  setLessonStatus: async (
+    lessonId: number,
+    status: 'conducted' | 'canceled_advance' | 'student_missed' | 'teacher_missed'
+  ): Promise<Lesson> => {
     const { data } = await apiClient.patch(`/lessons/${lessonId}/status/`, { status });
     return data as Lesson;
   },
@@ -328,15 +386,20 @@ export const teacherApi = {
     return data as JournalRecord;
   },
 
-  assignLesson: async (payload: { slot_id: number; student_id: number; package_id?: number }): Promise<Lesson> => {
+  assignLesson: async (payload: {
+    slot: number;
+    student: number;
+    package?: number;
+  }): Promise<Lesson> => {
     const { data } = await apiClient.post('/lessons/assign/', payload);
     return data as Lesson;
   },
 
-  getStudents: async () => {
+  getStudents: async (): Promise<Array<{
+    user_id: number; first_name: string; last_name: string; email: string; lessons_balance: number;
+  }>> => {
     const { data } = await apiClient.get('/students/');
-    const arr = (data as { results?: unknown[] }).results ?? data;
-    return arr;
+    return data.results ?? data;
   },
 
   getAvailableStudents: async (slotId: number) => {
@@ -348,6 +411,11 @@ export const teacherApi = {
     const { data } = await apiClient.get(`/journal/?lesson_id=${lessonId}`);
     const arr = (data as { results?: JournalRecord[] }).results ?? data;
     return arr as JournalRecord[];
+  },
+
+  getFinances: async () => {
+    const { data } = await apiClient.get('/teacher/finances/');
+    return data;
   },
 };
 
@@ -361,22 +429,30 @@ export const teacherApi = {
 // POST /api/v1/lessons/
 // GET /api/v1/user-requests/     ← запити до менеджера (Request model)
 export const managerApi = {
-  // Реєстраційні заявки — для сторінки Applications
-  getRegistrationRequests: async (): Promise<RegistrationRequest[]> => {
-    const { data } = await apiClient.get('/requests/');
-    const arr = (data as { results?: RegistrationRequest[] }).results ?? data;
-    return arr as RegistrationRequest[];
+  getRegistrationRequests: async () => {
+    const { data } = await apiClient.get('/applicants/');
+    return data.results ?? data;
   },
 
-  approveApplicant: async (id: number) => {
-    const { data } = await apiClient.post(`/applicants/${id}/approve/`);
+  getStudents: async (params?: { is_approved?: boolean }) => {
+    const query = params?.is_approved !== undefined ? `?is_approved=${params.is_approved}` : '';
+    const { data } = await apiClient.get(`/students/${query}`);
+    return data.results ?? data;
+  },
+
+  getTeachers: async () => {
+    const { data } = await apiClient.get('/teachers/');
+    return data.results ?? data;
+  },
+
+  approveUser: async (userId: number) => {
+    const { data } = await apiClient.post(`/applicants/${userId}/approve/`);
     return data;
   },
 
-  getStudents: async () => {
-    const { data } = await apiClient.get('/students/');
-    const arr = (data as { results?: unknown[] }).results ?? data;
-    return arr;
+  rejectUser: async (userId: number) => {
+    const { data } = await apiClient.post(`/applicants/${userId}/reject/`);
+    return data;
   },
 
   getPackages: async (params?: { student_id?: number; status?: string }) => {
@@ -391,11 +467,10 @@ export const managerApi = {
     return data;
   },
 
-  getLessonArchive: async (params?: { date_from?: string; date_to?: string; status?: string }) => {
-    const q = new URLSearchParams(params as Record<string, string>);
-    const { data } = await apiClient.get(`/admin/lessons/archive/?${q}`);
-    const arr = (data as { results?: unknown[] }).results ?? data;
-    return arr;
+  getRequests: async (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    const { data } = await apiClient.get(`/requests/${query}`);
+    return data.results ?? data;
   },
 
   getAvailableSlots: async (params?: { teacher_id?: number; date?: string }) => {
@@ -404,16 +479,47 @@ export const managerApi = {
     return data;
   },
 
-  bookLesson: async (payload: { slot_id: number; student_id: number; package_id: number }) => {
+  bookLesson: async (payload: {
+    slot_id: number;
+    student_id: number;
+    package_id: number;
+    meeting_link?: string;
+  }) => {
     const { data } = await apiClient.post('/lessons/', payload);
     return data;
   },
 
-  // Запити до менеджера (Request model — окремо від реєстраційних заявок)
-  getUserRequests: async (status?: string) => {
-    const q = status ? `?status=${status}` : '';
-    const { data } = await apiClient.get(`/user-requests/${q}`);
-    const arr = (data as { results?: unknown[] }).results ?? data;
-    return arr;
+  getSubscriptions: async () => {
+    const { data } = await apiClient.get('/manager/subscriptions/');
+    return data;
+  },
+
+  getLearningRequests: async (statusFilter?: string) => {
+    const query = statusFilter ? `?status=${statusFilter}` : '';
+    const { data } = await apiClient.get(`/manager/learning-requests/${query}`);
+    return data as LearningRequestItem[];
+  },
+
+  updateLearningRequest: async (id: number, status: string) => {
+    const { data } = await apiClient.patch(`/manager/learning-requests/${id}/`, { status });
+    return data as LearningRequestItem;
+  },
+};
+
+// ── Profile API ────────────────────────────────────────────────────────────
+export const profileApi = {
+  get: async () => {
+    const { data } = await apiClient.get('/profile/');
+    return data;
+  },
+
+  update: async (payload: {
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    telegram_nickname?: string;
+  }) => {
+    const { data } = await apiClient.patch('/profile/', payload);
+    return data;
   },
 };
