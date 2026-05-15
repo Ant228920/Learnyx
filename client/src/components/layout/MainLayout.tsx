@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 import AuthModal from '../../features/auth/AuthModal';
 
@@ -14,13 +13,6 @@ function roleDashboard(role: string): string {
 export default function MainLayout() {
   const { openModal, user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (user && location.pathname === '/') {
-      void navigate(roleDashboard(user.role));
-    }
-  }, [user]);
 
   const handleLogout = () => {
     logout();

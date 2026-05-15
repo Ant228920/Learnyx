@@ -145,6 +145,8 @@ class ApproveRegistrationRequestView(APIView):
                 # Створення профілю залежно від ролі
                 if reg_request.role.lower() == 'student':
                     Student.objects.create(user=user)
+                elif reg_request.role.lower() == 'teacher':
+                    Teacher.objects.get_or_create(user=user)
                 elif reg_request.role.lower() == 'manager':
                     Manager.objects.create(user=user)
 
@@ -229,6 +231,15 @@ class SlotViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Slot.objects.select_related('teacher__user').all()
+
+        user = self.request.user
+        role = user.role_obj.name.lower() if user.role_obj else ''
+        if role == 'teacher':
+            try:
+                teacher = Teacher.objects.get(user=user)
+                qs = qs.filter(teacher=teacher)
+            except Teacher.DoesNotExist:
+                return qs.none()
 
         teacher_id = self.request.query_params.get('teacher_id')
         slot_status = self.request.query_params.get('status')
