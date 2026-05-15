@@ -29,20 +29,6 @@ import ManagerMatching from '../pages/manager/ManagerMatching';
 import ManagerSettings from '../pages/manager/ManagerSettings';
 
 function roleDashboard(role: string): string {
-  const r = role.toLowerCase();
-  if (r === 'student') return '/dashboard';
-  if (r === 'teacher') return '/teacher';
-  if (r === 'manager' || r === 'admin') return '/manager';
-  return '/';
-}
-
-function RoleRedirect() {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/" replace />;
-  return <Navigate to={roleDashboard(user.role)} replace />;
-}
-
-function roleDashboard(role: string): string {
   if (role === 'Student') return '/dashboard';
   if (role === 'Teacher') return '/teacher';
   if (role === 'Manager' || role === 'Admin') return '/manager';
