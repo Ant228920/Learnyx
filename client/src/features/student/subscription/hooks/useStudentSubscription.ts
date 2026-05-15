@@ -15,12 +15,12 @@ export function useStudentSubscription() {
     setLoading(true);
     setError(null);
     try {
-      const [balanceRaw, plansRaw, walletRaw] = await Promise.all([
-        studentApi.getActiveBalance(),
+      const [plansRaw, balanceRaw, walletRaw] = await Promise.all([
         studentApi.getPackagePlans(),
-        studentApi.getWallet(),
+        studentApi.getActiveBalance().catch(() => null),
+        studentApi.getWallet().catch(() => null),
       ]);
-      const active: PackageItem | null = balanceRaw ? {
+      const active: PackageItem | null = balanceRaw?.package_id ? {
         id: balanceRaw.package_id,
         label: `${balanceRaw.total_lessons} занять`,
         subtitle: 'Абонемент',
