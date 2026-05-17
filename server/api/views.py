@@ -635,7 +635,7 @@ class TeacherListView(APIView):
     permission_classes = [IsManager]
 
     def get(self, request):
-        teachers = Teacher.objects.select_related('user', 'user__role_obj', 'discipline').filter(
+        teachers = Teacher.objects.select_related('user', 'user__role_obj', 'discipline', 'level').filter(
             user__is_approved=True
         )
         data = [
@@ -646,6 +646,7 @@ class TeacherListView(APIView):
                 'last_name': t.user.last_name,
                 'phone': t.user.phone or None,
                 'discipline': t.discipline.name if t.discipline else None,
+                'level': t.level.name if t.level else None,
             }
             for t in teachers
         ]
@@ -1105,11 +1106,13 @@ class TeacherFinancesView(APIView):
 
 
 class ManagerSubscriptionsView(APIView):
-    """Manager view of all student packages (active + completed)."""
+    """Manager view of purchased student packages (active + completed only, not available)."""
     permission_classes = [IsManager]
 
     def get(self, request):
-        packages = Package.objects.select_related('student__user').order_by('-id')
+        packages = Package.objects.select_related('student__user').filter(
+            status__in=['active', 'completed']
+        ).order_by('-purchased_at', '-id')
 
         data = []
         for pkg in packages:

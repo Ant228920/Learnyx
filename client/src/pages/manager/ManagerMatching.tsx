@@ -77,6 +77,7 @@ export default function ManagerMatching() {
   const [successTeacher, setSuccessTeacher] = useState<string | null>(null);
   const [assignError, setAssignError] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     if (!student && rawStudents.length > 0) {
@@ -102,12 +103,59 @@ export default function ManagerMatching() {
     setSlots((prev) => prev.map((s) => s.id === id ? { ...s, [field]: value } : s));
   };
 
-  const handleSearch = () => {
-    setTeachers(allTeacherCards);
-    setSearched(true);
+  const handleSearch = async () => {
+    setSearching(true);
+    setAssignError('');
+    try {
+      const res = await apiClient.get('/teachers/');
+      const raw = (Array.isArray(res.data) ? res.data : []) as Array<{
+        user_id: number; email: string; first_name: string; last_name: string;
+        discipline?: string | null; level?: string | null;
+      }>;
+
+      let filtered = raw;
+
+      if (subject) {
+        const subLower = subject.toLowerCase();
+        filtered = filtered.filter(t => {
+          const disc = (t.discipline ?? '').toLowerCase();
+          return disc === '' || disc.includes(subLower) || subLower.includes(disc);
+        });
+      }
+
+      if (level) {
+        const lvlLower = level.toLowerCase();
+        filtered = filtered.filter(t => {
+          const lvl = (t.level ?? '').toLowerCase();
+          return lvl === '' || lvl.includes(lvlLower) || lvlLower.includes(lvl);
+        });
+      }
+
+      // If filters narrowed to zero, show all (subject/level may not be set on teachers yet)
+      const source = filtered.length > 0 ? filtered : raw;
+
+      const cards: Teacher[] = source.map((t, i) => ({
+        id: t.user_id,
+        name: `${t.first_name} ${t.last_name}`.trim() || t.email,
+        experience: '—',
+        level: t.level ?? '—',
+        subjects: t.discipline ? [t.discipline] : [],
+        avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
+      }));
+
+      setTeachers(cards);
+      setSearched(true);
+      if (cards.length === 0) {
+        setAssignError('Викладачів не знайдено. Переконайтеся, що викладачі зареєстровані та підтверджені.');
+      }
+    } catch (err) {
+      setAssignError(extractErrorMessage(err));
+    } finally {
+      setSearching(false);
+    }
   };
 
-  const handleAssign = async (teacherName: string, teacherId: number) => {
+  const handleAssign = async (teacher: Teacher) => {
     setAssignError('');
     setAssignLoading(true);
 
@@ -129,29 +177,39 @@ export default function ManagerMatching() {
       const studentPackage = pkgList.find(p => p.student === selectedStudentObj.id);
 
       if (!studentPackage) {
-        setAssignError('Учень не має активного абонементу. Спочатку студент повинен придбати абонемент.');
+        setAssignError(`Учень ${student} не має активного абонементу. Спершу учень повинен придбати абонемент.`);
         setAssignLoading(false);
         return;
       }
 
       // 2. Get available slots for this teacher
-      const slotsRes = await apiClient.get(`/slots/available/?teacher_id=${teacherId}`);
-      const slotsData = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<{ id: number }>;
+      const slotsRes = await apiClient.get(`/slots/available/?teacher_id=${teacher.id}`);
+      const slotsData = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<{ id: number; start_time: string }>;
 
       if (slotsData.length === 0) {
-        setAssignError('У викладача немає вільних слотів. Попросіть викладача додати слоти в розкладі.');
+        setAssignError(`Викладач ${teacher.name} не має вільних слотів. Попросіть викладача додати слоти в розкладі.`);
         setAssignLoading(false);
         return;
       }
 
-      // 3. Assign lesson using first available slot
+      // 3. Try to match a slot by requested day, otherwise take first
+      let chosenSlot = slotsData[0];
+      if (slots.length > 0) {
+        const matched = slotsData.find(ts => {
+          const dayName = new Date(ts.start_time).toLocaleDateString('uk-UA', { weekday: 'long' });
+          return slots.some(s => dayName.toLowerCase().includes(s.day.toLowerCase()));
+        });
+        if (matched) chosenSlot = matched;
+      }
+
+      // 4. Assign lesson
       await apiClient.post('/lessons/assign/', {
-        slot: slotsData[0].id,
+        slot: chosenSlot.id,
         student: selectedStudentObj.id,
         package: studentPackage.id,
       });
 
-      setSuccessTeacher(teacherName);
+      setSuccessTeacher(teacher.name);
       setTeachers([]);
       setSearched(false);
       setSlots([]);
@@ -313,10 +371,18 @@ export default function ManagerMatching() {
                 </div>
               ))}
 
-              <button type="button" onClick={handleSearch}
-                className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2">
-                <IconSearch />
-                Знайти викладачів
+              <button type="button" onClick={() => void handleSearch()} disabled={searching}
+                className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2 disabled:opacity-50">
+                {searching ? (
+                  <>
+                    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.2" /><path d="M12 2a10 10 0 0 1 10 10" />
+                    </svg>
+                    Пошук...
+                  </>
+                ) : (
+                  <><IconSearch />Знайти викладачів</>
+                )}
               </button>
             </div>
           </div>
@@ -360,7 +426,7 @@ export default function ManagerMatching() {
                     )}
                   </div>
                   <button type="button"
-                    onClick={() => void handleAssign(t.name, t.id)}
+                    onClick={() => void handleAssign(t)}
                     disabled={assignLoading}
                     aria-label={`Призначити викладача ${t.name}`}
                     className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed">
