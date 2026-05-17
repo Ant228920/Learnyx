@@ -112,8 +112,9 @@ class ApproveRegistrationRequestView(APIView):
     def post(self, request, pk):
         reg_request = get_object_or_404(RegistrationRequest, pk=pk)
 
+        # Idempotent — return 200 if already approved (not 400)
         if reg_request.status == 'approved':
-            return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_200_OK)
 
         if User.objects.filter(phone=reg_request.phone).exists():
             return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
@@ -122,7 +123,6 @@ class ApproveRegistrationRequestView(APIView):
 
         try:
             with transaction.atomic():
-                # Розбиваємо ім'я більш надійно
                 name_parts = reg_request.full_name.strip().split(maxsplit=1)
                 first_name = name_parts[0] if name_parts else "User"
                 last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -130,9 +130,8 @@ class ApproveRegistrationRequestView(APIView):
                 role_name = reg_request.role.strip().capitalize()
                 role_obj, _ = Role.objects.get_or_create(name=role_name)
 
-                # Створення користувача
                 user = User.objects.create_user(
-                    username=reg_request.email, # email як унікальний логін
+                    username=reg_request.email,
                     email=reg_request.email,
                     password=password,
                     first_name=first_name,
@@ -143,19 +142,25 @@ class ApproveRegistrationRequestView(APIView):
                     is_approved=True,
                 )
 
-                # Створення профілю залежно від ролі
                 if reg_request.role.lower() == 'student':
-                    Student.objects.create(user=user)
+                    student_obj = Student.objects.create(user=user)
+                    # Create 3 available package options for this student
+                    course = Course.objects.first()
+                    if course:
+                        for pkg_data in [
+                            {'total_lessons': 8,  'balance': 8,  'final_price': '2400.00', 'discount': '0.00', 'status': 'available'},
+                            {'total_lessons': 10, 'balance': 10, 'final_price': '2900.00', 'discount': '0.00', 'status': 'available'},
+                            {'total_lessons': 12, 'balance': 12, 'final_price': '3400.00', 'discount': '0.00', 'status': 'available'},
+                        ]:
+                            Package.objects.create(student=student_obj, course=course, **pkg_data)
                 elif reg_request.role.lower() == 'teacher':
                     Teacher.objects.get_or_create(user=user)
                 elif reg_request.role.lower() == 'manager':
                     Manager.objects.create(user=user)
 
-                # Оновлення статусу заявки
                 reg_request.status = 'approved'
                 reg_request.save()
 
-            # Відправка пароля користувачу (після завершення транзакції)
             send_mail(
                 subject='Ваш акаунт на Learnyx створено!',
                 message=f'Вітаємо, {first_name}!\n\nВаш акаунт активовано.\nЛогін: {reg_request.email}\nПароль: {password}',
@@ -166,7 +171,9 @@ class ApproveRegistrationRequestView(APIView):
 
             return Response({
                 'message': f'Акаунт для {reg_request.email} успішно створено.',
-                'user_id': user.id
+                'user_id': user.id,
+                'email': reg_request.email,
+                'temporary_password': password,
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -949,12 +956,19 @@ class PackagePlanListView(generics.ListAPIView):
 class PackagePurchaseView(APIView):
     """
     Activate a pre-created Package record (status: available → active).
-    Applies any available bonus cashback discount automatically.
+    Any authenticated user with a Student profile can purchase their own package.
     """
-    permission_classes = [IsStudent | IsManager]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        student = get_object_or_404(Student, user=request.user)
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return Response(
+                {'detail': 'У вас немає профілю студента.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         package = get_object_or_404(Package, pk=pk)
 
         if package.student_id != student.pk:
@@ -963,23 +977,30 @@ class PackagePurchaseView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if package.status != 'available':
+        if package.status == 'active':
             return Response(
-                {'detail': 'Цей пакет вже активовано або недоступний.'},
+                {'detail': 'Цей пакет вже активний.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            result = purchase_package(package, student)
-        except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        if package.status != 'available':
+            return Response(
+                {'detail': 'Цей пакет недоступний для покупки.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        package.status = 'active'
+        package.purchased_at = timezone.now()
+        package.save(update_fields=['status', 'purchased_at'])
+
+        logger.info(f'Package {pk} purchased by student {student.pk}')
 
         return Response({
-            'package_id': result['package_id'],
+            'package_id': package.id,
             'total_lessons': package.total_lessons,
-            'final_price': result['final_price'],
-            'discount_applied': result['discount_applied'],
-            'discount_pct': result['discount_pct'],
+            'balance': package.balance,
+            'final_price': float(package.final_price),
+            'status': package.status,
             'message': f'Пакет на {package.total_lessons} уроків успішно придбано!',
         }, status=status.HTTP_201_CREATED)
 
