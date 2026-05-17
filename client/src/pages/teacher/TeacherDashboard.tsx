@@ -22,10 +22,8 @@ export default function TeacherDashboard() {
   const [gradeLesson, setGradeLesson] = useState<DashboardData['today_lessons'][0] | null>(null);
   const [linkModal, setLinkModal] = useState(false);
   const [linkLessonId, setLinkLessonId] = useState<number | null>(null);
-  const [gradeValue, setGradeValue] = useState('');
-  const [notConducted, setNotConducted] = useState(false);
-  const [notConductedReason, setNotConductedReason] = useState('');
-  const [homeworkTopic, setHomeworkTopic] = useState('');
+  const [gradeForm, setGradeForm] = useState({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' });
+  const [gradeSuccess, setGradeSuccess] = useState('');
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState('');
   const [gradedIds, setGradedIds] = useState<number[]>([]);
@@ -34,10 +32,13 @@ export default function TeacherDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     teacherApi.getDashboard()
-      .then(setData)
-      .catch(err => setApiError(extractErrorMessage(err)))
-      .finally(() => setLoading(false));
+      .then(d => { if (!cancelled) setData(d); })
+      .catch(err => { if (!cancelled) setApiError(extractErrorMessage(err)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
@@ -59,32 +60,20 @@ export default function TeacherDashboard() {
     setGradeLoading(true);
     setGradeError('');
     try {
-      if (notConducted) {
-        await teacherApi.evaluateLesson(gradeLesson.lesson_id, {
-          is_present: false,
-          teacher_homework_task: notConductedReason,
-        });
-        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'student_missed');
-      } else {
-        const gradeNum = parseInt(gradeValue.split('/')[0]) || undefined;
-        await teacherApi.evaluateLesson(gradeLesson.lesson_id, {
-          is_present: true,
-          activity_grade: gradeNum,
-          teacher_homework_task: homeworkTopic,
-        });
-        await teacherApi.setLessonStatus(gradeLesson.lesson_id, 'conducted');
-      }
+      await teacherApi.evaluateLesson(gradeLesson.lesson_id, {
+        is_present: gradeForm.isPresent,
+        activity_grade: gradeForm.isPresent ? gradeForm.activityGrade : undefined,
+        homework_grade: gradeForm.isPresent && gradeForm.homeworkGrade > 0 ? gradeForm.homeworkGrade : undefined,
+        teacher_notes: gradeForm.notes || undefined,
+      });
+      await teacherApi.setLessonStatus(gradeLesson.lesson_id, gradeForm.isPresent ? 'conducted' : 'student_missed');
       setGradedIds(p => [...p, gradeLesson.lesson_id!]);
+      setGradeSuccess('Оцінку виставлено успішно!');
       setGradeLesson(null);
-      setGradeValue(''); setNotConducted(false); setNotConductedReason(''); setHomeworkTopic('');
+      setGradeForm({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' });
+      teacherApi.getDashboard().then(setData).catch(() => {});
     } catch (err) {
-      const data = (err as { response?: { data?: unknown } })?.response?.data;
-      const msg = typeof data === 'string'
-        ? data
-        : (data as Record<string, unknown[]>)?.activity_grade?.[0]?.toString()
-          || (data as Record<string, string>)?.error
-          || 'Помилка збереження оцінки';
-      setGradeError(msg);
+      setGradeError(extractErrorMessage(err));
     } finally {
       setGradeLoading(false);
     }
@@ -177,11 +166,19 @@ export default function TeacherDashboard() {
                           <span className="px-4 py-2 bg-gray-100 rounded-xl font-inter font-semibold text-gray-400 text-sm">Оцінено</span>
                         ) : (
                           <>
-                            <button type="button"
-                              onClick={() => { setLinkLessonId(lesson.lesson_id ?? null); setLinkModal(true); }}
-                              className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
-                              Почати урок
-                            </button>
+                            {lesson.meeting_link ? (
+                              <button type="button"
+                                onClick={() => window.open(lesson.meeting_link!, '_blank', 'noopener,noreferrer')}
+                                className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
+                                Розпочати урок
+                              </button>
+                            ) : (
+                              <button type="button"
+                                onClick={() => { setLinkLessonId(lesson.lesson_id ?? null); setLinkModal(true); }}
+                                className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
+                                Додати посилання
+                              </button>
+                            )}
                             <button type="button"
                               disabled={!canGrade}
                               onClick={() => canGrade && lesson.lesson_id && setGradeLesson(lesson)}
@@ -259,50 +256,45 @@ export default function TeacherDashboard() {
       {/* Grade Modal */}
       {gradeLesson && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) { setGradeLesson(null); setNotConducted(false); } }}
+          onClick={e => { if (e.target === e.currentTarget) { setGradeLesson(null); setGradeForm({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' }); } }}
           role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl animate-fade-in p-8 flex flex-col gap-5">
             <div className="flex items-center justify-between">
               <h2 className="font-poppins font-bold text-slate-900 text-xl">Поставити оцінку</h2>
-              <button type="button" onClick={() => { setGradeLesson(null); setNotConducted(false); }} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
+              <button type="button" onClick={() => { setGradeLesson(null); setGradeForm({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' }); }} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
 
-            <label className="flex items-center gap-3 p-4 bg-red-50 rounded-xl border border-red-100 cursor-pointer">
-              <input type="checkbox" checked={notConducted} onChange={e => setNotConducted(e.target.checked)} className="w-4 h-4 accent-[#e64c4c]" />
-              <span className="font-inter font-medium text-slate-800 text-sm">Урок не проведено (учень не з'явився)</span>
+            <label className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100 cursor-pointer">
+              <input type="checkbox" checked={gradeForm.isPresent} onChange={e => setGradeForm(f => ({ ...f, isPresent: e.target.checked }))} className="w-4 h-4 accent-[#1f8cf9]" />
+              <span className="font-inter font-medium text-slate-800 text-sm">Присутній на уроці</span>
             </label>
 
-            {notConducted ? (
-              <>
-                <div className="flex flex-col gap-1">
-                  <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за урок</label>
-                  <div className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-[#9095a1] bg-[#f8f9fb]">0 / 10 (автоматично)</div>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="reason" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Причина відсутності</label>
-                  <textarea id="reason" value={notConductedReason} onChange={e => setNotConductedReason(e.target.value)}
-                    placeholder="Опишіть причину..." rows={3}
-                    className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="grade-input" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за урок</label>
-                  <input id="grade-input" type="text" value={gradeValue} onChange={e => setGradeValue(e.target.value)}
-                    placeholder="Наприклад: 8/10"
-                    className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="hw-topic" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Тема домашнього завдання</label>
-                  <input id="hw-topic" type="text" value={homeworkTopic} onChange={e => setHomeworkTopic(e.target.value)}
-                    placeholder="Введіть тему ДЗ" aria-label="Тема домашнього завдання"
-                    className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
-                </div>
-              </>
-            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="activity-grade" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за активність</label>
+                <input id="activity-grade" type="number" min={1} max={12} value={gradeForm.activityGrade}
+                  onChange={e => setGradeForm(f => ({ ...f, activityGrade: Math.min(12, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                  disabled={!gradeForm.isPresent}
+                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] disabled:bg-[#f8f9fb] disabled:text-[#9095a1]" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="hw-grade" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за ДЗ</label>
+                <input id="hw-grade" type="number" min={0} max={12} value={gradeForm.homeworkGrade}
+                  onChange={e => setGradeForm(f => ({ ...f, homeworkGrade: Math.min(12, Math.max(0, parseInt(e.target.value) || 0)) }))}
+                  disabled={!gradeForm.isPresent}
+                  placeholder="Не обов'язково"
+                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] disabled:bg-[#f8f9fb] disabled:text-[#9095a1]" />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="teacher-notes" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Коментар вчителя</label>
+              <textarea id="teacher-notes" value={gradeForm.notes} onChange={e => setGradeForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Додаткові нотатки..." rows={3}
+                className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
+            </div>
 
             {gradeError && <p className="text-sm text-red-600 font-inter">{gradeError}</p>}
 
@@ -310,6 +302,22 @@ export default function TeacherDashboard() {
               className="w-full py-3.5 bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors">
               {gradeLoading ? 'Збереження...' : 'Підтвердити оцінку'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Grade success modal */}
+      {gradeSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setGradeSuccess('')} role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-xs mx-4 flex flex-col items-center gap-4 shadow-2xl animate-fade-in">
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-[#1f8cf9]">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            </div>
+            <h2 className="font-poppins font-bold text-xl text-slate-900">Готово!</h2>
+            <p className="font-inter text-sm text-[#565d6d] text-center">{gradeSuccess}</p>
+            <button type="button" onClick={() => setGradeSuccess('')}
+              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">OK</button>
           </div>
         </div>
       )}

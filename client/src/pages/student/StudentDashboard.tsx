@@ -14,6 +14,7 @@ export default function StudentDashboard() {
   const [error, setError] = useState('');
   const [complaintOpen, setComplaintOpen] = useState(false);
   const [complaintSent, setComplaintSent] = useState(false);
+  const [joinError, setJoinError] = useState('');
 
   useEffect(() => {
     studentApi.getDashboard()
@@ -26,6 +27,14 @@ export default function StudentDashboard() {
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
 
   const minutesUntil = (iso: string) => Math.floor((new Date(iso).getTime() - PAGE_LOAD_TIME.getTime()) / 60000);
+
+  const handleJoinLesson = (meetingLink: string | null) => {
+    if (meetingLink) {
+      window.open(meetingLink, '_blank', 'noopener,noreferrer');
+    } else {
+      setJoinError('Викладач ще не додав посилання на урок. Очікуйте повідомлення.');
+    }
+  };
 
   return (
     <StudentLayout>
@@ -149,14 +158,11 @@ export default function StudentDashboard() {
                         <div className="flex items-center gap-3 flex-shrink-0">
                           {isActive ? (
                             <>
-                              {lesson.meeting_link ? (
-                                <a href={lesson.meeting_link} target="_blank" rel="noopener noreferrer"
-                                  className="px-4 py-1.5 bg-[#1f8cf9] rounded-md font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
-                                  Приєднатися
-                                </a>
-                              ) : (
-                                <span className="px-4 py-1.5 bg-[#1f8cf9] rounded-md font-inter font-semibold text-white text-sm">Йде урок</span>
-                              )}
+                              <button type="button"
+                                onClick={() => handleJoinLesson(lesson.meeting_link)}
+                                className="px-4 py-1.5 bg-[#1f8cf9] rounded-md font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
+                                Приєднатися до уроку
+                              </button>
                               <button type="button" onClick={() => setComplaintOpen(true)}
                                 className="px-4 py-1.5 border border-red-500 rounded-md font-inter font-semibold text-red-500 text-sm hover:bg-red-50 transition-colors">
                                 Поскаржитись
@@ -246,6 +252,25 @@ export default function StudentDashboard() {
             <p className="font-inter text-sm text-[#565d6d] text-center">Ми розглянемо вашу скаргу та повідомимо про результат.</p>
             <button onClick={() => setComplaintSent(false)}
               className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">OK</button>
+          </div>
+        </div>
+      )}
+
+      {joinError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setJoinError('')} role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-sm mx-4 flex flex-col gap-4 shadow-2xl animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              </div>
+              <h2 className="font-poppins font-bold text-slate-900 text-lg">Посилання відсутнє</h2>
+            </div>
+            <p className="font-inter text-[#565d6d] text-sm">{joinError}</p>
+            <button type="button" onClick={() => setJoinError('')}
+              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">
+              Зрозуміло
+            </button>
           </div>
         </div>
       )}

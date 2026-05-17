@@ -29,9 +29,10 @@ import ManagerMatching from '../pages/manager/ManagerMatching';
 import ManagerSettings from '../pages/manager/ManagerSettings';
 
 function roleDashboard(role: string): string {
-  if (role === 'Student') return '/dashboard';
-  if (role === 'Teacher') return '/teacher';
-  if (role === 'Manager' || role === 'Admin') return '/manager';
+  const r = role.toLowerCase();
+  if (r === 'student') return '/dashboard';
+  if (r === 'teacher') return '/teacher';
+  if (r === 'manager' || r === 'admin') return '/manager';
   return '/';
 }
 

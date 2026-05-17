@@ -24,7 +24,7 @@ function mapRequest(r: any): Application {
     level: r.level ?? '—',
     email: r.email ?? '—',
     phone: r.phone ?? '—',
-    telegram: r.telegram_nickname ?? '—',
+    telegram_nickname: r.telegram_nickname ?? '—',
     date: formatDate(r.created_at),
     avatarBg: avatarBg(r.id),
   };

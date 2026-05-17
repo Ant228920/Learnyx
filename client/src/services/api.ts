@@ -190,14 +190,74 @@ export interface ApiError {
 // ── Error helper ────────────────────────────────────────────────────────────
 export function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
     const data = error.response?.data as Record<string, unknown> | undefined;
-    if (data?.message) return data.message as string;
-    if (data?.detail) return data.detail as string;
-    if (data?.non_field_errors) return (data.non_field_errors as string[])[0];
-    const firstField = data ? Object.values(data)[0] : undefined;
-    if (Array.isArray(firstField)) return firstField[0] as string;
-    if (typeof firstField === 'string') return firstField;
+
+    if (status === 401) return 'Сесія закінчилась. Увійдіть знову.';
+    if (status === 403) return 'У вас немає доступу до цієї дії.';
+    if (status === 404) return 'Запитаний ресурс не знайдено.';
+    if (status === 500) return 'Помилка сервера. Спробуйте пізніше.';
+    if (status === 409) return 'Конфлікт даних. Спробуйте ще раз.';
+
+    if (!data) return 'Немає відповіді від сервера.';
+
+    const FIELD_TRANSLATIONS: Record<string, string> = {
+      email: 'Email',
+      password: 'Пароль',
+      phone: 'Телефон',
+      full_name: 'ПІБ',
+      telegram_nickname: 'Telegram нікнейм',
+      role: 'Роль',
+      subject: 'Предмет',
+      level: 'Рівень',
+      non_field_errors: '',
+    };
+
+    const ERROR_TRANSLATIONS: Record<string, string> = {
+      'registration request with this email already exists.': 'Заявка з таким email вже існує.',
+      'user with this email already exists.': 'Користувач з таким email вже існує.',
+      'This field may not be blank.': 'Це поле не може бути порожнім.',
+      'This field is required.': 'Це поле є обовʼязковим.',
+      'Enter a valid email address.': 'Введіть коректну email адресу.',
+      'Ensure this field has no more than': 'Поле занадто довге.',
+      'Invalid pk': 'Невірний ідентифікатор.',
+      'No active account found': 'Акаунт не знайдено або пароль невірний.',
+      'Невірний email або пароль': 'Невірний email або пароль.',
+    };
+
+    for (const key of ['message', 'detail', 'error']) {
+      const val = data[key];
+      if (typeof val === 'string' && val.length < 200) {
+        for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
+          if (val.includes(eng)) return ukr;
+        }
+        return val;
+      }
+    }
+
+    if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+      const msg = String(data.non_field_errors[0]);
+      for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
+        if (msg.includes(eng)) return ukr;
+      }
+      return msg;
+    }
+
+    for (const [field, msgs] of Object.entries(data)) {
+      if (field === 'non_field_errors') continue;
+      const fieldName = FIELD_TRANSLATIONS[field] ?? field;
+      const msgArr = Array.isArray(msgs) ? msgs : [msgs];
+      const rawMsg = String(msgArr[0]);
+      let translatedMsg = rawMsg;
+      for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
+        if (rawMsg.includes(eng)) { translatedMsg = ukr; break; }
+      }
+      if (fieldName) return `${fieldName}: ${translatedMsg}`;
+      return translatedMsg;
+    }
   }
+
+  if (error instanceof Error) return error.message;
   return 'Щось пішло не так. Спробуйте ще раз.';
 }
 
@@ -368,6 +428,7 @@ export const teacherApi = {
     is_present: boolean;
     activity_grade?: number;
     teacher_homework_task?: string;
+    teacher_notes?: string;
     homework_grade?: number;
   }): Promise<JournalRecord> => {
     const { data } = await apiClient.post(`/lessons/${lessonId}/evaluate/`, payload);
@@ -518,7 +579,7 @@ export const managerApi = {
 // ── Profile API ────────────────────────────────────────────────────────────
 export const profileApi = {
   get: async () => {
-    const { data } = await apiClient.get('/users/me/');
+    const { data } = await apiClient.get('/profile/');
     return data;
   },
 
@@ -528,7 +589,7 @@ export const profileApi = {
     phone?: string;
     telegram_nickname?: string;
   }) => {
-    const { data } = await apiClient.patch('/users/me/', payload);
+    const { data } = await apiClient.patch('/profile/', payload);
     return data;
   },
 };

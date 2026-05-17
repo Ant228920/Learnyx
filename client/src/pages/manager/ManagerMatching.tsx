@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useManagerMatching, useManagerLearningRequests } from '../../features/manager/matching';
 import ManagerLayout from './ManagerLayout';
+import { apiClient } from '../../services/api';
 
 interface Slot {
   id: number;
@@ -74,6 +75,7 @@ export default function ManagerMatching() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [searched, setSearched] = useState(false);
   const [successTeacher, setSuccessTeacher] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState('');
 
   useEffect(() => {
     if (!student && rawStudents.length > 0) {
@@ -104,7 +106,35 @@ export default function ManagerMatching() {
     setSearched(true);
   };
 
-  const handleAssign = (name: string) => {
+  const handleAssign = async (name: string, teacherId: number) => {
+    setAssignError('');
+    const selectedStudentObj = rawStudents.find(s =>
+      `${s.first_name} ${s.last_name}`.trim() === student || s.email === student
+    );
+
+    if (!selectedStudentObj) {
+      setAssignError('Оберіть учня для призначення.');
+      return;
+    }
+
+    try {
+      const balanceRes = await apiClient.get(`/bonus/balance/${selectedStudentObj.id}/`);
+      const balance = balanceRes.data as { remaining_lessons?: number; remaining?: number };
+      const remaining = balance.remaining_lessons ?? balance.remaining ?? 0;
+      if (remaining <= 0) {
+        setAssignError('Учень не має активного абонементу. Спочатку необхідно придбати абонемент.');
+        return;
+      }
+    } catch {
+      /* proceed if balance endpoint not available */
+    }
+
+    if (slots.length === 0) {
+      setAssignError('Додайте хоча б один вільний слот для призначення уроку.');
+      return;
+    }
+
+    void teacherId;
     setSuccessTeacher(name);
     setTeachers([]);
     setSearched(false);
@@ -299,7 +329,7 @@ export default function ManagerMatching() {
                       </div>
                     )}
                   </div>
-                  <button type="button" onClick={() => handleAssign(t.name)}
+                  <button type="button" onClick={() => void handleAssign(t.name, t.id)}
                     aria-label={`Призначити викладача ${t.name}`}
                     className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
                     Призначити
@@ -316,6 +346,26 @@ export default function ManagerMatching() {
           )}
         </div>
       </div>
+
+      {/* Assign error modal */}
+      {assignError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setAssignError('')} role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-sm mx-4 flex flex-col gap-4 shadow-2xl animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              </div>
+              <h2 className="font-poppins font-bold text-slate-900 text-lg">Неможливо призначити</h2>
+            </div>
+            <p className="font-inter text-[#565d6d] text-sm">{assignError}</p>
+            <button type="button" onClick={() => setAssignError('')}
+              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">
+              Зрозуміло
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Success Modal */}
       {successTeacher && (

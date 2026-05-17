@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import StudentLayout from './StudentLayout';
 import { useStudentSubscription } from '../../features/student/subscription';
-import type { PackagePlan } from '../../features/student/subscription';
-import { studentApi } from '../../services/api';
+import { studentApi, apiClient, extractErrorMessage } from '../../services/api';
 
 const PLAN_FEATURES = ['Доступ до всіх лекцій 24/7', 'Стандартна підтримка куратора', 'Доступ через мобільний додаток', 'Сертифікат про завершення курсу'];
 const SUBJECT_OPTIONS = [
@@ -18,16 +17,44 @@ const FEATURES = [
   'Доступ до ком\'юніті студентів', 'Завантаження матеріалів',
 ];
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
+
+const DEFAULT_PLANS = [
+  {
+    id: 1,
+    total_lessons: 8,
+    final_price: '2400',
+    description: 'Базовий пакет для початку навчання',
+    features: ['8 індивідуальних уроків', 'Доступ до матеріалів', 'Чат з викладачем'],
+    popular: false,
+  },
+  {
+    id: 2,
+    total_lessons: 16,
+    final_price: '4400',
+    description: 'Найпопулярніший вибір студентів',
+    features: ['16 індивідуальних уроків', 'Доступ до матеріалів', 'Чат з викладачем', 'Домашні завдання'],
+    popular: true,
+  },
+  {
+    id: 3,
+    total_lessons: 32,
+    final_price: '8000',
+    description: 'Максимальний результат за мінімальну ціну',
+    features: ['32 індивідуальних уроки', 'Доступ до матеріалів', 'Чат з викладачем', 'Домашні завдання', 'Бонус кешбек'],
+    popular: false,
+  },
+];
 const ENGLISH_LEVELS = ['A1 - Початковий', 'A2 - Елементарний', 'B1 - Середній', 'B2 - Вище середнього', 'C1 - Просунутий', 'C2 - Досконалий'];
 const CLASS_LEVELS = ['1 - 4 клас', '5 - 8 клас', '9 - 11 клас'];
 const LR_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const TIME_OPTIONS = ['Ранок (9:00-12:00)', 'День (12:00-17:00)', 'Вечір (17:00-21:00)'];
 
 export default function StudentSubscription() {
-  const { subData, plans, loading, error, purchase, moneyBalance, bonusDiscountPct, topUp } = useStudentSubscription();
-  const [selectedPlan, setSelectedPlan] = useState<PackagePlan | null>(null);
-  const [purchasing, setPurchasing] = useState(false);
-  const [purchased, setPurchased] = useState(false);
+  const { subData, loading, error, moneyBalance, bonusDiscountPct, topUp } = useStudentSubscription();
+  const [pagePlans, setPagePlans] = useState(DEFAULT_PLANS as typeof DEFAULT_PLANS);
+  const [purchasing, setPurchasing] = useState<number | null>(null);
+  const [purchaseError, setPurchaseError] = useState('');
+  const [purchaseSuccess, setPurchaseSuccess] = useState('');
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpCustom, setTopUpCustom] = useState('');
   const [topUpLoading, setTopUpLoading] = useState(false);
@@ -48,6 +75,26 @@ export default function StudentSubscription() {
     setLrLevel(lrSubject === 'english' ? ENGLISH_LEVELS[0] : CLASS_LEVELS[0]);
   }, [lrSubject]);
 
+  useEffect(() => {
+    apiClient.get('/packages/')
+      .then(res => {
+        const raw = res.data as { results?: unknown[] } | unknown[];
+        const items = (Array.isArray(raw) ? raw : (raw as { results?: unknown[] }).results ?? []) as Array<Record<string, unknown>>;
+        if (items.length > 0) {
+          const normalized = items.map((item, idx) => ({
+            id: Number(item.id),
+            total_lessons: Number(item.total_lessons),
+            final_price: String(item.price ?? item.final_price ?? '0').replace(/\.00$/, ''),
+            description: String(item.description ?? DEFAULT_PLANS[Math.min(idx, DEFAULT_PLANS.length - 1)].description),
+            features: DEFAULT_PLANS[Math.min(idx, DEFAULT_PLANS.length - 1)].features,
+            popular: idx === 1,
+          }));
+          setPagePlans(normalized);
+        }
+      })
+      .catch(() => { /* keep DEFAULT_PLANS on failure */ });
+  }, []);
+
   const toggleDay = (d: string) =>
     setLrDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
@@ -55,20 +102,18 @@ export default function StudentSubscription() {
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   const activePackage = subData?.activePackage ?? null;
-  const finalPrice = selectedPlan ? Math.round(selectedPlan.price * (1 - bonusDiscountPct / 100)) : 0;
-  const canAfford = !selectedPlan || moneyBalance >= finalPrice;
 
-  const handlePurchase = async () => {
-    if (!selectedPlan) return;
-    setPurchasing(true);
+  const handlePurchase = async (plan: typeof pagePlans[0]) => {
+    setPurchasing(plan.id);
+    setPurchaseError('');
     try {
-      const result = await purchase(selectedPlan.id);
-      setPurchasedPackageId(result?.package_id ?? null);
-      setPurchased(true);
-      setSelectedPlan(null);
-      setShowLearningReq(true);
-    } catch { /* backend error */ } finally {
-      setPurchasing(false);
+      await apiClient.post(`/packages/${plan.id}/purchase/`);
+      setPurchasedPackageId(plan.id);
+      setPurchaseSuccess(`Абонемент на ${plan.total_lessons} уроків успішно придбано!`);
+    } catch (err) {
+      setPurchaseError(extractErrorMessage(err));
+    } finally {
+      setPurchasing(null);
     }
   };
 
@@ -106,15 +151,6 @@ export default function StudentSubscription() {
 
   return (
     <StudentLayout>
-      {/* Purchase success banner */}
-      {purchased && (
-        <div className="mb-4 mx-auto max-w-[1200px] flex items-center gap-3 px-5 py-4 rounded-2xl bg-[#e0faea] border border-[#1a7bd9]">
-          <span className="text-xl">✅</span>
-          <span className="font-inter font-medium text-[#1a7bd9] text-sm">Абонемент придбано! Ваш баланс оновлено.</span>
-          <button type="button" onClick={() => setPurchased(false)} className="ml-auto font-inter text-[#1a7bd9] text-sm hover:underline">×</button>
-        </div>
-      )}
-
       <div className="max-w-[1200px] mx-auto flex flex-col gap-10">
         {/* Header row */}
         <div className="flex items-start justify-between gap-8">
@@ -123,7 +159,7 @@ export default function StudentSubscription() {
             <p className="font-inter text-[#565d6d] text-lg mt-2">Керуйте тарифним планом та переглядайте деталі оплати.</p>
           </div>
 
-          <div className="flex gap-4 flex-shrink-0">
+          <div className="flex gap-4 flex-shrink-0 items-start">
             {/* Current plan card */}
             {activePackage && (
               <div className="w-64 bg-white rounded-2xl border border-[#dee1e6] p-5 shadow-sm">
@@ -174,55 +210,70 @@ export default function StudentSubscription() {
           </span>
         </div>
 
-        {/* Plans */}
-        {plans.length > 0 && (
-          <div className="flex flex-col gap-6">
-            <div className="text-center">
-              <h2 className="font-poppins font-bold text-slate-900 text-2xl">Оберіть свій ідеальний абонемент</h2>
-              <p className="font-inter text-[#565d6d] text-base mt-1">Змінюйте план у будь-який час. Ми підберемо найкраще рішення для вашого темпу.</p>
-            </div>
-            <div className="grid grid-cols-3 gap-6">
-              {plans.map((plan, idx) => {
-                const isCurrent = activePackage?.total_lessons === plan.total_lessons && !selectedPlan;
-                const isSelected = selectedPlan?.id === plan.id;
-                const isPopular = idx === 1;
-                return (
-                  <div key={plan.id} className={`relative flex flex-col gap-5 p-6 bg-white rounded-2xl border-2 transition-all ${isCurrent || isSelected ? 'border-[#1f8cf9]' : 'border-[#dee1e6]'}`}>
-                    {isPopular && (
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                        <span className="px-4 py-1 bg-[#f5a83d] rounded-full font-inter font-bold text-white text-[10px] uppercase whitespace-nowrap">Найпопулярніший</span>
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-poppins font-bold text-slate-900 text-2xl">{plan.name}</p>
-                      <p className="font-inter text-[#565d6d] text-sm mt-1">{plan.total_lessons} занять</p>
-                    </div>
-                    <div>
-                      <span className="font-inter font-black text-slate-900 text-3xl">₴{plan.price}</span>
-                      <span className="font-inter text-[#565d6d] text-sm"> /міс</span>
-                    </div>
-                    <ul className="flex flex-col gap-2">
-                      {PLAN_FEATURES.map(f => (
-                        <li key={f} className="flex items-center gap-2 font-inter text-[#565d6d] text-sm">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      type="button"
-                      disabled={isCurrent}
-                      onClick={() => setSelectedPlan(isSelected ? null : plan)}
-                      className="py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {isCurrent ? 'Поточний' : isSelected ? 'Вибрано' : 'Вибрати'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Subscription plan cards */}
+        <div className="flex flex-col gap-6">
+          <div className="text-center">
+            <h2 className="font-poppins font-bold text-slate-900 text-2xl">Оберіть свій ідеальний абонемент</h2>
+            <p className="font-inter text-[#565d6d] text-base mt-1">Змінюйте план у будь-який час. Ми підберемо найкраще рішення для вашого темпу.</p>
           </div>
-        )}
+          <div className="grid grid-cols-3 gap-6">
+            {pagePlans.map(plan => (
+              <div key={plan.id}
+                className={`flex flex-col gap-4 p-6 bg-white rounded-2xl border transition-all ${
+                  plan.popular ? 'border-[#1f8cf9] shadow-[0px_4px_24px_#1f8cf920]' : 'border-[#dee1e6]'
+                }`}>
+                {plan.popular && (
+                  <span className="px-3 py-1 bg-[#1f8cf9] text-white font-inter font-bold text-xs rounded-full w-fit">
+                    Найпопулярніший
+                  </span>
+                )}
+                <div>
+                  <p className="font-poppins font-bold text-slate-900 text-2xl">{plan.total_lessons} уроків</p>
+                  <p className="font-inter text-[#565d6d] text-sm mt-1">{plan.description}</p>
+                </div>
+                <p className="font-poppins font-bold text-[#1f8cf9] text-3xl">₴{plan.final_price}</p>
+                <ul className="flex flex-col gap-2">
+                  {plan.features?.map(f => (
+                    <li key={f} className="flex items-center gap-2 font-inter text-sm text-slate-700">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button type="button"
+                  onClick={() => void handlePurchase(plan)}
+                  disabled={purchasing === plan.id}
+                  className="mt-auto py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50">
+                  {purchasing === plan.id ? 'Обробка...' : 'Придбати'}
+                </button>
+              </div>
+            ))}
+          </div>
+          {purchaseError && (
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl border border-red-100 w-full max-w-lg mx-auto">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <p className="font-inter text-sm text-red-600">{purchaseError}</p>
+              </div>
+              {purchaseError.includes('коштів') && (
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100 w-full max-w-lg mx-auto">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2" className="flex-shrink-0">
+                    <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
+                  </svg>
+                  <span className="font-inter text-sm text-[#1f8cf9] flex-1">Ваш баланс: ₴{moneyBalance.toLocaleString('uk')}</span>
+                  <button type="button" onClick={() => setShowTopUp(true)}
+                    className="px-3 py-1.5 bg-[#1f8cf9] rounded-lg font-inter font-medium text-white text-xs hover:bg-blue-600 transition-colors">
+                    Поповнити
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Features + Payment */}
         <div className="flex items-start gap-8">
@@ -238,74 +289,32 @@ export default function StudentSubscription() {
             </div>
           </div>
 
-          {selectedPlan && (
-            <div className="w-72 flex-shrink-0 bg-white rounded-2xl border border-[#dee1e6] p-6 flex flex-col gap-5 sticky top-24 animate-fade-in">
-              <div>
-                <h3 className="font-poppins font-bold text-slate-900 text-xl">Оформлення</h3>
-                <p className="font-inter text-[#565d6d] text-sm mt-1">Оплата з балансу гаманця</p>
-              </div>
-
-              {/* Order summary */}
-              <div className="flex flex-col gap-2 py-3 border-y border-[#dee1e6]">
-                <div className="flex items-center justify-between">
-                  <span className="font-inter text-[#565d6d] text-sm">План ({selectedPlan.total_lessons} занять)</span>
-                  <span className="font-inter font-bold text-slate-900 text-sm">₴{selectedPlan.price}</span>
-                </div>
-                {bonusDiscountPct > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="font-inter text-[#565d6d] text-sm">Знижка {bonusDiscountPct}%</span>
-                    <span className="font-inter font-bold text-green-600 text-sm">-₴{selectedPlan.price - finalPrice}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between pt-1 border-t border-[#f4f4f6]">
-                  <span className="font-inter font-bold text-slate-800 text-sm">До сплати</span>
-                  <span className="font-inter font-black text-slate-900 text-xl">₴{finalPrice}</span>
-                </div>
-              </div>
-
-              {/* Balance */}
-              <div className="flex items-center justify-between px-3 py-2.5 bg-[#f8f9fb] rounded-xl">
-                <span className="font-inter text-[#565d6d] text-sm">Баланс гаманця</span>
-                <span className={`font-inter font-bold text-sm ${canAfford ? 'text-slate-900' : 'text-[#e64c4c]'}`}>
-                  ₴{moneyBalance.toLocaleString('uk')}
-                </span>
-              </div>
-
-              {/* Insufficient funds warning */}
-              {!canAfford && (
-                <div className="flex items-center gap-2 px-3 py-2.5 bg-red-50 rounded-xl border border-red-100">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                  <span className="font-inter text-[#e64c4c] text-xs">Недостатньо коштів. Поповніть гаманець.</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                disabled={purchasing || !canAfford}
-                onClick={() => void handlePurchase()}
-                className="flex items-center justify-center gap-2 py-3.5 w-full bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {purchasing ? 'Обробка...' : 'Купити абонемент →'}
-              </button>
-
-              {!canAfford && (
-                <button
-                  type="button"
-                  onClick={() => setShowTopUp(true)}
-                  className="w-full py-2.5 border border-[#1f8cf9] rounded-xl font-inter font-medium text-[#1f8cf9] text-sm hover:bg-blue-50 transition-colors"
-                >
-                  Поповнити гаманець
-                </button>
-              )}
-
-              <div className="flex items-center justify-center gap-1.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9095a1" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                <span className="font-inter text-[#9095a1] text-xs">Безпечна оплата</span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Purchase success modal */}
+      {purchaseSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setPurchaseSuccess('')} role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-xs mx-4 flex flex-col items-center gap-4 shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-[#1f8cf9]">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <h2 className="font-poppins font-bold text-xl text-slate-900">Готово!</h2>
+            <p className="font-inter text-sm text-[#565d6d] text-center">{purchaseSuccess}</p>
+            <button type="button" onClick={() => { setPurchaseSuccess(''); setShowLearningReq(true); }}
+              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">
+              Підібрати викладача
+            </button>
+            <button type="button" onClick={() => setPurchaseSuccess('')}
+              className="w-full py-2 text-[#565d6d] font-inter text-sm hover:underline">
+              Пізніше
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Learning request modal */}
       {showLearningReq && (

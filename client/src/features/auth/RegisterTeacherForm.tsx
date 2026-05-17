@@ -18,7 +18,7 @@ const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
 export default function RegisterTeacherForm({ onSuccess }: Props) {
   const [form, setForm] = useState({
     lastName: '', firstName: '', middleName: '',
-    phone: '', email: '', telegram: '',
+    phone: '', email: '', telegram_nickname: '',
     subject: '', level: '',
   });
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,7 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
     if (
       !form.lastName.trim() || !form.firstName.trim() ||
       !form.phone.trim() || !form.email.trim() ||
-      !form.telegram.trim() || !form.subject || !form.level
+      !form.telegram_nickname.trim() || !form.subject || !form.level
     ) {
       setError('Заповніть всі обов\'язкові поля');
       return;
@@ -55,7 +55,7 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
         full_name: fullName,
         email: form.email,
         phone: form.phone,
-        telegram_nickname: form.telegram,
+        telegram_nickname: form.telegram_nickname,
         role: 'teacher',
         subject: form.subject,
         level: form.level,
@@ -129,8 +129,8 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9095a1]"><IconAtSign /></span>
-          <input id="t-telegram" value={form.telegram} onChange={set('telegram')}
-            placeholder="nickname" className="form-input-icon" />
+          <input id="t-telegram" value={form.telegram_nickname} onChange={set('telegram_nickname')}
+            placeholder="@nickname" className="form-input-icon" />
         </div>
       </div>
 

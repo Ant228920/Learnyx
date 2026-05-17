@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 import AuthModal from '../../features/auth/AuthModal';
 
@@ -29,14 +29,14 @@ export default function MainLayout() {
         <div className="max-w-[1440px] mx-auto w-full h-20 flex items-center justify-between px-20">
 
           {/* Logo */}
-          <a href="/" aria-label="LearNYX — головна сторінка" className="inline-flex items-center gap-2">
+          <Link to="/" aria-label="LearNYX — головна сторінка" className="inline-flex items-center gap-2">
             <div className="w-8 h-8 bg-[#1f8cf9] rounded-md flex items-center justify-center" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                 <path d="M11 3L19 7.5V14.5L11 19L3 14.5V7.5L11 3Z" fill="white" />
               </svg>
             </div>
             <span className="font-poppins font-bold text-[#1f8cf9] text-xl">LearNYX</span>
-          </a>
+          </Link>
 
           {/* Nav links — only when not logged in */}
           <nav aria-label="Основна навігація" className="hidden md:flex items-center gap-8">

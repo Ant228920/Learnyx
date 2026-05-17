@@ -3,6 +3,7 @@ import { useState } from 'react';
 import StudentLayout from './StudentLayout';
 import { useStudentHomework } from '../../features/student/homework';
 import type { StudentHomeworkTask } from '../../features/student/homework';
+import { apiClient, extractErrorMessage } from '../../services/api';
 
 type FilterTab = 'Всі' | 'Нові';
 
@@ -14,6 +15,10 @@ export default function StudentHomework() {
   const [selected, setSelected] = useState<StudentHomeworkTask | null>(null);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<number[]>([]);
+  const [answerUrl, setAnswerUrl] = useState('');
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
@@ -133,13 +138,42 @@ export default function StudentHomework() {
                       <button type="button" onClick={() => setUploadedFile(null)} className="font-inter text-red-500 text-xs hover:underline">Видалити</button>
                     </div>
                   )}
+                  <div className="mt-3">
+                    <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase block mb-1">Посилання на відповідь</label>
+                    <input
+                      type="url"
+                      value={answerUrl}
+                      onChange={e => { setAnswerUrl(e.target.value); setSubmitError(''); setSubmitSuccess(''); }}
+                      placeholder="https://..."
+                      className="w-full border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+                    />
+                  </div>
                 </div>
 
-                <button type="button"
-                  onClick={() => { setSubmitted(p => [...p, selected.id]); setSelected(null); setUploadedFile(null); }}
-                  className="flex items-center justify-center gap-2 py-3.5 w-full bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors">
+                {submitSuccess && <p className="font-inter text-sm text-green-600 bg-green-50 border border-green-100 rounded-xl px-3 py-2">{submitSuccess}</p>}
+                {submitError && <p className="font-inter text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{submitError}</p>}
+
+                <button type="button" disabled={submitLoading}
+                  onClick={async () => {
+                    setSubmitLoading(true);
+                    setSubmitError('');
+                    setSubmitSuccess('');
+                    try {
+                      await apiClient.patch(`/lessons/${selected.lessonId}/homework-answer/`, {
+                        homework_answer_url: answerUrl || uploadedFile || '',
+                      });
+                      setSubmitted(p => [...p, selected.id]);
+                      setSubmitSuccess('Домашнє завдання успішно відправлено!');
+                      setTimeout(() => { setSelected(null); setUploadedFile(null); setAnswerUrl(''); setSubmitSuccess(''); }, 1500);
+                    } catch (err) {
+                      setSubmitError(extractErrorMessage(err));
+                    } finally {
+                      setSubmitLoading(false);
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 py-3.5 w-full bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-60">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                  Відправити на оцінення
+                  {submitLoading ? 'Відправлення...' : 'Відправити на оцінення'}
                 </button>
                 <p className="font-inter text-[10px] text-[#9095a1] text-center italic">Натискаючи кнопку, ви підтверджуєте самостійне виконання роботи</p>
               </div>
