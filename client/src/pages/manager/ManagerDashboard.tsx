@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useManagerDashboard } from '../../features/manager/dashboard';
 import type { DashboardRegistration } from '../../features/manager/dashboard';
 import ManagerLayout from './ManagerLayout';
+import { apiClient } from '../../services/api';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
@@ -68,9 +69,31 @@ const IconCalendar = () => (
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+interface ActivePackage {
+  id: number;
+  student: number;
+  student_name: string;
+  total_lessons: number;
+  balance: number;
+  final_price: string;
+  status: string;
+  purchased_at: string | null;
+}
+
 export default function ManagerDashboard() {
   const { data, loading, error } = useManagerDashboard();
   const [selectedUser, setSelectedUser] = useState<DashboardRegistration | null>(null);
+  const [activePackages, setActivePackages] = useState<ActivePackage[]>([]);
+
+  useEffect(() => {
+    apiClient.get('/packages/?status=active')
+      .then(res => {
+        const raw = res.data as { results?: unknown[] } | unknown[];
+        const list = (Array.isArray(raw) ? raw : (raw as { results?: unknown[] }).results ?? []) as ActivePackage[];
+        setActivePackages(list);
+      })
+      .catch(() => {});
+  }, []);
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
@@ -110,6 +133,41 @@ export default function ManagerDashboard() {
             </div>
           </article>
         </section>
+
+        {/* Active packages */}
+        {activePackages.length > 0 && (
+          <section>
+            <h2 className="font-poppins font-bold text-slate-900 text-xl tracking-[-0.40px] leading-7 mb-4">
+              Активні абонементи студентів
+            </h2>
+            <div className="bg-white rounded-2xl border border-[#dee1e6] overflow-hidden">
+              {activePackages.map((pkg, i) => (
+                <div key={pkg.id}
+                  className={`flex items-center gap-5 px-6 py-4 ${i > 0 ? 'border-t border-[#dee1e6]' : ''}`}>
+                  <div className="w-9 h-9 rounded-full bg-[#e0faea] flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-inter font-semibold text-slate-800 text-sm">
+                      {pkg.student_name ?? `Студент #${pkg.student}`}
+                    </p>
+                    <p className="font-inter text-[#9095a1] text-xs mt-0.5">
+                      {pkg.total_lessons} уроків • Залишок: {pkg.balance} • ₴{pkg.final_price}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full font-inter font-bold text-[10px] bg-[#e0faea] text-green-700">
+                    АКТИВНИЙ
+                  </span>
+                  <span className="font-inter text-[#9095a1] text-xs whitespace-nowrap">
+                    {pkg.purchased_at ? new Date(pkg.purchased_at).toLocaleDateString('uk-UA') : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Registrations + Side Panel */}
         <section aria-labelledby="registrations-title" className="flex items-start gap-8">

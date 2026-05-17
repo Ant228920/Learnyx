@@ -275,6 +275,22 @@ class StudentAvailablePackageSerializer(serializers.ModelSerializer):
         fields = ['id', 'total_lessons', 'balance', 'final_price', 'discount', 'status']
 
 
+class ManagerPackageSerializer(serializers.ModelSerializer):
+    """Full package info for manager views — includes student name."""
+    student_name = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj) -> str:
+        try:
+            u = obj.student.user
+            return f'{u.first_name} {u.last_name}'.strip() or u.email
+        except Exception:
+            return '—'
+
+    class Meta:
+        model = Package
+        fields = ['id', 'student', 'student_name', 'total_lessons', 'balance', 'final_price', 'discount', 'status', 'purchased_at']
+
+
 class LearningRequestSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_email = serializers.SerializerMethodField()

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useManagerMatching, useManagerLearningRequests } from '../../features/manager/matching';
 import ManagerLayout from './ManagerLayout';
-import { apiClient } from '../../services/api';
+import { apiClient, extractErrorMessage } from '../../services/api';
 
 interface Slot {
   id: number;
@@ -76,6 +76,7 @@ export default function ManagerMatching() {
   const [searched, setSearched] = useState(false);
   const [successTeacher, setSuccessTeacher] = useState<string | null>(null);
   const [assignError, setAssignError] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
 
   useEffect(() => {
     if (!student && rawStudents.length > 0) {
@@ -106,43 +107,63 @@ export default function ManagerMatching() {
     setSearched(true);
   };
 
-  const handleAssign = async (name: string, teacherId: number) => {
+  const handleAssign = async (teacherName: string, teacherId: number) => {
     setAssignError('');
+    setAssignLoading(true);
+
     const selectedStudentObj = rawStudents.find(s =>
       `${s.first_name} ${s.last_name}`.trim() === student || s.email === student
     );
 
     if (!selectedStudentObj) {
       setAssignError('Оберіть учня для призначення.');
+      setAssignLoading(false);
       return;
     }
 
     try {
-      const balanceRes = await apiClient.get(`/bonus/balance/${selectedStudentObj.id}/`);
-      const balance = balanceRes.data as { remaining_lessons?: number; remaining?: number };
-      const remaining = balance.remaining_lessons ?? balance.remaining ?? 0;
-      if (remaining <= 0) {
-        setAssignError('Учень не має активного абонементу. Спочатку необхідно придбати абонемент.');
+      // 1. Get student's active package
+      const pkgRes = await apiClient.get('/packages/?status=active');
+      const pkgRaw = pkgRes.data as { results?: unknown[] } | unknown[];
+      const pkgList = (Array.isArray(pkgRaw) ? pkgRaw : (pkgRaw as { results?: unknown[] }).results ?? []) as Array<{ id: number; student: number }>;
+      const studentPackage = pkgList.find(p => p.student === selectedStudentObj.id);
+
+      if (!studentPackage) {
+        setAssignError('Учень не має активного абонементу. Спочатку студент повинен придбати абонемент.');
+        setAssignLoading(false);
         return;
       }
-    } catch {
-      /* proceed if balance endpoint not available */
-    }
 
-    if (slots.length === 0) {
-      setAssignError('Додайте хоча б один вільний слот для призначення уроку.');
-      return;
-    }
+      // 2. Get available slots for this teacher
+      const slotsRes = await apiClient.get(`/slots/available/?teacher_id=${teacherId}`);
+      const slotsData = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<{ id: number }>;
 
-    void teacherId;
-    setSuccessTeacher(name);
-    setTeachers([]);
-    setSearched(false);
-    setSlots([]);
-    const next = studentOptions.filter((s) => s !== student)[0] ?? studentOptions[0] ?? '';
-    setStudent(next);
-    setSubject(SUBJECTS[0]);
-    setLevel(getLevels(SUBJECTS[0])[0]);
+      if (slotsData.length === 0) {
+        setAssignError('У викладача немає вільних слотів. Попросіть викладача додати слоти в розкладі.');
+        setAssignLoading(false);
+        return;
+      }
+
+      // 3. Assign lesson using first available slot
+      await apiClient.post('/lessons/assign/', {
+        slot: slotsData[0].id,
+        student: selectedStudentObj.id,
+        package: studentPackage.id,
+      });
+
+      setSuccessTeacher(teacherName);
+      setTeachers([]);
+      setSearched(false);
+      setSlots([]);
+      const next = studentOptions.filter((s) => s !== student)[0] ?? studentOptions[0] ?? '';
+      setStudent(next);
+      setSubject(SUBJECTS[0]);
+      setLevel(getLevels(SUBJECTS[0])[0]);
+    } catch (err) {
+      setAssignError(extractErrorMessage(err));
+    } finally {
+      setAssignLoading(false);
+    }
   };
 
   const selectClass = 'border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-full';
@@ -307,6 +328,15 @@ export default function ManagerMatching() {
                 ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
               </p>
 
+              {assignError && (
+                <div className="flex items-center gap-2 p-4 bg-red-50 rounded-2xl border border-red-100">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
+                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <p className="font-inter text-red-600 text-sm">{assignError}</p>
+                </div>
+              )}
+
               {teachers.length === 0 && (
                 <p className="font-inter text-[#9095a1] text-sm">Викладачів не знайдено</p>
               )}
@@ -329,10 +359,12 @@ export default function ManagerMatching() {
                       </div>
                     )}
                   </div>
-                  <button type="button" onClick={() => void handleAssign(t.name, t.id)}
+                  <button type="button"
+                    onClick={() => void handleAssign(t.name, t.id)}
+                    disabled={assignLoading}
                     aria-label={`Призначити викладача ${t.name}`}
-                    className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
-                    Призначити
+                    className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed">
+                    {assignLoading ? 'Призначення...' : 'Призначити'}
                   </button>
                 </div>
               ))}

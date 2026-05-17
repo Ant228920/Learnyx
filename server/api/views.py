@@ -39,6 +39,7 @@ from api.serializers import (
     LessonArchiveSerializer,
     PackagePlanSerializer,
     StudentAvailablePackageSerializer,
+    ManagerPackageSerializer,
     TeacherListSerializer,
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
@@ -929,14 +930,17 @@ class LessonArchiveView(generics.ListAPIView):
 
 class PackagePlanListView(generics.ListAPIView):
     """
-    GET /packages/                  → all active PackagePlans (for managers / display)
-    GET /packages/?status=available → student's own Package records with that status
+    GET /packages/                  → all active PackagePlans (plans to buy)
+    GET /packages/?status=available → student's own available Package records
+    GET /packages/?status=active    → manager: all active packages; student: own active packages
     """
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         user = self.request.user
         role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
+        if role in ('manager', 'admin') and self.request.query_params.get('status'):
+            return ManagerPackageSerializer
         if role == 'student' and self.request.query_params.get('status'):
             return StudentAvailablePackageSerializer
         return PackagePlanSerializer
@@ -945,11 +949,21 @@ class PackagePlanListView(generics.ListAPIView):
         user = self.request.user
         role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
         status_param = self.request.query_params.get('status')
+
+        if role in ('manager', 'admin') and status_param:
+            return (
+                Package.objects
+                .select_related('student__user')
+                .filter(status=status_param)
+                .order_by('-purchased_at')
+            )
+
         if role == 'student' and status_param:
             student = Student.objects.filter(user=user).first()
             if not student:
                 return Package.objects.none()
             return Package.objects.filter(student=student, status=status_param).order_by('total_lessons')
+
         return PackagePlan.objects.filter(is_active=True)
 
 
@@ -980,6 +994,14 @@ class PackagePurchaseView(APIView):
         if package.status == 'active':
             return Response(
                 {'detail': 'Цей пакет вже активний.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Block purchase if student already has a different active package
+        existing_active = Package.objects.filter(student=student, status='active').exclude(pk=pk).first()
+        if existing_active:
+            return Response(
+                {'detail': 'У вас вже є активний абонемент. Завершіть поточний курс перед покупкою нового.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
