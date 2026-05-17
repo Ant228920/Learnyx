@@ -29,18 +29,18 @@ const DEFAULT_PLANS = [
   },
   {
     id: 2,
-    total_lessons: 16,
-    final_price: '4400',
+    total_lessons: 10,
+    final_price: '2900',
     description: 'Найпопулярніший вибір студентів',
-    features: ['16 індивідуальних уроків', 'Доступ до матеріалів', 'Чат з викладачем', 'Домашні завдання'],
+    features: ['10 індивідуальних уроків', 'Доступ до матеріалів', 'Чат з викладачем', 'Домашні завдання'],
     popular: true,
   },
   {
     id: 3,
-    total_lessons: 32,
-    final_price: '8000',
+    total_lessons: 12,
+    final_price: '3400',
     description: 'Максимальний результат за мінімальну ціну',
-    features: ['32 індивідуальних уроки', 'Доступ до матеріалів', 'Чат з викладачем', 'Домашні завдання', 'Бонус кешбек'],
+    features: ['12 індивідуальних уроків', 'Доступ до матеріалів', 'Чат з викладачем', 'Домашні завдання', 'Бонус кешбек'],
     popular: false,
   },
 ];
@@ -76,7 +76,7 @@ export default function StudentSubscription() {
   }, [lrSubject]);
 
   useEffect(() => {
-    apiClient.get('/packages/')
+    apiClient.get('/packages/?status=available')
       .then(res => {
         const raw = res.data as { results?: unknown[] } | unknown[];
         const items = (Array.isArray(raw) ? raw : (raw as { results?: unknown[] }).results ?? []) as Array<Record<string, unknown>>;
@@ -107,9 +107,12 @@ export default function StudentSubscription() {
     setPurchasing(plan.id);
     setPurchaseError('');
     try {
-      await apiClient.post(`/packages/${plan.id}/purchase/`);
-      setPurchasedPackageId(plan.id);
-      setPurchaseSuccess(`Абонемент на ${plan.total_lessons} уроків успішно придбано!`);
+      const res = await apiClient.post(`/packages/${plan.id}/purchase/`);
+      const data = res.data as { package_id?: number; total_lessons?: number; message?: string };
+      setPurchasedPackageId(data.package_id ?? plan.id);
+      setPurchaseSuccess(data.message ?? `Абонемент на ${data.total_lessons ?? plan.total_lessons} уроків успішно придбано!`);
+      // Remove purchased plan from the list
+      setPagePlans(prev => prev.filter(p => p.id !== plan.id));
     } catch (err) {
       setPurchaseError(extractErrorMessage(err));
     } finally {
@@ -215,6 +218,17 @@ export default function StudentSubscription() {
           <div className="text-center">
             <h2 className="font-poppins font-bold text-slate-900 text-2xl">Оберіть свій ідеальний абонемент</h2>
             <p className="font-inter text-[#565d6d] text-base mt-1">Змінюйте план у будь-який час. Ми підберемо найкраще рішення для вашого темпу.</p>
+            {bonusDiscountPct > 0 && (
+              <div className="flex items-center justify-center gap-2 mt-3 px-4 py-2 bg-[#e0faea] rounded-xl border border-[#1a7bd9] w-fit mx-auto">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" aria-hidden="true">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                <span className="font-inter text-green-700 text-sm font-medium">
+                  Ваш бонус: {bonusDiscountPct}% знижка застосована до всіх планів
+                </span>
+              </div>
+            )}
+          </div>
           </div>
           <div className="grid grid-cols-3 gap-6">
             {pagePlans.map(plan => (
@@ -231,7 +245,16 @@ export default function StudentSubscription() {
                   <p className="font-poppins font-bold text-slate-900 text-2xl">{plan.total_lessons} уроків</p>
                   <p className="font-inter text-[#565d6d] text-sm mt-1">{plan.description}</p>
                 </div>
-                <p className="font-poppins font-bold text-[#1f8cf9] text-3xl">₴{plan.final_price}</p>
+                {bonusDiscountPct > 0 ? (
+                  <div className="flex items-center gap-3">
+                    <span className="font-inter text-[#9095a1] text-lg line-through">₴{plan.final_price}</span>
+                    <span className="font-poppins font-bold text-[#1f8cf9] text-3xl">
+                      ₴{Math.round(Number(plan.final_price) * (1 - bonusDiscountPct / 100))}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="font-poppins font-bold text-[#1f8cf9] text-3xl">₴{plan.final_price}</p>
+                )}
                 <ul className="flex flex-col gap-2">
                   {plan.features?.map(f => (
                     <li key={f} className="flex items-center gap-2 font-inter text-sm text-slate-700">

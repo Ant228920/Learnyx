@@ -150,9 +150,9 @@ class PackageService:
 
 # Ordered highest → lowest so the first match gives the best tier.
 CASHBACK_TIERS = [
-    (Decimal('95'), Decimal('15')),
-    (Decimal('90'), Decimal('10')),
-    (Decimal('85'), Decimal('5')),
+    (Decimal('95'), Decimal('15')),  # 95%+ → 15% cashback
+    (Decimal('85'), Decimal('10')),  # 85%+ → 10% cashback
+    (Decimal('70'), Decimal('5')),   # 70%+ → 5% cashback
 ]
 
 

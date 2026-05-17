@@ -268,6 +268,13 @@ class PackagePlanSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'total_lessons', 'price', 'description', 'is_active']
 
 
+class StudentAvailablePackageSerializer(serializers.ModelSerializer):
+    """Package records pre-created for a student and available for purchase."""
+    class Meta:
+        model = Package
+        fields = ['id', 'total_lessons', 'balance', 'final_price', 'discount', 'status']
+
+
 class LearningRequestSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_email = serializers.SerializerMethodField()
@@ -290,6 +297,12 @@ class LearningRequestSerializer(serializers.ModelSerializer):
 
 
 class LearningRequestCreateSerializer(serializers.ModelSerializer):
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=Package.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
         model = LearningRequest
         fields = ['subject', 'level', 'preferred_days', 'preferred_time', 'notes', 'package']

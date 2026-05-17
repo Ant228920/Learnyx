@@ -38,6 +38,7 @@ from api.serializers import (
     HomeworkSerializer,
     LessonArchiveSerializer,
     PackagePlanSerializer,
+    StudentAvailablePackageSerializer,
     TeacherListSerializer,
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
@@ -920,76 +921,66 @@ class LessonArchiveView(generics.ListAPIView):
 
 
 class PackagePlanListView(generics.ListAPIView):
-    """Returns all active package plans available for purchase."""
+    """
+    GET /packages/                  → all active PackagePlans (for managers / display)
+    GET /packages/?status=available → student's own Package records with that status
+    """
     permission_classes = [IsAuthenticated]
-    serializer_class = PackagePlanSerializer
-    queryset = PackagePlan.objects.filter(is_active=True)
+
+    def get_serializer_class(self):
+        user = self.request.user
+        role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
+        if role == 'student' and self.request.query_params.get('status'):
+            return StudentAvailablePackageSerializer
+        return PackagePlanSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
+        status_param = self.request.query_params.get('status')
+        if role == 'student' and status_param:
+            student = Student.objects.filter(user=user).first()
+            if not student:
+                return Package.objects.none()
+            return Package.objects.filter(student=student, status=status_param).order_by('total_lessons')
+        return PackagePlan.objects.filter(is_active=True)
 
 
 class PackagePurchaseView(APIView):
-    """Purchase a PackagePlan — creates a new Package for the student."""
-    permission_classes = [(IsStudent | IsManager)]
+    """
+    Activate a pre-created Package record (status: available → active).
+    Applies any available bonus cashback discount automatically.
+    """
+    permission_classes = [IsStudent | IsManager]
 
     def post(self, request, pk):
-        plan = get_object_or_404(PackagePlan, pk=pk)
+        student = get_object_or_404(Student, user=request.user)
+        package = get_object_or_404(Package, pk=pk)
 
-        role = request.user.role_obj.name.lower() if request.user.role_obj else ''
-        if role == 'student':
-            student = get_object_or_404(Student, user=request.user)
-        else:
-            student_id = request.data.get('student_id')
-            if not student_id:
-                return Response({'detail': 'student_id required for manager.'}, status=status.HTTP_400_BAD_REQUEST)
-            student = get_object_or_404(Student, pk=student_id)
-
-        course = Course.objects.first()
-        if not course:
-            return Response({'detail': 'No course configured.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        from decimal import Decimal
-        final_price = plan.price
-        discount_pct = Decimal('0')
-        discount_applied = False
-
-        completion = CourseCompletion.objects.filter(
-            student=student, is_discount_used=False, earned_discount__gt=0
-        ).order_by('-id').first()
-
-        if completion:
-            discount_pct = completion.earned_discount
-            final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
-            discount_applied = True
-
-        if role == 'student' and student.money_balance < final_price:
-            return Response({
-                'error': 'Недостатньо коштів на балансі',
-                'required': float(final_price),
-                'available': float(student.money_balance),
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            student_locked = Student.objects.select_for_update().get(pk=student.pk)
-            student_locked.money_balance -= final_price
-            student_locked.save(update_fields=['money_balance'])
-            Package.objects.filter(student=student, status='active').update(status='completed')
-            package = Package.objects.create(
-                student=student,
-                course=course,
-                total_lessons=plan.total_lessons,
-                balance=plan.total_lessons,
-                final_price=round(final_price, 2),
-                status='active',
+        if package.student_id != student.pk:
+            return Response(
+                {'detail': 'Цей пакет не належить вам.'},
+                status=status.HTTP_403_FORBIDDEN,
             )
-            if completion:
-                completion.is_discount_used = True
-                completion.save(update_fields=['is_discount_used'])
+
+        if package.status != 'available':
+            return Response(
+                {'detail': 'Цей пакет вже активовано або недоступний.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = purchase_package(package, student)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
-            'package_id': package.id,
-            'final_price': float(package.final_price),
-            'discount_applied': discount_applied,
-            'discount_pct': float(discount_pct),
-            'money_balance': float(student_locked.money_balance),
+            'package_id': result['package_id'],
+            'total_lessons': package.total_lessons,
+            'final_price': result['final_price'],
+            'discount_applied': result['discount_applied'],
+            'discount_pct': result['discount_pct'],
+            'message': f'Пакет на {package.total_lessons} уроків успішно придбано!',
         }, status=status.HTTP_201_CREATED)
 
 
