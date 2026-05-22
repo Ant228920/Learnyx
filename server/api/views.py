@@ -222,12 +222,12 @@ class StudentBalanceView(APIView):
 
 
 class SlotViewSet(viewsets.ModelViewSet):
-    """US5 + US9: Teacher slot management — create with overlap check, delete if unbooked."""
+    """US5 + US9 + LEAR-127: Teacher slot management — create, delete, partial_update."""
     serializer_class = SlotSerializer
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_permissions(self):
-        if self.action in ('create', 'destroy'):
+        if self.action in ('create', 'destroy', 'partial_update'):
             return [IsTeacher()]
         return [IsAuthenticated()]
 
@@ -246,12 +246,20 @@ class SlotViewSet(viewsets.ModelViewSet):
         teacher_id = self.request.query_params.get('teacher_id')
         slot_status = self.request.query_params.get('status')
         date = self.request.query_params.get('date')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
 
         if teacher_id:
             qs = qs.filter(teacher_id=teacher_id)
         if slot_status:
             qs = qs.filter(status=slot_status)
-        if date:
+
+        if start_date or end_date:
+            if start_date:
+                qs = qs.filter(start_time__date__gte=start_date)
+            if end_date:
+                qs = qs.filter(start_time__date__lte=end_date)
+        elif date:
             qs = qs.filter(start_time__date=date)
 
         return qs
@@ -259,6 +267,23 @@ class SlotViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         teacher = get_object_or_404(Teacher, user=self.request.user)
         serializer.save(teacher=teacher)
+
+    def update(self, request, *args, **kwargs):
+        """LEAR-127: Only the slot's owner can PATCH; booked slots are frozen."""
+        slot = self.get_object()
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only edit your own slots.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if slot.status == 'booked':
+            return Response(
+                {'detail': 'Cannot edit a booked slot.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         slot = self.get_object()
@@ -1033,9 +1058,11 @@ class PackagePurchaseView(APIView):
         discount_pct = Decimal('0')
         discount_applied = False
 
+        cutoff = timezone.now() - timezone.timedelta(days=180)
         completion = CourseCompletion.objects.filter(
-            student=student, is_discount_used=False, earned_discount__gt=0
-        ).order_by('-id').first()
+            student=student, is_discount_used=False, earned_discount__gt=0,
+            completed_at__gte=cutoff,
+        ).order_by('-earned_discount').first()
 
         if completion:
             discount_pct = completion.earned_discount

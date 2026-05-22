@@ -5,7 +5,7 @@ from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 from unittest.mock import patch, MagicMock
 from api.models import RegistrationRequest
 from api.views import generate_password, RegistrationRequestView, ActivatePackageView, StudentBalanceView
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline, CourseCompletion
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline, CourseCompletion, PackagePlan
 from users.models import User, Role, Student
 
 
@@ -628,3 +628,175 @@ class StudentReportIntegrationTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['lesson_grades'], [])
         self.assertEqual(resp.data['homework_grades'], [])
+
+
+# ---------------------------------------------------------------------------
+# LEAR-72: 180-day bonus expiry in PackagePurchaseView
+# ---------------------------------------------------------------------------
+
+class BonusExpiryTest(TestCase):
+    """Expired CourseCompletion (> 180 days) must not be applied during purchase."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.student_user = _make_user('be_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+        Student.objects.filter(pk=self.student.pk).update(money_balance=9999)
+        self.student.refresh_from_db()
+
+        discipline, _ = Discipline.objects.get_or_create(name='Math')
+        course, _ = Course.objects.get_or_create(
+            discipline=discipline,
+            defaults={'title': 'Math 101', 'total_lessons_course': 20},
+        )
+        self.plan = PackagePlan.objects.create(
+            name='Basic', total_lessons=8, price=100,
+        )
+
+        # Expired completion — 200 days ago
+        self.expired_completion = CourseCompletion.objects.create(
+            student=self.student,
+            course=course,
+            earned_discount=10,
+            is_discount_used=False,
+            completed_at=timezone.now() - timezone.timedelta(days=200),
+        )
+
+    def _url(self):
+        return f'/api/v1/packages/{self.plan.pk}/purchase/'
+
+    def test_expired_bonus_not_applied(self):
+        """Bonus older than 180 days → discount_applied=False, full price charged."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self._url(), {})
+        self.assertEqual(resp.status_code, 201)
+        self.assertFalse(resp.data['discount_applied'])
+        self.assertEqual(resp.data['discount_pct'], 0.0)
+        self.assertEqual(resp.data['final_price'], float(self.plan.price))
+
+    def test_fresh_bonus_is_applied(self):
+        """Bonus within 180 days → discount_applied=True."""
+        # Update completion to be recent
+        CourseCompletion.objects.filter(pk=self.expired_completion.pk).update(
+            completed_at=timezone.now() - timezone.timedelta(days=10)
+        )
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self._url(), {})
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(resp.data['discount_applied'])
+        self.assertEqual(resp.data['discount_pct'], 10.0)
+
+
+# ---------------------------------------------------------------------------
+# LEAR-126: start_date / end_date range filter for SlotViewSet
+# ---------------------------------------------------------------------------
+
+class SlotDateRangeFilterTest(TestCase):
+    """GET /api/v1/slots/?start_date=...&end_date=... returns only slots in range."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.teacher_user = _make_user('sdr_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+        self.client.force_authenticate(user=self.teacher_user)
+
+        now = timezone.now()
+
+        def _slot(delta_days):
+            start = now + timezone.timedelta(days=delta_days)
+            return Slot.objects.create(
+                teacher=self.teacher,
+                start_time=start,
+                end_time=start + timezone.timedelta(hours=1),
+            )
+
+        self.slot_past = _slot(-5)   # 5 days ago
+        self.slot_mid = _slot(1)     # tomorrow — in range
+        self.slot_future = _slot(10) # 10 days from now
+
+    def test_range_filter_returns_only_mid_slot(self):
+        """start_date=tomorrow, end_date=in-3-days → only slot_mid returned."""
+        now = timezone.now()
+        start = (now + timezone.timedelta(days=0)).date().isoformat()
+        end = (now + timezone.timedelta(days=3)).date().isoformat()
+        resp = self.client.get('/api/v1/slots/', {'start_date': start, 'end_date': end})
+        self.assertEqual(resp.status_code, 200)
+        ids = [s['id'] for s in resp.data]
+        self.assertIn(self.slot_mid.pk, ids)
+        self.assertNotIn(self.slot_past.pk, ids)
+        self.assertNotIn(self.slot_future.pk, ids)
+
+    def test_start_date_only(self):
+        """?start_date=tomorrow → past slot excluded, mid and future included."""
+        now = timezone.now()
+        start = (now + timezone.timedelta(days=1)).date().isoformat()
+        resp = self.client.get('/api/v1/slots/', {'start_date': start})
+        self.assertEqual(resp.status_code, 200)
+        ids = [s['id'] for s in resp.data]
+        self.assertNotIn(self.slot_past.pk, ids)
+        self.assertIn(self.slot_mid.pk, ids)
+        self.assertIn(self.slot_future.pk, ids)
+
+
+# ---------------------------------------------------------------------------
+# LEAR-127: PATCH slot (owner only, not booked)
+# ---------------------------------------------------------------------------
+
+class SlotPatchTest(TestCase):
+    """PATCH /api/v1/slots/{id}/: owner can patch, others get 403, booked → 409."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.teacher_user = _make_user('sp_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.other_teacher_user = _make_user('sp_other@test.test', 'Teacher')
+        self.other_teacher = Teacher.objects.create(user=self.other_teacher_user)
+
+        now = timezone.now()
+        start = now + timezone.timedelta(hours=5)
+        self.slot = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='available',
+        )
+        self.booked_slot = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start + timezone.timedelta(hours=2),
+            end_time=start + timezone.timedelta(hours=3),
+            status='booked',
+        )
+
+    def _url(self, slot=None):
+        s = slot or self.slot
+        return f'/api/v1/slots/{s.pk}/'
+
+    def test_owner_can_patch_slot(self):
+        """Teacher patches own available slot → 200, start_time updated."""
+        self.client.force_authenticate(user=self.teacher_user)
+        original_start = self.slot.start_time
+        new_start = timezone.now() + timezone.timedelta(hours=8)
+        new_end = new_start + timezone.timedelta(hours=1)
+        resp = self.client.patch(self._url(), {
+            'start_time': new_start.isoformat(),
+            'end_time': new_end.isoformat(),
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.slot.refresh_from_db()
+        self.assertNotEqual(self.slot.start_time, original_start)
+
+    def test_other_teacher_gets_403_or_404(self):
+        """Different teacher trying to PATCH own slot → 403 or 404 (hidden by queryset scoping)."""
+        self.client.force_authenticate(user=self.other_teacher_user)
+        resp = self.client.patch(self._url(), {'start_time': timezone.now().isoformat()})
+        # get_queryset scopes to teacher's own slots, so foreign slot is invisible (404)
+        self.assertIn(resp.status_code, (403, 404))
+
+    def test_patch_booked_slot_returns_409(self):
+        """Patching a booked slot → 409."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.patch(self._url(self.booked_slot), {
+            'start_time': (timezone.now() + timezone.timedelta(hours=10)).isoformat(),
+        })
+        self.assertEqual(resp.status_code, 409)
