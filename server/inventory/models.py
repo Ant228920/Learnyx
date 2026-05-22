@@ -221,17 +221,34 @@ class Lesson(models.Model):
         ]
 
 class JournalRecord(models.Model):
+    class HomeworkStatus(models.TextChoices):
+        ASSIGNED = 'assigned', 'Assigned'
+        SUBMITTED = 'submitted', 'Submitted'
+        REVIEWED = 'reviewed', 'Reviewed'
+
     lesson = models.OneToOneField(Lesson, on_delete=models.CASCADE, related_name='journal')
     is_present = models.BooleanField(default=True)
-    
+
     teacher_homework_task = models.JSONField(blank=True, null=True, default=dict)
-    homework_answer_url = models.CharField(max_length=255, blank=True, null=True)
-    
+    homework_answer_url = models.CharField(max_length=255, blank=True, null=True)  # legacy
+    homework_file = models.FileField(
+        upload_to='homework_answers/%Y/%m/',
+        null=True, blank=True,
+        validators=[validate_file_size, validate_file_extension],
+    )
+    homework_status = models.CharField(
+        max_length=20,
+        choices=HomeworkStatus.choices,
+        default=HomeworkStatus.ASSIGNED,
+    )
+    homework_submitted_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
     grade = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(10)],
         blank=True, null=True
     )
-    
+
     homework_grade = models.IntegerField(blank=True, null=True)
     activity_grade = models.IntegerField(blank=True, null=True)
     teacher_notes = models.TextField(blank=True, null=True)
@@ -242,7 +259,7 @@ class JournalRecord(models.Model):
         ]
         constraints = [
             CheckConstraint(
-                condition=Q(grade__isnull=True) | (Q(grade__gte=1) & Q(grade__lte=10)), 
+                condition=Q(grade__isnull=True) | (Q(grade__gte=1) & Q(grade__lte=10)),
                 name='check_valid_grade_range'
             )
         ]

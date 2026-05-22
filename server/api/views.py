@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets, mixins, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import MultiPartParser
 
 from api.models import RegistrationRequest
 from api.permissions import IsTeacher, IsStudent, IsManager
@@ -49,6 +50,8 @@ from api.serializers import (
     ComplaintStatusSerializer,
     LessonMaterialUploadSerializer,
     LessonMaterialListSerializer,
+    HomeworkDetailSerializer,
+    HomeworkSubmitSerializer,
 )
 from users.models import User, Role, Student, Manager, Review
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
@@ -645,7 +648,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
         record.homework_grade = serializer.validated_data['homework_grade']
-        record.save(update_fields=['homework_grade'])
+        record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
+        record.reviewed_at = timezone.now()
+        record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
 
         return Response(JournalRecordSerializer(record).data)
 
@@ -1383,3 +1388,74 @@ class ComplaintDetailView(APIView):
             complaint.reviewed_at = timezone.now()
         complaint.save()
         return Response(ComplaintListSerializer(complaint).data)
+
+
+class HomeworkDetailView(APIView):
+    """LEAR-74: Student or lesson's Teacher can view homework details."""
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def get(self, request, pk):
+        record = get_object_or_404(
+            JournalRecord.objects.select_related(
+                'lesson__slot__teacher__user',
+                'lesson__student__user',
+                'lesson__package__discipline',
+                'lesson__package__course__discipline',
+            ),
+            pk=pk,
+        )
+        lesson = record.lesson
+        user = request.user
+        role = user.role_obj.name.lower() if user.role_obj else ''
+
+        if role == 'student':
+            student = get_object_or_404(Student, user=user)
+            if lesson.student_id != student.pk:
+                return Response(
+                    {'detail': 'You can only view your own homework.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        elif role == 'teacher':
+            teacher = get_object_or_404(Teacher, user=user)
+            if lesson.slot.teacher_id != teacher.pk:
+                return Response(
+                    {'detail': 'You can only view homework for your own lessons.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        return Response(HomeworkDetailSerializer(record, context={'request': request}).data)
+
+
+class HomeworkSubmitView(APIView):
+    """LEAR-74: Student submits (or re-submits) homework file."""
+    permission_classes = [IsStudent]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, pk):
+        record = get_object_or_404(
+            JournalRecord.objects.select_related('lesson__student'),
+            pk=pk,
+        )
+        student = get_object_or_404(Student, user=request.user)
+        if record.lesson.student_id != student.pk:
+            return Response(
+                {'detail': 'You can only submit homework for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = HomeworkSubmitSerializer(
+            data=request.data,
+            context={'record': record},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        record.homework_file = serializer.validated_data['file']
+        record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
+        record.homework_submitted_at = timezone.now()
+        record.save(update_fields=['homework_file', 'homework_status', 'homework_submitted_at'])
+
+        return Response(HomeworkDetailSerializer(record, context={'request': request}).data)

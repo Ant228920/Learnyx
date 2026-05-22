@@ -544,12 +544,14 @@ class HomeworkGradeIntegrationTest(TestCase):
         return f'/api/v1/lessons/{self.lesson.pk}/homework/grade/'
 
     def test_teacher_grades_homework_successfully(self):
-        """Teacher posts grade=8 → 200, JournalRecord.homework_grade == 8."""
+        """Teacher posts grade=8 → 200, homework_grade==8, status→reviewed, reviewed_at set."""
         self.client.force_authenticate(user=self.teacher_user)
         resp = self.client.patch(self._url(), {'homework_grade': 8})
         self.assertEqual(resp.status_code, 200)
         record = JournalRecord.objects.get(lesson=self.lesson)
         self.assertEqual(record.homework_grade, 8)
+        self.assertEqual(record.homework_status, JournalRecord.HomeworkStatus.REVIEWED)
+        self.assertIsNotNone(record.reviewed_at)
 
     def test_student_cannot_grade_homework(self):
         """Student trying to grade → 403."""
@@ -1086,3 +1088,122 @@ class LessonMaterialIntegrationTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]['title'], 'Slides')
+
+
+# ---------------------------------------------------------------------------
+# LEAR-74: Homework view + submit
+# ---------------------------------------------------------------------------
+
+class HomeworkSubmissionIntegrationTest(TestCase):
+    """Student views and submits homework; teacher views; unauthorized users blocked."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.teacher_user = _make_user('hw_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.other_teacher_user = _make_user('hw_other_teacher@test.test', 'Teacher')
+        self.other_teacher = Teacher.objects.create(user=self.other_teacher_user)
+
+        self.student_user = _make_user('hw_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+        self.other_student_user = _make_user('hw_other_student@test.test', 'Student')
+        self.other_student = Student.objects.create(user=self.other_student_user)
+
+        self.package = _make_package(self.student, balance=5)
+        self.lesson = _make_conducted_lesson(self.teacher, self.student, self.package)
+        self.record = JournalRecord.objects.get(lesson=self.lesson)
+        # Assign homework so submit is allowed
+        self.record.teacher_homework_task = {'description': 'Read chapter 5'}
+        self.record.save(update_fields=['teacher_homework_task'])
+
+    def _detail_url(self):
+        return f'/api/v1/homeworks/{self.record.pk}/'
+
+    def _submit_url(self):
+        return f'/api/v1/homeworks/{self.record.pk}/submit/'
+
+    def _pdf(self, name='hw.pdf'):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(name, b'%PDF-1.4 content', content_type='application/pdf')
+
+    # ── GET tests ────────────────────────────────────────────────────────────
+
+    def test_student_can_get_own_homework(self):
+        """Student GET own homework → 200 with all fields."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.get(self._detail_url())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['id'], self.record.pk)
+        self.assertIn('homework_status', resp.data)
+        self.assertIn('teacher_materials', resp.data)
+
+    def test_student_cannot_get_other_students_homework(self):
+        """Student GET another student's homework → 403."""
+        self.client.force_authenticate(user=self.other_student_user)
+        resp = self.client.get(self._detail_url())
+        self.assertEqual(resp.status_code, 403)
+
+    def test_lesson_teacher_can_get_homework(self):
+        """Lesson's teacher GET → 200."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.get(self._detail_url())
+        self.assertEqual(resp.status_code, 200)
+
+    def test_other_teacher_cannot_get_homework(self):
+        """Different teacher GET → 403."""
+        self.client.force_authenticate(user=self.other_teacher_user)
+        resp = self.client.get(self._detail_url())
+        self.assertEqual(resp.status_code, 403)
+
+    # ── POST submit tests ─────────────────────────────────────────────────────
+
+    def test_student_submits_pdf_successfully(self):
+        """Student POST valid PDF → 200, status=submitted, submitted_at set."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self._submit_url(), {'file': self._pdf()}, format='multipart')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['homework_status'], 'submitted')
+        self.assertIsNotNone(resp.data['homework_submitted_at'])
+        self.record.refresh_from_db()
+        self.assertEqual(self.record.homework_status, JournalRecord.HomeworkStatus.SUBMITTED)
+
+    def test_student_can_resubmit_overwriting_previous(self):
+        """Second submit by the same student → 200 (overwrite allowed)."""
+        self.client.force_authenticate(user=self.student_user)
+        self.client.post(self._submit_url(), {'file': self._pdf('first.pdf')}, format='multipart')
+        resp = self.client.post(self._submit_url(), {'file': self._pdf('second.pdf')}, format='multipart')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['homework_status'], 'submitted')
+
+    def test_student_cannot_submit_disallowed_extension(self):
+        """Student POST .exe → 400."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_authenticate(user=self.student_user)
+        bad = SimpleUploadedFile('virus.exe', b'MZ', content_type='application/octet-stream')
+        resp = self.client.post(self._submit_url(), {'file': bad}, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_student_cannot_submit_oversized_file(self):
+        """Student POST 11 MB file → 400."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_authenticate(user=self.student_user)
+        big = SimpleUploadedFile('big.pdf', b'X' * (11 * 1024 * 1024), content_type='application/pdf')
+        resp = self.client.post(self._submit_url(), {'file': big}, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_student_cannot_submit_after_reviewed(self):
+        """Student POST after homework_status=reviewed → 400."""
+        self.record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
+        self.record.save(update_fields=['homework_status'])
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self._submit_url(), {'file': self._pdf()}, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_teacher_cannot_submit_homework(self):
+        """Teacher POST to submit endpoint → 403."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.post(self._submit_url(), {'file': self._pdf()}, format='multipart')
+        self.assertEqual(resp.status_code, 403)
