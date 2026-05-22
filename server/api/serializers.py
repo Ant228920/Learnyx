@@ -231,6 +231,20 @@ class HomeworkSerializer(serializers.Serializer):
     homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
 
 
+# ── LEAR-75 ──────────────────────────────────────────────────────────────────
+
+class HomeworkGradeSerializer(serializers.Serializer):
+    homework_grade = serializers.IntegerField(
+        min_value=1,
+        max_value=10,
+        error_messages={
+            'required': 'Ви не оцінили виконання домашнього завдання',
+            'null': 'Ви не оцінили виконання домашнього завдання',
+            'invalid': 'Ви не оцінили виконання домашнього завдання',
+        },
+    )
+
+
 # ── LEAR-189/190 ────────────────────────────────────────────────────────────
 
 class LessonArchiveSerializer(serializers.ModelSerializer):

@@ -36,6 +36,7 @@ from api.serializers import (
     AvailableStudentSerializer,
     AssignLessonSerializer,
     HomeworkSerializer,
+    HomeworkGradeSerializer,
     LessonArchiveSerializer,
     PackagePlanSerializer,
     TeacherListSerializer,
@@ -287,7 +288,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign'):
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign', 'grade_homework'):
             return [IsTeacher()]
         if self.action in ('upcoming', 'cancel'):
             return [IsStudent()]
@@ -588,6 +589,27 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(JournalRecordSerializer(record).data, status=http_status)
+
+    @action(detail=True, methods=['patch'], url_path='homework/grade')
+    def grade_homework(self, request, pk=None):
+        """LEAR-75: Teacher grades a student's homework (1–10) on a conducted lesson."""
+        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
+
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only grade homework for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = HomeworkGradeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
+        record.homework_grade = serializer.validated_data['homework_grade']
+        record.save(update_fields=['homework_grade'])
+
+        return Response(JournalRecordSerializer(record).data)
 
 
 class BonusBalanceView(APIView):

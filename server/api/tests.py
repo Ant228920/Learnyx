@@ -489,3 +489,64 @@ class CompletionBonusRollbackTest(TestCase):
         self.assertFalse(
             CourseCompletion.objects.filter(student=self.student).exists()
         )
+
+
+def _make_conducted_lesson(teacher, student, package):
+    """Helper: creates a booked slot + conducted lesson with a JournalRecord."""
+    start = timezone.now() - timezone.timedelta(hours=2)
+    slot = Slot.objects.create(
+        teacher=teacher,
+        start_time=start,
+        end_time=start + timezone.timedelta(hours=1),
+        status='booked',
+    )
+    lesson = Lesson.objects.create(
+        slot=slot, student=student, package=package, status='conducted',
+    )
+    JournalRecord.objects.create(lesson=lesson)
+    return lesson
+
+
+class HomeworkGradeIntegrationTest(TestCase):
+    """LEAR-75: Teacher grades student homework via PATCH /api/v1/lessons/{id}/homework/grade/"""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.teacher_user = _make_user('hg_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.other_teacher_user = _make_user('hg_other@test.test', 'Teacher')
+        self.other_teacher = Teacher.objects.create(user=self.other_teacher_user)
+
+        self.student_user = _make_user('hg_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+        self.package = _make_package(self.student, balance=5)
+        self.lesson = _make_conducted_lesson(self.teacher, self.student, self.package)
+
+    def _url(self):
+        return f'/api/v1/lessons/{self.lesson.pk}/homework/grade/'
+
+    def test_teacher_grades_homework_successfully(self):
+        """Teacher posts grade=8 → 200, JournalRecord.homework_grade == 8."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.patch(self._url(), {'homework_grade': 8})
+        self.assertEqual(resp.status_code, 200)
+        record = JournalRecord.objects.get(lesson=self.lesson)
+        self.assertEqual(record.homework_grade, 8)
+
+    def test_student_cannot_grade_homework(self):
+        """Student trying to grade → 403."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.patch(self._url(), {'homework_grade': 7})
+        self.assertEqual(resp.status_code, 403)
+
+    def test_missing_grade_returns_400(self):
+        """Empty payload (no homework_grade) → 400 with error message."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.patch(self._url(), {})
+        self.assertEqual(resp.status_code, 400)
+        # custom_exception_handler wraps validation errors into {"errorCode": ..., "message": ...}
+        self.assertEqual(resp.data['errorCode'], 'BAD_REQUEST')
+        self.assertIn('homework_grade', resp.data['message'])
