@@ -37,6 +37,7 @@ from api.serializers import (
     AssignLessonSerializer,
     HomeworkSerializer,
     HomeworkGradeSerializer,
+    GradeEntrySerializer,
     LessonArchiveSerializer,
     PackagePlanSerializer,
     TeacherListSerializer,
@@ -619,6 +620,65 @@ class BonusBalanceView(APIView):
     def get(self, request, student_id):
         student = get_object_or_404(Student, pk=student_id)
         return Response({'student_id': student_id, **get_bonus_balance(student)})
+
+
+class StudentReportView(APIView):
+    """LEAR-84: Student's grade report split into lesson_grades and homework_grades."""
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        student = get_object_or_404(Student, user=request.user)
+
+        qs = (
+            JournalRecord.objects
+            .filter(lesson__student=student)
+            .select_related(
+                'lesson__slot__teacher__user',
+                'lesson__package__discipline',
+                'lesson__package__course__discipline',
+            )
+            .order_by('lesson__slot__start_time')
+        )
+
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        if start_date:
+            qs = qs.filter(lesson__slot__start_time__date__gte=start_date)
+        if end_date:
+            qs = qs.filter(lesson__slot__start_time__date__lte=end_date)
+
+        lesson_grades = []
+        homework_grades = []
+
+        for record in qs:
+            lesson = record.lesson
+            slot = lesson.slot
+            teacher_u = slot.teacher.user
+            pkg = lesson.package
+            discipline = None
+            if pkg:
+                if pkg.discipline:
+                    discipline = pkg.discipline.name
+                elif pkg.course and pkg.course.discipline:
+                    discipline = pkg.course.discipline.name
+
+            base = {
+                'lesson_id': lesson.pk,
+                'date': slot.start_time,
+                'discipline': discipline,
+                'teacher_name': f'{teacher_u.first_name} {teacher_u.last_name}'.strip(),
+            }
+
+            if record.grade is not None:
+                lesson_grades.append({**base, 'grade': record.grade})
+
+            if record.homework_grade is not None:
+                homework_grades.append({**base, 'grade': record.homework_grade})
+
+        return Response({
+            'lesson_grades': lesson_grades,
+            'homework_grades': homework_grades,
+        })
 
 
 class StudentListView(generics.ListAPIView):

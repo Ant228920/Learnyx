@@ -323,3 +323,14 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def get_user_role(self, obj):
         return obj.user.role_obj.name if obj.user.role_obj else None
+
+
+# ── LEAR-84 ──────────────────────────────────────────────────────────────────
+
+class GradeEntrySerializer(serializers.Serializer):
+    """Read-only schema for one item in lesson_grades / homework_grades arrays."""
+    lesson_id = serializers.IntegerField()
+    date = serializers.DateTimeField()
+    discipline = serializers.CharField(allow_null=True)
+    teacher_name = serializers.CharField()
+    grade = serializers.IntegerField(allow_null=True)

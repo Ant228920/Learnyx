@@ -491,6 +491,20 @@ class CompletionBonusRollbackTest(TestCase):
         )
 
 
+def _make_lesson_with_slot(teacher, student, package, hours_delta, status='conducted'):
+    """Helper: creates a slot at now+hours_delta and a lesson with the given status."""
+    start = timezone.now() + timezone.timedelta(hours=hours_delta)
+    slot = Slot.objects.create(
+        teacher=teacher,
+        start_time=start,
+        end_time=start + timezone.timedelta(hours=1),
+        status='booked',
+    )
+    return Lesson.objects.create(
+        slot=slot, student=student, package=package, status=status,
+    )
+
+
 def _make_conducted_lesson(teacher, student, package):
     """Helper: creates a booked slot + conducted lesson with a JournalRecord."""
     start = timezone.now() - timezone.timedelta(hours=2)
@@ -550,3 +564,67 @@ class HomeworkGradeIntegrationTest(TestCase):
         # custom_exception_handler wraps validation errors into {"errorCode": ..., "message": ...}
         self.assertEqual(resp.data['errorCode'], 'BAD_REQUEST')
         self.assertIn('homework_grade', resp.data['message'])
+
+
+class StudentReportIntegrationTest(TestCase):
+    """LEAR-84: GET /api/v1/student/report/ — two grade arrays with optional date filters."""
+
+    URL = '/api/v1/student/report/'
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.teacher_user = _make_user('sr_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.student_user = _make_user('sr_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+        self.package = _make_package(self.student, balance=10)
+
+        # lesson A — in the past (–48 h): grade=8
+        self.lesson_a = _make_lesson_with_slot(self.teacher, self.student, self.package, hours_delta=-48)
+        self.record_a = JournalRecord.objects.create(lesson=self.lesson_a, grade=8)
+
+        # lesson B — recent (–2 h): homework_grade=9
+        self.lesson_b = _make_lesson_with_slot(self.teacher, self.student, self.package, hours_delta=-2)
+        self.record_b = JournalRecord.objects.create(lesson=self.lesson_b, homework_grade=9)
+
+    def test_two_lessons_appear_in_correct_arrays(self):
+        """grade=8 → lesson_grades[0], homework_grade=9 → homework_grades[0]."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.get(self.URL)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['lesson_grades']), 1)
+        self.assertEqual(resp.data['lesson_grades'][0]['grade'], 8)
+        self.assertEqual(resp.data['lesson_grades'][0]['lesson_id'], self.lesson_a.pk)
+        self.assertEqual(len(resp.data['homework_grades']), 1)
+        self.assertEqual(resp.data['homework_grades'][0]['grade'], 9)
+        self.assertEqual(resp.data['homework_grades'][0]['lesson_id'], self.lesson_b.pk)
+
+    def test_start_date_filter_cuts_old_lesson(self):
+        """?start_date=today → lesson_a (-48 h) is excluded, lesson_b (-2 h) remains."""
+        self.client.force_authenticate(user=self.student_user)
+        today = timezone.now().date().isoformat()
+        resp = self.client.get(self.URL, {'start_date': today})
+        self.assertEqual(resp.status_code, 200)
+        # lesson_a was 2 days ago — must be filtered out
+        self.assertEqual(len(resp.data['lesson_grades']), 0)
+        # lesson_b was today — must still appear
+        self.assertEqual(len(resp.data['homework_grades']), 1)
+
+    def test_teacher_gets_403(self):
+        """Teacher cannot access student report."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.get(self.URL)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_empty_report_returns_empty_arrays(self):
+        """Student with no journal records gets 200 + both arrays empty."""
+        new_student_user = _make_user('sr_empty@test.test', 'Student')
+        new_student = Student.objects.create(user=new_student_user)
+        self.client.force_authenticate(user=new_student_user)
+        resp = self.client.get(self.URL)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['lesson_grades'], [])
+        self.assertEqual(resp.data['homework_grades'], [])
