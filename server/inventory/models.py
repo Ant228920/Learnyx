@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg
 from users.models import User, TeacherLevel, Student, Manager
 from django.core.validators import MaxValueValidator, MinValueValidator
+from api.validators import validate_file_size, validate_file_extension
 
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -245,6 +246,23 @@ class JournalRecord(models.Model):
                 name='check_valid_grade_range'
             )
         ]
+
+class LessonMaterial(models.Model):
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='materials')
+    uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='materials')
+    title = models.CharField(max_length=200)
+    file = models.FileField(
+        upload_to='lesson_materials/%Y/%m/',
+        validators=[validate_file_size, validate_file_extension],
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f'{self.title} (lesson {self.lesson_id})'
+
 
 class Complaint(models.Model):
     class Status(models.TextChoices):

@@ -30,6 +30,7 @@ from api.views import (
     StudentReportView,
     ComplaintListCreateView,
     ComplaintDetailView,
+    LessonMaterialView,
 )
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
@@ -91,6 +92,9 @@ urlpatterns = [
     # ── Complaints
     path('v1/complaints/', ComplaintListCreateView.as_view(), name='complaint-list'),
     path('v1/complaints/<int:pk>/', ComplaintDetailView.as_view(), name='complaint-detail'),
+
+    # ── Lesson materials
+    path('v1/lessons/<int:lesson_id>/materials/', LessonMaterialView.as_view(), name='lesson-materials'),
 
     # ── ViewSets
     path('', include(router.urls)),

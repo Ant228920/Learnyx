@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest, Complaint
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest, Complaint, LessonMaterial
 from users.models import Student, Review
 
 
@@ -390,3 +390,36 @@ class ComplaintListSerializer(serializers.ModelSerializer):
 
 class ComplaintStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Complaint.Status.choices)
+
+
+# ── LEAR-125 ──────────────────────────────────────────────────────────────────
+
+class LessonMaterialUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LessonMaterial
+        fields = ['title', 'file']
+
+    def validate_file(self, value):
+        from api.validators import validate_file_size, validate_file_extension
+        validate_file_size(value)
+        validate_file_extension(value)
+        return value
+
+
+class LessonMaterialListSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.SerializerMethodField()
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
+
+    def get_uploaded_by_name(self, obj):
+        u = obj.uploaded_by.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    class Meta:
+        model = LessonMaterial
+        fields = ['id', 'title', 'file_url', 'uploaded_by_name', 'uploaded_at']

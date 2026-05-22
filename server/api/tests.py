@@ -6,7 +6,7 @@ from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 from unittest.mock import patch, MagicMock
 from api.models import RegistrationRequest
 from api.views import generate_password, RegistrationRequestView, ActivatePackageView, StudentBalanceView
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline, CourseCompletion, PackagePlan, Complaint
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline, CourseCompletion, PackagePlan, Complaint, LessonMaterial
 from users.models import User, Role, Student
 
 
@@ -995,3 +995,94 @@ class ComplaintIntegrationTest(TestCase):
         self.client.force_authenticate(user=self.teacher_user)
         resp = self.client.patch(self._detail_url(complaint.pk), {'status': 'reviewed'})
         self.assertEqual(resp.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# LEAR-125: Lesson material upload
+# ---------------------------------------------------------------------------
+
+class LessonMaterialIntegrationTest(TestCase):
+    """Teacher uploads files to a lesson; students and other users can list them."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.teacher_user = _make_user('lm_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.other_teacher_user = _make_user('lm_other@test.test', 'Teacher')
+        self.other_teacher = Teacher.objects.create(user=self.other_teacher_user)
+
+        self.student_user = _make_user('lm_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+        self.package = _make_package(self.student, balance=5)
+        self.lesson = _make_conducted_lesson(self.teacher, self.student, self.package)
+
+    def _url(self, lesson=None):
+        lid = (lesson or self.lesson).pk
+        return f'/api/v1/lessons/{lid}/materials/'
+
+    def _make_file(self, name='notes.pdf', content=b'%PDF-1.4 content', size=None):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        data = content if size is None else content * (size // len(content) + 1)
+        return SimpleUploadedFile(name, data[:size] if size else data, content_type='application/pdf')
+
+    def test_teacher_uploads_material_returns_201(self):
+        """Teacher POST a valid PDF → 201, material saved in DB."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.post(self._url(), {
+            'title': 'Lecture notes',
+            'file': self._make_file('notes.pdf'),
+        }, format='multipart')
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['title'], 'Lecture notes')
+        self.assertIn('file_url', resp.data)
+        self.assertEqual(LessonMaterial.objects.filter(lesson=self.lesson).count(), 1)
+
+    def test_other_teacher_cannot_upload_to_foreign_lesson(self):
+        """Teacher uploading to another teacher's lesson → 403."""
+        self.client.force_authenticate(user=self.other_teacher_user)
+        resp = self.client.post(self._url(), {
+            'title': 'Hack',
+            'file': self._make_file('hack.pdf'),
+        }, format='multipart')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_student_cannot_upload(self):
+        """Student POST → 403."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self._url(), {
+            'title': 'Student upload',
+            'file': self._make_file('test.pdf'),
+        }, format='multipart')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_oversized_file_returns_400(self):
+        """File > 10 MB → 400 validation error."""
+        self.client.force_authenticate(user=self.teacher_user)
+        big = self._make_file('big.pdf', content=b'X', size=11 * 1024 * 1024)
+        resp = self.client.post(self._url(), {'title': 'Big', 'file': big}, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_disallowed_extension_returns_400(self):
+        """File with .exe extension → 400 validation error."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_authenticate(user=self.teacher_user)
+        bad_file = SimpleUploadedFile('virus.exe', b'MZ', content_type='application/octet-stream')
+        resp = self.client.post(self._url(), {'title': 'Virus', 'file': bad_file}, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_authenticated_user_can_list_materials(self):
+        """GET materials list → 200 with uploaded material visible."""
+        LessonMaterial.objects.create(
+            lesson=self.lesson,
+            uploaded_by=self.teacher,
+            title='Slides',
+            file='lesson_materials/2026/01/slides.pdf',
+        )
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.get(self._url())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['title'], 'Slides')

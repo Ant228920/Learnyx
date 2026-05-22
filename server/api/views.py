@@ -47,9 +47,11 @@ from api.serializers import (
     ComplaintCreateSerializer,
     ComplaintListSerializer,
     ComplaintStatusSerializer,
+    LessonMaterialUploadSerializer,
+    LessonMaterialListSerializer,
 )
 from users.models import User, Role, Student, Manager, Review
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
 from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
@@ -922,7 +924,7 @@ class TeacherDashboardView(APIView):
             'stats': {
                 'total_students': total_students,
                 'conducted_lessons': conducted_lessons,
-                'materials_count': 0,   # US22 (LessonMaterial model) not yet implemented
+                'materials_count': LessonMaterial.objects.filter(uploaded_by=teacher).count(),
             },
         })
 
@@ -1302,6 +1304,37 @@ class ReviewView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LessonMaterialView(APIView):
+    """LEAR-125: Teacher uploads / lists materials for a lesson."""
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsTeacher()]
+        return [IsAuthenticated()]
+
+    def get(self, request, lesson_id):
+        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        qs = lesson.materials.select_related('uploaded_by__user').all()
+        serializer = LessonMaterialListSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    def post(self, request, lesson_id):
+        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=lesson_id)
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only upload materials for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = LessonMaterialUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        material = serializer.save(lesson=lesson, uploaded_by=teacher)
+        return Response(
+            LessonMaterialListSerializer(material, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ComplaintListCreateView(APIView):
