@@ -246,6 +246,26 @@ class JournalRecord(models.Model):
             )
         ]
 
+class Complaint(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        REVIEWED = 'reviewed', 'Reviewed'
+
+    student = models.ForeignKey(Student, on_delete=models.PROTECT, related_name='complaints')
+    lesson = models.ForeignKey(Lesson, on_delete=models.PROTECT, related_name='complaints')
+    reason = models.TextField(max_length=1000)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('student', 'lesson')
+
+    def __str__(self):
+        return f'Complaint #{self.pk}: {self.student} on lesson {self.lesson_id} ({self.status})'
+
+
 class Transaction(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='transactions')
     lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True)

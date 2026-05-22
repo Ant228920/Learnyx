@@ -28,6 +28,8 @@ from api.views import (
     ManagerLearningRequestsView,
     ReviewView,
     StudentReportView,
+    ComplaintListCreateView,
+    ComplaintDetailView,
 )
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
@@ -85,6 +87,10 @@ urlpatterns = [
 
     # ── Reviews
     path('v1/reviews/', ReviewView.as_view(), name='reviews'),
+
+    # ── Complaints
+    path('v1/complaints/', ComplaintListCreateView.as_view(), name='complaint-list'),
+    path('v1/complaints/<int:pk>/', ComplaintDetailView.as_view(), name='complaint-detail'),
 
     # ── ViewSets
     path('', include(router.urls)),

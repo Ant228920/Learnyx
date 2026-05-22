@@ -44,9 +44,12 @@ from api.serializers import (
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
     ReviewSerializer,
+    ComplaintCreateSerializer,
+    ComplaintListSerializer,
+    ComplaintStatusSerializer,
 )
 from users.models import User, Role, Student, Manager, Review
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint
 from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
@@ -1299,3 +1302,51 @@ class ReviewView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class ComplaintListCreateView(APIView):
+    """LEAR-266: Student submits a complaint; Manager lists all complaints."""
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsStudent()]
+        return [IsManager()]
+
+    def get(self, request):
+        qs = (
+            Complaint.objects
+            .select_related('student__user', 'lesson__slot__teacher__user')
+            .all()
+        )
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return Response(ComplaintListSerializer(qs, many=True).data)
+
+    def post(self, request):
+        serializer = ComplaintCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        student = get_object_or_404(Student, user=request.user)
+        complaint = serializer.save(student=student)
+        return Response(
+            ComplaintListSerializer(complaint).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ComplaintDetailView(APIView):
+    """LEAR-266: Manager updates complaint status; sets reviewed_at automatically."""
+    permission_classes = [IsManager]
+
+    def patch(self, request, pk):
+        complaint = get_object_or_404(
+            Complaint.objects.select_related('student__user', 'lesson__slot__teacher__user'),
+            pk=pk,
+        )
+        serializer = ComplaintStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        complaint.status = serializer.validated_data['status']
+        if complaint.status == Complaint.Status.REVIEWED:
+            complaint.reviewed_at = timezone.now()
+        complaint.save()
+        return Response(ComplaintListSerializer(complaint).data)

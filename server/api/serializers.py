@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest, Complaint
 from users.models import Student, Review
 
 
@@ -334,3 +334,59 @@ class GradeEntrySerializer(serializers.Serializer):
     discipline = serializers.CharField(allow_null=True)
     teacher_name = serializers.CharField()
     grade = serializers.IntegerField(allow_null=True)
+
+
+# ── LEAR-266 ──────────────────────────────────────────────────────────────────
+
+class ComplaintCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Complaint
+        fields = ['lesson', 'reason']
+
+    def validate(self, data):
+        lesson = data.get('lesson')
+        if lesson.status != 'teacher_missed':
+            raise serializers.ValidationError(
+                {'lesson': 'Скаргу можна подати лише на урок зі статусом teacher_missed.'}
+            )
+        request = self.context.get('request')
+        if request:
+            try:
+                student = Student.objects.get(user=request.user)
+            except Student.DoesNotExist:
+                raise serializers.ValidationError({'lesson': 'Профіль учня не знайдено.'})
+            if lesson.student_id != student.pk:
+                raise serializers.ValidationError(
+                    {'lesson': 'Ви можете поскаржитись лише на свій урок.'}
+                )
+            if Complaint.objects.filter(student=student, lesson=lesson).exists():
+                raise serializers.ValidationError(
+                    {'lesson': 'Ви вже подали скаргу на цей урок.'}
+                )
+        return data
+
+
+class ComplaintListSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    teacher_name = serializers.SerializerMethodField()
+    lesson_date = serializers.DateTimeField(source='lesson.slot.start_time', read_only=True)
+
+    def get_student_name(self, obj):
+        u = obj.student.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    def get_teacher_name(self, obj):
+        u = obj.lesson.slot.teacher.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    class Meta:
+        model = Complaint
+        fields = [
+            'id', 'student_name', 'teacher_name', 'lesson_date',
+            'reason', 'status', 'created_at', 'reviewed_at',
+        ]
+        read_only_fields = fields
+
+
+class ComplaintStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=Complaint.Status.choices)

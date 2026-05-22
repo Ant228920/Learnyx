@@ -6,7 +6,7 @@ from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 from unittest.mock import patch, MagicMock
 from api.models import RegistrationRequest
 from api.views import generate_password, RegistrationRequestView, ActivatePackageView, StudentBalanceView
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline, CourseCompletion, PackagePlan
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline, CourseCompletion, PackagePlan, Complaint
 from users.models import User, Role, Student
 
 
@@ -863,3 +863,135 @@ class ManagerEmailNotificationTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('залишилось 0', mail.outbox[0].subject)
+
+
+# ---------------------------------------------------------------------------
+# LEAR-266: Complaint endpoint
+# ---------------------------------------------------------------------------
+
+class ComplaintIntegrationTest(TestCase):
+    """Student submits complaint on teacher_missed lesson; Manager reviews it."""
+
+    LIST_URL = '/api/v1/complaints/'
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.teacher_user = _make_user('cmp_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.student_user = _make_user('cmp_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+        self.manager_user = _make_user('cmp_manager@test.test', 'Manager')
+
+        self.package = _make_package(self.student, balance=5)
+
+        start = timezone.now() - timezone.timedelta(hours=2)
+        self.slot = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='booked',
+        )
+        self.missed_lesson = Lesson.objects.create(
+            slot=self.slot,
+            student=self.student,
+            package=self.package,
+            status='teacher_missed',
+        )
+
+    def _detail_url(self, pk):
+        return f'/api/v1/complaints/{pk}/'
+
+    def test_student_creates_complaint_on_teacher_missed_lesson(self):
+        """Student POST on teacher_missed lesson → 201, status=pending, reviewed_at=null."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self.LIST_URL, {
+            'lesson': self.missed_lesson.pk,
+            'reason': "Викладач не з'явився без попередження.",
+        })
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['status'], 'pending')
+        self.assertIsNone(resp.data['reviewed_at'])
+
+    def test_student_cannot_complain_on_conducted_lesson(self):
+        """Complaining on a conducted lesson → 400 (status != teacher_missed)."""
+        start = timezone.now() - timezone.timedelta(hours=4)
+        slot2 = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='booked',
+        )
+        conducted_lesson = Lesson.objects.create(
+            slot=slot2, student=self.student, package=self.package, status='conducted',
+        )
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self.LIST_URL, {'lesson': conducted_lesson.pk, 'reason': 'Test'})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_student_cannot_complain_on_another_students_lesson(self):
+        """Complaining on another student's lesson → 400 (ownership check)."""
+        other_user = _make_user('cmp_other@test.test', 'Student')
+        other_student = Student.objects.create(user=other_user)
+        other_pkg = _make_package(other_student, balance=5)
+        start = timezone.now() - timezone.timedelta(hours=6)
+        slot3 = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='booked',
+        )
+        other_lesson = Lesson.objects.create(
+            slot=slot3, student=other_student, package=other_pkg, status='teacher_missed',
+        )
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.post(self.LIST_URL, {'lesson': other_lesson.pk, 'reason': 'Test'})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_duplicate_complaint_returns_400(self):
+        """Second complaint on the same lesson → 400 (unique_together guard in validate)."""
+        self.client.force_authenticate(user=self.student_user)
+        self.client.post(self.LIST_URL, {'lesson': self.missed_lesson.pk, 'reason': 'First'})
+        resp = self.client.post(self.LIST_URL, {'lesson': self.missed_lesson.pk, 'reason': 'Second'})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_manager_sees_complaints_list(self):
+        """Manager GET → 200 with the complaint in the list."""
+        Complaint.objects.create(
+            student=self.student, lesson=self.missed_lesson, reason='Test'
+        )
+        self.client.force_authenticate(user=self.manager_user)
+        resp = self.client.get(self.LIST_URL)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['status'], 'pending')
+
+    def test_student_get_complaints_returns_403(self):
+        """Student GET /api/v1/complaints/ → 403."""
+        self.client.force_authenticate(user=self.student_user)
+        resp = self.client.get(self.LIST_URL)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_manager_changes_status_to_reviewed(self):
+        """Manager PATCH → 200, status=reviewed, reviewed_at is populated."""
+        complaint = Complaint.objects.create(
+            student=self.student, lesson=self.missed_lesson, reason='Test'
+        )
+        self.client.force_authenticate(user=self.manager_user)
+        resp = self.client.patch(self._detail_url(complaint.pk), {'status': 'reviewed'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['status'], 'reviewed')
+        self.assertIsNotNone(resp.data['reviewed_at'])
+        complaint.refresh_from_db()
+        self.assertIsNotNone(complaint.reviewed_at)
+
+    def test_teacher_cannot_patch_complaint(self):
+        """Teacher PATCH /api/v1/complaints/{id}/ → 403."""
+        complaint = Complaint.objects.create(
+            student=self.student, lesson=self.missed_lesson, reason='Test'
+        )
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.patch(self._detail_url(complaint.pk), {'status': 'reviewed'})
+        self.assertEqual(resp.status_code, 403)
