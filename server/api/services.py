@@ -156,6 +156,7 @@ CASHBACK_TIERS = [
 ]
 
 
+@transaction.atomic
 def calculate_cashback(package) -> 'CourseCompletion | None':
     """
     US15: called inside an atomic block when package.status → 'completed'.
@@ -163,6 +164,11 @@ def calculate_cashback(package) -> 'CourseCompletion | None':
     corresponding cashback tier, then creates / updates CourseCompletion.
     Returns the completion record, or None when the threshold isn't reached.
     Max cashback is capped at 15 % by the tier table.
+
+    @transaction.atomic creates a savepoint when called from within an outer
+    transaction (set_status), so any failure here rolls back only the
+    cashback writes — the outer transaction then decides whether to commit
+    or roll back the entire set_status chain.
     """
     grades = list(
         JournalRecord.objects

@@ -1,10 +1,11 @@
 from django.test import TestCase
 from django.utils import timezone
+from django.db import IntegrityError
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 from unittest.mock import patch, MagicMock
 from api.models import RegistrationRequest
 from api.views import generate_password, RegistrationRequestView, ActivatePackageView, StudentBalanceView
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, Course, Discipline, CourseCompletion
 from users.models import User, Role, Student
 
 
@@ -362,3 +363,129 @@ class LessonEvaluateIntegrationTest(TestCase):
             'activity_grade': 10,
         })
         self.assertEqual(resp.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# Transaction rollback tests — verify atomicity guarantees
+# ---------------------------------------------------------------------------
+
+class BookingRollbackTest(TestCase):
+    """
+    Booking chain: slot.status='booked' + Lesson.create are in one atomic block.
+    If Lesson.save raises IntegrityError the slot must stay 'available' and no
+    Lesson row may exist in the DB.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.teacher_user = _make_user('rb_teacher@rollback.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+        self.student_user = _make_user('rb_student@rollback.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+        self.package = _make_package(self.student, balance=5)
+
+        start = timezone.now() + timezone.timedelta(hours=3)
+        self.slot = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='available',
+        )
+
+    def test_lesson_save_failure_rolls_back_slot_status(self):
+        """
+        IntegrityError inside Lesson.save (simulated) must roll back
+        slot.status to 'available' and leave zero Lesson rows in the DB.
+
+        The patch targets Lesson.save at class level — slot.save() is
+        Slot.save and is unaffected; the error fires only when the ORM
+        tries to INSERT the new Lesson row.
+        """
+        self.client.force_authenticate(user=self.student_user)
+
+        with patch.object(Lesson, 'save', side_effect=IntegrityError('forced booking error')):
+            resp = self.client.post('/api/v1/lessons/', {
+                'slot': self.slot.pk,
+                'package': self.package.pk,
+            })
+
+        # custom_exception_handler converts unhandled IntegrityError → 500
+        self.assertEqual(resp.status_code, 500)
+
+        # Slot must NOT be booked — the atomic block rolled back slot.save() too
+        self.slot.refresh_from_db()
+        self.assertEqual(self.slot.status, 'available')
+
+        # No Lesson row should exist
+        self.assertFalse(Lesson.objects.filter(slot=self.slot).exists())
+
+
+class CompletionBonusRollbackTest(TestCase):
+    """
+    Completion chain: lesson.status='conducted' + package.balance deduction +
+    CourseCompletion.update_or_create are all in the same atomic block.
+    If CourseCompletion.update_or_create raises IntegrityError the entire
+    chain must roll back: lesson stays 'scheduled', balance stays intact,
+    no CourseCompletion record created.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.teacher_user = _make_user('rb_teacher2@rollback.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+        self.student_user = _make_user('rb_student2@rollback.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+        # balance=1: marking this lesson 'conducted' drives balance to 0,
+        # triggering calculate_cashback and thus update_or_create.
+        self.package = _make_package(self.student, balance=1)
+
+        start = timezone.now() - timezone.timedelta(hours=1)
+        self.slot = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='booked',
+        )
+        self.lesson = Lesson.objects.create(
+            slot=self.slot,
+            student=self.student,
+            package=self.package,
+            status='scheduled',
+        )
+        # grade=9 → success_pct = round(9/10*100, 4) = 90.0 % → hits the 90 % tier
+        # → earned_discount = 10 % ≠ 0 → update_or_create is reached
+        JournalRecord.objects.create(lesson=self.lesson, activity_grade=9)
+
+    def test_course_completion_failure_rolls_back_full_chain(self):
+        """
+        IntegrityError in CourseCompletion.update_or_create (simulated) must
+        roll back: lesson.status stays 'scheduled', package.balance stays 1,
+        and no CourseCompletion row exists in the DB.
+        """
+        self.client.force_authenticate(user=self.teacher_user)
+
+        with patch.object(
+            CourseCompletion.objects,
+            'update_or_create',
+            side_effect=IntegrityError('forced cashback error'),
+        ):
+            resp = self.client.patch(
+                f'/api/v1/lessons/{self.lesson.pk}/status/',
+                {'status': 'conducted'},
+            )
+
+        self.assertEqual(resp.status_code, 500)
+
+        # lesson.status must NOT have changed
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.status, 'scheduled')
+
+        # package.balance must NOT have been decremented
+        self.package.refresh_from_db()
+        self.assertEqual(self.package.balance, 1)
+
+        # No CourseCompletion must have been created
+        self.assertFalse(
+            CourseCompletion.objects.filter(student=self.student).exists()
+        )
