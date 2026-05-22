@@ -1,17 +1,9 @@
 import { useState } from 'react';
 import StudentLayout from './StudentLayout';
+import { useStudentGrades } from '../../features/student/grades';
+import type { GradeRecord } from '../../features/student/grades';
 
 type GradeTab = 'Всі оцінки' | 'Уроки' | 'Домашні завдання';
-type GradeType = 'ДЗ' | 'Урок';
-interface Grade { id: number; subject: string; date: string; topic: string; type: GradeType; score: number; maxScore: number; teacher: string; feedback: string; }
-
-const GRADES: Grade[] = [
-  { id: 1, subject: 'Математика', date: '15 Травня, 2024', topic: 'Інтегрування частинами', type: 'ДЗ', score: 9, maxScore: 10, teacher: 'Др. Світлана Ковальчук', feedback: 'Чудова робота! Ви продемонстрували глибоке розуміння методу. Зверніть увагу на оформлення кінцевих результатів у третій задачі.' },
-  { id: 2, subject: 'Інформатика', date: '10 Травня, 2024', topic: 'Бінарні дерева пошуку', type: 'Урок', score: 8, maxScore: 10, teacher: 'Олег Петренко', feedback: 'Гарне розуміння концепції. Потрібно більше практики з балансуванням дерев.' },
-  { id: 3, subject: 'Українська мова', date: '08 Травня, 2024', topic: 'Аналіз поезії "Каменярі"', type: 'ДЗ', score: 10, maxScore: 10, teacher: 'Марія Іваненко', feedback: 'Відмінна робота! Гарно структурований аналіз.' },
-  { id: 4, subject: 'Англійська мова', date: '05 Травня, 2024', topic: 'Business Communication B2', type: 'Урок', score: 7, maxScore: 10, teacher: 'Анна Сидоренко', feedback: 'Гарний прогрес у вимові. Продовжуйте практикувати вокабуляр.' },
-  { id: 5, subject: 'Історія України', date: '03 Травня, 2024', topic: 'Становлення незалежності', type: 'ДЗ', score: 10, maxScore: 10, teacher: 'Іван Мельник', feedback: 'Відмінна робота! Повне розкриття теми.' },
-];
 
 function getScoreColor(score: number, max: number) {
   const pct = score / max;
@@ -21,11 +13,15 @@ function getScoreColor(score: number, max: number) {
 }
 
 export default function StudentGrades() {
+  const { grades, loading, error } = useStudentGrades();
   const [tab, setTab] = useState<GradeTab>('Всі оцінки');
-  const [selected, setSelected] = useState<Grade | null>(null);
+  const [selected, setSelected] = useState<GradeRecord | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const filtered = tab === 'Всі оцінки' ? GRADES : tab === 'Уроки' ? GRADES.filter(g => g.type === 'Урок') : GRADES.filter(g => g.type === 'ДЗ');
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
+
+  const filtered = tab === 'Всі оцінки' ? grades : tab === 'Уроки' ? grades.filter(g => g.type === 'Урок') : grades.filter(g => g.type === 'ДЗ');
   const displayed = showAll ? filtered : filtered.slice(0, 5);
 
   return (
@@ -52,6 +48,11 @@ export default function StudentGrades() {
                 <span key={h} className="font-inter font-medium text-[#565d6d] text-sm">{h}</span>
               ))}
             </div>
+            {displayed.length === 0 && (
+              <div className="px-6 py-10 text-center">
+                <p className="font-inter text-[#565d6d] text-sm">Оцінок ще немає</p>
+              </div>
+            )}
             {displayed.map((g, i) => (
               <div key={g.id}
                 onClick={() => setSelected(p => p?.id === g.id ? null : g)}
@@ -62,7 +63,7 @@ export default function StudentGrades() {
                 </div>
                 <span className="font-inter text-slate-800 text-sm">{g.topic}</span>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-inter font-bold text-xs w-fit ${g.type === 'ДЗ' ? 'bg-[#e0f0ff] text-[#1f8cf9]' : 'bg-[#fff0e0] text-[#f5a83d]'}`}>{g.type}</span>
-                <div className={`w-9 h-9 rounded-full border-2 border-[#dee1e6] flex items-center justify-center font-inter font-black text-sm ${getScoreColor(g.score, g.maxScore)}`}>{g.score}</div>
+                <div className={`w-12 h-9 rounded-full border-2 border-[#dee1e6] flex items-center justify-center font-inter font-black text-xs ${getScoreColor(g.score, g.maxScore)}`}>{g.score}/{g.maxScore}</div>
               </div>
             ))}
             {filtered.length > 5 && (

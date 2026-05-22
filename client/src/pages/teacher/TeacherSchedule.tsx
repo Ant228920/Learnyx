@@ -1,65 +1,59 @@
 import { useState } from 'react';
 import TeacherLayout from './TeacherLayout';
+import { useTeacherSchedule } from '../../features/teacher/schedule';
+import type { SlotItem } from '../../features/teacher/schedule';
 
 const DAYS_HEADER = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'НД'];
-const TODAY = 24;
-
-const LESSON_SLOTS: Record<number, string[]> = {
-  1: ['08:30 - 09:15', '10:00 - 10:45'],
-  2: ['08:30 - 09:15'],
-  3: ['08:30 - 09:15', '10:00 - 10:45'],
-  6: ['08:30 - 09:15', '10:00 - 10:45', '11:15 - 12:00'],
-  7: ['08:30 - 09:15'],
-  8: ['08:30 - 09:15'],
-  9: ['08:30 - 09:15'],
-  10: ['08:30 - 09:15', '10:00 - 10:45'],
-  13: ['08:30 - 09:15'],
-  14: ['08:30 - 09:15'],
-  15: ['08:30 - 09:15'],
-  16: ['08:30 - 09:15', '10:00 - 10:45', '11:15 - 12:00'],
-  17: ['08:30 - 09:15', '10:00 - 10:45', '11:15 - 12:00'],
-  20: ['08:30 - 09:15', '10:00 - 10:45'],
-  21: ['08:30 - 09:15', '10:00 - 10:45', '11:15 - 12:00'],
-  22: ['08:30 - 09:15'],
-  23: ['08:30 - 09:15', '10:00 - 10:45', '11:15 - 12:00'],
-  24: ['08:30 - 09:30'],
-  27: ['08:30 - 09:15'],
-  28: ['08:30 - 09:15', '10:00 - 10:45', '11:15 - 12:00'],
-  29: ['08:30 - 09:15'],
-  30: ['08:30 - 09:15', '10:00 - 10:45'],
-  31: ['08:30 - 09:15', '10:00 - 10:45', '11:15 - 12:00'],
-};
+const TODAY = new Date().getDate();
+const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_MONTH = new Date().getMonth(); // 0-indexed
 
 function buildCalendar() {
-  const startOffset = 4;
+  const firstDay = new Date(CURRENT_YEAR, CURRENT_MONTH, 1).getDay();
+  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth = new Date(CURRENT_YEAR, CURRENT_MONTH + 1, 0).getDate();
+  const prevMonthDays = new Date(CURRENT_YEAR, CURRENT_MONTH, 0).getDate();
   const cells: Array<{ day: number; prev?: boolean; next?: boolean }> = [];
-  for (let i = 0; i < startOffset; i++) cells.push({ day: 27 + i, prev: true });
-  for (let d = 1; d <= 31; d++) cells.push({ day: d });
+  for (let i = 0; i < startOffset; i++) cells.push({ day: prevMonthDays - startOffset + 1 + i, prev: true });
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d });
   let next = 1;
   while (cells.length % 7 !== 0) cells.push({ day: next++, next: true });
   return cells;
 }
 
-interface FreeSlot { day: number; from: string; to: string; }
+const MONTH_NAMES = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
 
 export default function TeacherSchedule() {
+  const { slotsByDay, loading, error, createSlot, deleteSlot } = useTeacherSchedule();
   const [dayModal, setDayModal] = useState<number | null>(null);
-  const [cancelSlot, setCancelSlot] = useState<{ day: number; time: string } | null>(null);
-  const [cancelled, setCancelled] = useState<string[]>([]);
-  const [freeSlots, setFreeSlots] = useState<FreeSlot[]>([]);
+  const [cancelSlot, setCancelSlot] = useState<SlotItem & { day: number } | null>(null);
   const [freeFrom, setFreeFrom] = useState('08:30');
   const [freeTo, setFreeTo] = useState('09:30');
   const cells = buildCalendar();
 
-  const cancelKey = (day: number, time: string) => `${day}-${time}`;
+  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
-  const handleAddFreeSlot = () => {
+  const handleAddFreeSlot = async () => {
     if (!dayModal) return;
-    setFreeSlots(prev => [...prev, { day: dayModal, from: freeFrom, to: freeTo }]);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const month = pad(CURRENT_MONTH + 1);
+    const day = pad(dayModal);
+    const startIso = `${CURRENT_YEAR}-${month}-${day}T${freeFrom}:00`;
+    const endIso = `${CURRENT_YEAR}-${month}-${day}T${freeTo}:00`;
+    try {
+      await createSlot(startIso, endIso);
+    } catch { /* error shown by hook */ }
     setDayModal(null);
   };
 
-  const getFreeSlots = (day: number) => freeSlots.filter(s => s.day === day);
+  const handleDeleteSlot = async () => {
+    if (!cancelSlot) return;
+    try {
+      await deleteSlot(cancelSlot.id);
+    } catch { /* error shown by hook */ }
+    setCancelSlot(null);
+  };
 
   return (
     <TeacherLayout>
@@ -73,7 +67,7 @@ export default function TeacherSchedule() {
             <button type="button" aria-label="Попередній місяць" title="Попередній місяць" className="text-[#565d6d] hover:text-slate-900">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
-            <span className="font-inter font-semibold text-slate-900 text-sm px-2">Травень 2026</span>
+            <span className="font-inter font-semibold text-slate-900 text-sm px-2">{MONTH_NAMES[CURRENT_MONTH]} {CURRENT_YEAR}</span>
             <button type="button" aria-label="Наступний місяць" title="Наступний місяць" className="text-[#565d6d] hover:text-slate-900">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
@@ -89,11 +83,9 @@ export default function TeacherSchedule() {
           {Array.from({ length: cells.length / 7 }).map((_, wi) => (
             <div key={wi} className="grid grid-cols-7">
               {cells.slice(wi * 7, wi * 7 + 7).map((cell, ci) => {
-                const slots = (!cell.prev && !cell.next && LESSON_SLOTS[cell.day]) || [];
-                const activeSlots = slots.filter(s => !cancelled.includes(cancelKey(cell.day, s)));
-                const free = !cell.prev && !cell.next ? getFreeSlots(cell.day) : [];
+                const slots = (!cell.prev && !cell.next && slotsByDay[cell.day]) || [];
                 const isToday = cell.day === TODAY && !cell.prev && !cell.next;
-                const total = activeSlots.length + free.length;
+                const total = slots.length;
                 return (
                   <div key={ci}
                     onClick={() => !cell.prev && !cell.next && setDayModal(cell.day)}
@@ -106,16 +98,10 @@ export default function TeacherSchedule() {
                         <span className="text-[10px] font-inter font-bold text-[#1f8cf9] bg-[#1f8cf91a] rounded-full px-1.5">{total}</span>
                       )}
                     </div>
-                    {activeSlots.map(s => (
-                      <div key={s} className="flex items-center gap-1 px-2 py-0.5 bg-[#1f8cf91a] rounded-lg">
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                        <span className="font-inter text-[#1f8cf9] text-[10px] font-medium">{s}</span>
-                      </div>
-                    ))}
-                    {free.map((fs, fi) => (
-                      <div key={fi} className="flex items-center gap-1 px-2 py-0.5 bg-[#e0faea] rounded-lg">
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#26d962" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                        <span className="font-inter text-[#1a7bd9] text-[10px] font-medium">{fs.from} - {fs.to}</span>
+                    {slots.map(s => (
+                      <div key={s.id} className={`flex items-center gap-1 px-2 py-0.5 rounded-lg ${s.is_booked ? 'bg-[#fff0e0]' : 'bg-[#e0faea]'}`}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={s.is_booked ? '#f5a83d' : '#26d962'} strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                        <span className={`font-inter text-[10px] font-medium ${s.is_booked ? 'text-[#f5a83d]' : 'text-[#1a7bd9]'}`}>{s.time}</span>
                       </div>
                     ))}
                   </div>
@@ -128,8 +114,8 @@ export default function TeacherSchedule() {
         {/* Legend */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#1f8cf9]" />
-            <span className="font-inter text-[#565d6d] text-xs">Заплановані заняття</span>
+            <div className="w-3 h-3 rounded-full bg-[#f5a83d]" />
+            <span className="font-inter text-[#565d6d] text-xs">Заброньовані слоти</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#26d962]" />
@@ -145,7 +131,7 @@ export default function TeacherSchedule() {
           role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl animate-fade-in overflow-hidden">
             <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <h2 className="font-poppins font-bold text-slate-900 text-xl">День — {dayModal} Травня 2024</h2>
+              <h2 className="font-poppins font-bold text-slate-900 text-xl">День — {dayModal} {MONTH_NAMES[CURRENT_MONTH]} {CURRENT_YEAR}</h2>
               <button type="button" onClick={() => setDayModal(null)} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
@@ -153,28 +139,22 @@ export default function TeacherSchedule() {
 
             <div className="px-6 pb-3 flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Сьогоднішні заняття</p>
+                <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Слоти на цей день</p>
                 <span className="w-6 h-6 bg-[#1f8cf9] rounded-full flex items-center justify-center font-inter font-bold text-white text-[10px]">
-                  {(LESSON_SLOTS[dayModal] || []).filter(s => !cancelled.includes(cancelKey(dayModal, s))).length}
+                  {(slotsByDay[dayModal] || []).length}
                 </span>
               </div>
-              {(LESSON_SLOTS[dayModal] || []).filter(s => !cancelled.includes(cancelKey(dayModal, s))).map(slot => (
-                <div key={slot} className="flex items-center justify-between p-3 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
+              {(slotsByDay[dayModal] || []).map(slot => (
+                <div key={slot.id} className="flex items-center justify-between p-3 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
                   <div className="flex items-center gap-2">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    <span className="font-inter font-semibold text-slate-800 text-sm">{slot}</span>
+                    <span className="font-inter font-semibold text-slate-800 text-sm">{slot.time}</span>
+                    {slot.is_booked && <span className="text-[10px] font-inter text-[#f5a83d]">(забронійовано)</span>}
                   </div>
-                  <button type="button" onClick={() => { setCancelSlot({ day: dayModal, time: slot }); setDayModal(null); }}
-                    className="font-inter text-[#e64c4c] text-xs hover:underline">Відмінити</button>
-                </div>
-              ))}
-              {getFreeSlots(dayModal).map((fs, fi) => (
-                <div key={fi} className="flex items-center justify-between p-3 bg-[#e0faea] rounded-xl border border-[#26d96233]">
-                  <div className="flex items-center gap-2">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#26d962" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    <span className="font-inter font-semibold text-slate-800 text-sm">{fs.from} - {fs.to}</span>
-                    <span className="font-inter text-[#1a7bd9] text-xs">вільний</span>
-                  </div>
+                  {!slot.is_booked && (
+                    <button type="button" onClick={() => { setCancelSlot({ ...slot, day: dayModal }); setDayModal(null); }}
+                      className="font-inter text-[#e64c4c] text-xs hover:underline">Видалити</button>
+                  )}
                 </div>
               ))}
             </div>
@@ -195,7 +175,7 @@ export default function TeacherSchedule() {
                     className="w-full border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
                 </div>
               </div>
-              <button type="button" onClick={handleAddFreeSlot}
+              <button type="button" onClick={() => void handleAddFreeSlot()}
                 className="w-full py-3 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                 Додати вільний час
@@ -208,7 +188,7 @@ export default function TeacherSchedule() {
         </div>
       )}
 
-      {/* Cancel Modal */}
+      {/* Cancel/Delete Modal */}
       {cancelSlot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setCancelSlot(null); }}
@@ -218,31 +198,23 @@ export default function TeacherSchedule() {
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
               </div>
-              <h2 className="font-poppins font-bold text-slate-900 text-xl">Відмінити заняття?</h2>
+              <h2 className="font-poppins font-bold text-slate-900 text-xl">Видалити слот?</h2>
             </div>
-            <p className="font-inter text-[#565d6d] text-sm">Ви впевнені, що хочете відмінити це заняття? Це може вплинути на ваш прогрес та баланс абонементу.</p>
+            <p className="font-inter text-[#565d6d] text-sm">Ви впевнені, що хочете видалити цей слот? Це може вплинути на ваш розклад.</p>
             <div className="flex flex-col gap-2 p-4 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
               <div className="flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                <span className="font-inter font-bold text-slate-900 text-sm">{cancelSlot.day} Травня 2024</span>
+                <span className="font-inter font-bold text-slate-900 text-sm">{cancelSlot.day} {MONTH_NAMES[CURRENT_MONTH]} {CURRENT_YEAR}</span>
               </div>
               <div className="flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                 <span className="font-inter text-[#565d6d] text-sm">{cancelSlot.time}</span>
               </div>
-              <div className="mt-1">
-                <span className="font-inter font-bold text-slate-900 text-sm">Олександр Коваленко</span><br />
-                <span className="font-inter text-[#1f8cf9] text-xs">@oleksandr_kov</span>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 p-3 bg-red-50 rounded-xl">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-              <p className="font-inter text-[#e64c4c] text-xs leading-5">При скасуванні менш ніж за 12 годин до початку, кошти за заняття не повертаються згідно з правилами платформи.</p>
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setCancelSlot(null)} className="flex-1 py-3 rounded-xl border border-[#dee1e6] font-inter font-medium text-sm text-[#565d6d] hover:bg-gray-50">Назад</button>
-              <button type="button" onClick={() => { setCancelled(p => [...p, cancelKey(cancelSlot.day, cancelSlot.time)]); setCancelSlot(null); }}
-                className="flex-1 py-3 rounded-xl bg-red-500 font-inter font-medium text-sm text-white hover:bg-red-600">Підтвердити відміну</button>
+              <button type="button" onClick={() => void handleDeleteSlot()}
+                className="flex-1 py-3 rounded-xl bg-red-500 font-inter font-medium text-sm text-white hover:bg-red-600">Підтвердити</button>
             </div>
           </div>
         </div>

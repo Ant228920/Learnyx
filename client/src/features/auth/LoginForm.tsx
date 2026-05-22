@@ -10,10 +10,10 @@ interface Props {
 
 function getRedirectPath(role: string): string {
   switch (role) {
-    case 'student':  return '/dashboard';
-    case 'teacher':  return '/teacher';
-    case 'manager':  return '/manager';
-    case 'admin':    return '/manager';
+    case 'Student':  return '/dashboard';
+    case 'Teacher':  return '/teacher';
+    case 'Manager':  return '/manager';
+    case 'Admin':    return '/manager';
     default:         return '/';
   }
 }
@@ -42,8 +42,8 @@ export default function LoginForm({ onSuccess }: Props) {
       // Зберігаємо refresh токен
       localStorage.setItem('refreshToken', data.refreshToken);
 
-      // Нормалізуємо роль (бекенд повертає 'Student' або 'student')
-      const role = (data.user.role ?? '').toLowerCase() as 'student' | 'teacher' | 'manager' | 'admin';
+      const raw = data.user.role ?? '';
+      const role = (raw.charAt(0).toUpperCase() + raw.slice(1)) as 'Student' | 'Teacher' | 'Manager' | 'Admin';
 
       const normalizedUser = {
         ...data.user,
