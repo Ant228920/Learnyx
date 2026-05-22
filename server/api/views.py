@@ -47,7 +47,7 @@ from api.serializers import (
 )
 from users.models import User, Role, Student, Manager, Review
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest
-from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS
+from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
 
@@ -398,6 +398,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         terminal = {'conducted', 'canceled_advance', 'student_missed', 'teacher_missed'}
 
+        low_balance_package = None
         with transaction.atomic():
             lesson = Lesson.objects.select_for_update().get(pk=pk)
 
@@ -426,6 +427,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
                 )
 
+                if package.balance < 2:
+                    low_balance_package = package
+
                 if package.status == 'completed':
                     completion = calculate_cashback(package)
                     if completion:
@@ -434,6 +438,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                             f'Package {package.id} completed: cashback {cashback_earned}% awarded '
                             f'to student {package.student_id}'
                         )
+
+        if low_balance_package is not None:
+            notify_manager_low_balance(low_balance_package)
 
         data = dict(LessonSerializer(lesson).data)
         if package_balance_remaining is not None:

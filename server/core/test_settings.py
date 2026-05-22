@@ -13,3 +13,6 @@ DATABASES = {
 
 # bcrypt is slow; use fast hasher for tests
 PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+
+# capture emails in memory instead of printing to console
+EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'

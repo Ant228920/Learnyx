@@ -20,6 +20,40 @@ def generate_password(length=10):
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 
+def notify_manager_low_balance(package) -> None:
+    """
+    LEAR-79: Warn manager by email when a student's package balance drops below 2.
+    Called after the lesson-status transaction commits.
+    Errors are logged but never raised — must not affect the lesson update response.
+    """
+    student = package.student
+    user = student.user
+    if package.discipline:
+        discipline = package.discipline.name
+    elif package.course and package.course.discipline:
+        discipline = package.course.discipline.name
+    else:
+        discipline = '—'
+    try:
+        send_mail(
+            subject=f'Учень {user.get_full_name()}: залишилось {package.balance} занять',
+            message=(
+                f'ПІБ: {user.get_full_name()}\n'
+                f'Email: {user.email}\n'
+                f'Телефон: {user.phone or "—"}\n'
+                f'Дисципліна: {discipline}\n'
+                f'Залишок занять: {package.balance}\n'
+                f'ID пакету: {package.pk}\n'
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.MANAGER_EMAIL],
+            fail_silently=False,
+        )
+        logger.info(f'Low-balance email sent for package {package.pk} (balance={package.balance})')
+    except Exception as e:
+        logger.warning(f'Failed to send low-balance email for package {package.pk}: {e}')
+
+
 class RegistrationService:
     """Сервіс для роботи з заявками на реєстрацію"""
 

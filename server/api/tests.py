@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.utils import timezone
 from django.db import IntegrityError
+from django.core import mail
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 from unittest.mock import patch, MagicMock
 from api.models import RegistrationRequest
@@ -800,3 +801,65 @@ class SlotPatchTest(TestCase):
             'start_time': (timezone.now() + timezone.timedelta(hours=10)).isoformat(),
         })
         self.assertEqual(resp.status_code, 409)
+
+
+# ---------------------------------------------------------------------------
+# LEAR-79: Email manager when student package balance drops below 2
+# ---------------------------------------------------------------------------
+
+class ManagerEmailNotificationTest(TestCase):
+    """set_status 'conducted' with low balance → email in mail.outbox."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.teacher_user = _make_user('men_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+        self.student_user = _make_user('men_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+    def _make_lesson(self, balance):
+        """Create slot + package(balance) + scheduled lesson."""
+        package = _make_package(self.student, balance=balance)
+        start = timezone.now() - timezone.timedelta(hours=1)
+        slot = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='booked',
+        )
+        lesson = Lesson.objects.create(
+            slot=slot, student=self.student, package=package, status='scheduled',
+        )
+        return lesson
+
+    def _conduct(self, lesson):
+        self.client.force_authenticate(user=self.teacher_user)
+        return self.client.patch(
+            f'/api/v1/lessons/{lesson.pk}/status/', {'status': 'conducted'},
+        )
+
+    def test_balance_2_to_1_sends_email(self):
+        """balance=2 → conducted → balance=1 < 2 → 1 email to manager."""
+        lesson = self._make_lesson(balance=2)
+        mail.outbox.clear()
+        resp = self._conduct(lesson)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('men_student@test.test', mail.outbox[0].body)
+
+    def test_balance_3_to_2_no_email(self):
+        """balance=3 → conducted → balance=2, not < 2 → no email."""
+        lesson = self._make_lesson(balance=3)
+        mail.outbox.clear()
+        resp = self._conduct(lesson)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_balance_1_to_0_sends_email(self):
+        """balance=1 → conducted → balance=0 < 2 → email sent (package completed)."""
+        lesson = self._make_lesson(balance=1)
+        mail.outbox.clear()
+        resp = self._conduct(lesson)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('залишилось 0', mail.outbox[0].subject)
