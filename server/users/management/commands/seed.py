@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from users.models import Role, StudentLevel, TeacherLevel, User, Student, Manager, Request, Teacher
+from users.models import Role, StudentLevel, TeacherLevel, User, Student, Manager, Request
+from inventory.models import Teacher
 from inventory.models import (
     PackagePlan, Material, LearningRequest, Package, 
     CourseCompletion, Transaction, Course, Discipline

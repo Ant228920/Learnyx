@@ -263,20 +263,14 @@ class JournalRecord(models.Model):
 
 class LessonMaterial(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='materials')
-    uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='materials')
+    uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='lesson_materials')
+    
     title = models.CharField(max_length=200)
     file = models.FileField(
         upload_to='lesson_materials/%Y/%m/',
         validators=[validate_file_size, validate_file_extension],
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-uploaded_at']
-
-    def __str__(self):
-        return f'{self.title} (lesson {self.lesson_id})'
-
 class Complaint(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
