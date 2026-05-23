@@ -271,6 +271,16 @@ class LessonMaterial(models.Model):
         validators=[validate_file_size, validate_file_extension],
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
+<<<<<<< HEAD
+=======
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f'{self.title} (lesson {self.lesson_id})'
+
+>>>>>>> origin/develop
 class Complaint(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
