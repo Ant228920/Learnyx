@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets, mixins, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import MultiPartParser
 
 from api.models import RegistrationRequest
 from api.permissions import IsTeacher, IsStudent, IsManager
@@ -36,16 +37,25 @@ from api.serializers import (
     AvailableStudentSerializer,
     AssignLessonSerializer,
     HomeworkSerializer,
+    HomeworkGradeSerializer,
+    GradeEntrySerializer,
     LessonArchiveSerializer,
     PackagePlanSerializer,
     TeacherListSerializer,
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
     ReviewSerializer,
+    ComplaintCreateSerializer,
+    ComplaintListSerializer,
+    ComplaintStatusSerializer,
+    LessonMaterialUploadSerializer,
+    LessonMaterialListSerializer,
+    HomeworkDetailSerializer,
+    HomeworkSubmitSerializer,
 )
 from users.models import User, Role, Student, Manager, Review
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest
-from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
+from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
 
@@ -220,12 +230,12 @@ class StudentBalanceView(APIView):
 
 
 class SlotViewSet(viewsets.ModelViewSet):
-    """US5 + US9: Teacher slot management — create with overlap check, delete if unbooked."""
+    """US5 + US9 + LEAR-127: Teacher slot management — create, delete, partial_update."""
     serializer_class = SlotSerializer
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_permissions(self):
-        if self.action in ('create', 'destroy'):
+        if self.action in ('create', 'destroy', 'partial_update'):
             return [IsTeacher()]
         return [IsAuthenticated()]
 
@@ -244,12 +254,20 @@ class SlotViewSet(viewsets.ModelViewSet):
         teacher_id = self.request.query_params.get('teacher_id')
         slot_status = self.request.query_params.get('status')
         date = self.request.query_params.get('date')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
 
         if teacher_id:
             qs = qs.filter(teacher_id=teacher_id)
         if slot_status:
             qs = qs.filter(status=slot_status)
-        if date:
+
+        if start_date or end_date:
+            if start_date:
+                qs = qs.filter(start_time__date__gte=start_date)
+            if end_date:
+                qs = qs.filter(start_time__date__lte=end_date)
+        elif date:
             qs = qs.filter(start_time__date=date)
 
         return qs
@@ -257,6 +275,23 @@ class SlotViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         teacher = get_object_or_404(Teacher, user=self.request.user)
         serializer.save(teacher=teacher)
+
+    def update(self, request, *args, **kwargs):
+        """LEAR-127: Only the slot's owner can PATCH; booked slots are frozen."""
+        slot = self.get_object()
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only edit your own slots.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if slot.status == 'booked':
+            return Response(
+                {'detail': 'Cannot edit a booked slot.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         slot = self.get_object()
@@ -287,7 +322,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign'):
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign', 'grade_homework'):
             return [IsTeacher()]
         if self.action in ('upcoming', 'cancel'):
             return [IsStudent()]
@@ -371,6 +406,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         terminal = {'conducted', 'canceled_advance', 'student_missed', 'teacher_missed'}
 
+        low_balance_package = None
         with transaction.atomic():
             lesson = Lesson.objects.select_for_update().get(pk=pk)
 
@@ -399,6 +435,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
                 )
 
+                if package.balance < 2:
+                    low_balance_package = package
+
                 if package.status == 'completed':
                     completion = calculate_cashback(package)
                     if completion:
@@ -407,6 +446,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                             f'Package {package.id} completed: cashback {cashback_earned}% awarded '
                             f'to student {package.student_id}'
                         )
+
+        if low_balance_package is not None:
+            notify_manager_low_balance(low_balance_package)
 
         data = dict(LessonSerializer(lesson).data)
         if package_balance_remaining is not None:
@@ -589,6 +631,29 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(JournalRecordSerializer(record).data, status=http_status)
 
+    @action(detail=True, methods=['patch'], url_path='homework/grade')
+    def grade_homework(self, request, pk=None):
+        """LEAR-75: Teacher grades a student's homework (1–10) on a conducted lesson."""
+        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
+
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only grade homework for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = HomeworkGradeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
+        record.homework_grade = serializer.validated_data['homework_grade']
+        record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
+        record.reviewed_at = timezone.now()
+        record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
+
+        return Response(JournalRecordSerializer(record).data)
+
 
 class BonusBalanceView(APIView):
     """US14: Student's cashback balance + current-package progress scale."""
@@ -597,6 +662,65 @@ class BonusBalanceView(APIView):
     def get(self, request, student_id):
         student = get_object_or_404(Student, pk=student_id)
         return Response({'student_id': student_id, **get_bonus_balance(student)})
+
+
+class StudentReportView(APIView):
+    """LEAR-84: Student's grade report split into lesson_grades and homework_grades."""
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        student = get_object_or_404(Student, user=request.user)
+
+        qs = (
+            JournalRecord.objects
+            .filter(lesson__student=student)
+            .select_related(
+                'lesson__slot__teacher__user',
+                'lesson__package__discipline',
+                'lesson__package__course__discipline',
+            )
+            .order_by('lesson__slot__start_time')
+        )
+
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        if start_date:
+            qs = qs.filter(lesson__slot__start_time__date__gte=start_date)
+        if end_date:
+            qs = qs.filter(lesson__slot__start_time__date__lte=end_date)
+
+        lesson_grades = []
+        homework_grades = []
+
+        for record in qs:
+            lesson = record.lesson
+            slot = lesson.slot
+            teacher_u = slot.teacher.user
+            pkg = lesson.package
+            discipline = None
+            if pkg:
+                if pkg.discipline:
+                    discipline = pkg.discipline.name
+                elif pkg.course and pkg.course.discipline:
+                    discipline = pkg.course.discipline.name
+
+            base = {
+                'lesson_id': lesson.pk,
+                'date': slot.start_time,
+                'discipline': discipline,
+                'teacher_name': f'{teacher_u.first_name} {teacher_u.last_name}'.strip(),
+            }
+
+            if record.grade is not None:
+                lesson_grades.append({**base, 'grade': record.grade})
+
+            if record.homework_grade is not None:
+                homework_grades.append({**base, 'grade': record.homework_grade})
+
+        return Response({
+            'lesson_grades': lesson_grades,
+            'homework_grades': homework_grades,
+        })
 
 
 class StudentListView(generics.ListAPIView):
@@ -805,7 +929,7 @@ class TeacherDashboardView(APIView):
             'stats': {
                 'total_students': total_students,
                 'conducted_lessons': conducted_lessons,
-                'materials_count': 0,   # US22 (LessonMaterial model) not yet implemented
+                'materials_count': LessonMaterial.objects.filter(uploaded_by=teacher).count(),
             },
         })
 
@@ -951,9 +1075,11 @@ class PackagePurchaseView(APIView):
         discount_pct = Decimal('0')
         discount_applied = False
 
+        cutoff = timezone.now() - timezone.timedelta(days=180)
         completion = CourseCompletion.objects.filter(
-            student=student, is_discount_used=False, earned_discount__gt=0
-        ).order_by('-id').first()
+            student=student, is_discount_used=False, earned_discount__gt=0,
+            completed_at__gte=cutoff,
+        ).order_by('-earned_discount').first()
 
         if completion:
             discount_pct = completion.earned_discount
@@ -1183,3 +1309,153 @@ class ReviewView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LessonMaterialView(APIView):
+    """LEAR-125: Teacher uploads / lists materials for a lesson."""
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsTeacher()]
+        return [IsAuthenticated()]
+
+    def get(self, request, lesson_id):
+        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        qs = lesson.materials.select_related('uploaded_by__user').all()
+        serializer = LessonMaterialListSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    def post(self, request, lesson_id):
+        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=lesson_id)
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only upload materials for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = LessonMaterialUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        material = serializer.save(lesson=lesson, uploaded_by=teacher)
+        return Response(
+            LessonMaterialListSerializer(material, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ComplaintListCreateView(APIView):
+    """LEAR-266: Student submits a complaint; Manager lists all complaints."""
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsStudent()]
+        return [IsManager()]
+
+    def get(self, request):
+        qs = (
+            Complaint.objects
+            .select_related('student__user', 'lesson__slot__teacher__user')
+            .all()
+        )
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return Response(ComplaintListSerializer(qs, many=True).data)
+
+    def post(self, request):
+        serializer = ComplaintCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        student = get_object_or_404(Student, user=request.user)
+        complaint = serializer.save(student=student)
+        return Response(
+            ComplaintListSerializer(complaint).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ComplaintDetailView(APIView):
+    """LEAR-266: Manager updates complaint status; sets reviewed_at automatically."""
+    permission_classes = [IsManager]
+
+    def patch(self, request, pk):
+        complaint = get_object_or_404(
+            Complaint.objects.select_related('student__user', 'lesson__slot__teacher__user'),
+            pk=pk,
+        )
+        serializer = ComplaintStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        complaint.status = serializer.validated_data['status']
+        if complaint.status == Complaint.Status.REVIEWED:
+            complaint.reviewed_at = timezone.now()
+        complaint.save()
+        return Response(ComplaintListSerializer(complaint).data)
+
+
+class HomeworkDetailView(APIView):
+    """LEAR-74: Student or lesson's Teacher can view homework details."""
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def get(self, request, pk):
+        record = get_object_or_404(
+            JournalRecord.objects.select_related(
+                'lesson__slot__teacher__user',
+                'lesson__student__user',
+                'lesson__package__discipline',
+                'lesson__package__course__discipline',
+            ),
+            pk=pk,
+        )
+        lesson = record.lesson
+        user = request.user
+        role = user.role_obj.name.lower() if user.role_obj else ''
+
+        if role == 'student':
+            student = get_object_or_404(Student, user=user)
+            if lesson.student_id != student.pk:
+                return Response(
+                    {'detail': 'You can only view your own homework.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        elif role == 'teacher':
+            teacher = get_object_or_404(Teacher, user=user)
+            if lesson.slot.teacher_id != teacher.pk:
+                return Response(
+                    {'detail': 'You can only view homework for your own lessons.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        return Response(HomeworkDetailSerializer(record, context={'request': request}).data)
+
+
+class HomeworkSubmitView(APIView):
+    """LEAR-74: Student submits (or re-submits) homework file."""
+    permission_classes = [IsStudent]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, pk):
+        record = get_object_or_404(
+            JournalRecord.objects.select_related('lesson__student'),
+            pk=pk,
+        )
+        student = get_object_or_404(Student, user=request.user)
+        if record.lesson.student_id != student.pk:
+            return Response(
+                {'detail': 'You can only submit homework for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = HomeworkSubmitSerializer(
+            data=request.data,
+            context={'record': record},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        record.homework_file = serializer.validated_data['file']
+        record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
+        record.homework_submitted_at = timezone.now()
+        record.save(update_fields=['homework_file', 'homework_status', 'homework_submitted_at'])
+
+        return Response(HomeworkDetailSerializer(record, context={'request': request}).data)
