@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 db.sqlite3
 .env
+/.env
 .idea/
 
 # Node / Frontend
@@ -11,3 +12,5 @@ dist/
 build/
 .eslintcache
 client/.env
+CLAUDE.md
+.claude/
