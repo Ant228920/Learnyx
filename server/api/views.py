@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets, mixins, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser, JSONParser
 
 from api.models import RegistrationRequest
 from api.permissions import IsTeacher, IsStudent, IsManager
@@ -602,9 +602,14 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         logger.info(f'Lesson {lesson.id} assigned by teacher {teacher.pk}: student {student.pk}, slot {slot.pk}')
         return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post'], url_path='homework')
+    @action(detail=True, methods=['post'], url_path='homework', parser_classes=[JSONParser, MultiPartParser])
     def homework(self, request, pk=None):
-        """LEAR-186: Teacher sets homework text (and optional URL) on a conducted lesson."""
+        """LEAR-186 + LEAR-67: Teacher sets homework text; optionally attaches a file.
+
+        Accepts both JSON and multipart/form-data.
+        When a file is present it is saved as a LessonMaterial on this lesson
+        and returned as `attached_material` in the response.
+        """
         lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
 
         teacher = get_object_or_404(Teacher, user=request.user)
@@ -624,12 +629,32 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         serializer.is_valid(raise_exception=True)
 
         record, created = JournalRecord.objects.get_or_create(lesson=lesson)
+        homework_was_empty = not record.teacher_homework_task
         record.teacher_homework_task = serializer.validated_data['teacher_homework_task']
         record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
         record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
 
-        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
-        return Response(JournalRecordSerializer(record).data, status=http_status)
+        material = None
+        uploaded_file = serializer.validated_data.get('file')
+        if uploaded_file:
+            title = serializer.validated_data.get('file_title') or 'Homework material'
+            material = LessonMaterial.objects.create(
+                lesson=lesson,
+                uploaded_by=teacher,
+                title=title,
+                file=uploaded_file,
+            )
+            logger.info(
+                f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
+            )
+
+        http_status = status.HTTP_201_CREATED if (created or homework_was_empty) else status.HTTP_200_OK
+        data = JournalRecordSerializer(record).data
+        if material:
+            data['attached_material'] = LessonMaterialListSerializer(
+                material, context={'request': request}
+            ).data
+        return Response(data, status=http_status)
 
     @action(detail=True, methods=['patch'], url_path='homework/grade')
     def grade_homework(self, request, pk=None):
