@@ -1,35 +1,64 @@
+import { useState } from 'react';
+
 const subjects = [
-  { icon: '🔤', name: 'Англійська мова' },
-  { icon: '📖', name: 'Українська мова' },
-  { icon: '📐', name: 'Математика' },
-  { icon: '🕐', name: 'Історія України' },
-  { icon: '💻', name: 'Інформатика' },
+  { icon: '🔤', name: 'Англійська мова', description: 'Рівні A1–C2, підготовка до IELTS/TOEFL, розмовна практика та граматика з досвідченими носіями та сертифікованими викладачами.' },
+  { icon: '📖', name: 'Українська мова', description: 'Граматика, правопис, орфографія, підготовка до НМТ та ЗНО. Поглиблене вивчення літературної норми та стилістики.' },
+  { icon: '📐', name: 'Математика', description: 'Шкільна програма 1–11 клас, алгебра, геометрія, підготовка до НМТ та олімпіад різного рівня.' },
+  { icon: '🕐', name: 'Історія України', description: 'Шкільна програма з давніх часів до сучасності, підготовка до НМТ, поглиблене вивчення ключових подій.' },
+  { icon: '💻', name: 'Інформатика', description: 'Програмування (Python, JavaScript, C++), алгоритми, структури даних, підготовка до олімпіад та профільних ЗНО.' },
 ];
 
 const stats = ['500+ ВИКЛАДАЧІВ', '10,000+ УЧНІВ', '15+ МОВ НАВЧАННЯ'];
 
-const testimonials = [
-  {
-    title: 'Відгуки учнів',
-    name: 'Олександр Коваль',
-    role: 'Студент КПІ',
-    avatar: 'https://i.pravatar.cc/56?img=11',
-    quote: '"Знайшов чудового викладача з математики. Пояснює складні теми простими словами. Завдяки платформі підтягнув успішність за семестр!"',
-  },
-  {
-    title: 'Відгуки викладачів',
-    name: 'Віктор Іванович',
-    role: 'Викладач англійської, 15 років досвіду',
-    avatar: 'https://i.pravatar.cc/56?img=3',
-    quote: '"Платформа надає чудові інструменти для організації навчального процесу. Прозорість виплат та постійний потік мотивованих студентів."',
-  },
-];
 
 const footerLinks = ['Конфіденційність', 'Умови використання', 'Допомога'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+type ReviewItem = { name: string; role: string; text: string; avatar: string };
+
+const INITIAL_STUDENT_REVIEWS: ReviewItem[] = [
+  { name: 'Олександр Коваль', role: 'Студент КПІ', text: '"Знайшов чудового викладача з математики. Пояснює складні теми простими словами. Завдяки платформі підтягнув успішність за семестр!"', avatar: 'ОК' },
+  { name: 'Аліна Мороз', role: 'Учениця 11 класу', text: '"Готувалась до НМТ з англійської. Викладач підібрав індивідуальну програму і я склала на 180+ балів!"', avatar: 'АМ' },
+  { name: 'Максим Дяченко', role: 'Студент НАУ', text: '"Зручний розклад, завжди можна перенести урок. Платформа реально економить час."', avatar: 'МД' },
+];
+
+const INITIAL_TEACHER_REVIEWS: ReviewItem[] = [
+  { name: 'Віктор Іванович', role: 'Викладач англійської, 15 років досвіду', text: '"Платформа надає чудові інструменти для організації навчального процесу. Прозорість виплат та постійний потік мотивованих студентів."', avatar: 'ВІ' },
+  { name: 'Олена Петрівна', role: 'Репетитор математики', text: '"Нарешті зручна система для ведення уроків онлайн. Студенти завжди підготовлені, а оплата — вчасно."', avatar: 'ОП' },
+  { name: 'Андрій Савченко', role: 'Викладач інформатики', text: '"LearNYX допоміг знайти нових учнів за перший тиждень. Рекомендую всім репетиторам!"', avatar: 'АС' },
+];
+
 export default function HomePage() {
+  const [selectedSubject, setSelectedSubject] = useState<typeof subjects[0] | null>(null);
+  const [studentIdx, setStudentIdx] = useState(0);
+  const [teacherIdx, setTeacherIdx] = useState(0);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [reviewForm, setReviewForm] = useState({ firstName: '', lastName: '', text: '', role: '' as 'student' | 'teacher' | '' });
+  const [studentReviews, setStudentReviews] = useState<ReviewItem[]>(INITIAL_STUDENT_REVIEWS);
+  const [teacherReviews, setTeacherReviews] = useState<ReviewItem[]>(INITIAL_TEACHER_REVIEWS);
+
+  const handleSubmitReview = () => {
+    if (!reviewForm.role || !reviewForm.firstName || !reviewForm.text) return;
+    const newReview: ReviewItem = {
+      name: `${reviewForm.firstName} ${reviewForm.lastName}`.trim(),
+      role: reviewForm.role === 'student' ? 'Учень' : 'Викладач',
+      text: `"${reviewForm.text}"`,
+      avatar: reviewForm.firstName[0]?.toUpperCase() ?? '?',
+    };
+    if (reviewForm.role === 'student') {
+      setStudentReviews(prev => [...prev, newReview]);
+      setStudentIdx(studentReviews.length);
+    } else {
+      setTeacherReviews(prev => [...prev, newReview]);
+      setTeacherIdx(teacherReviews.length);
+    }
+    setShowReviewModal(false);
+    setFeedbackText('');
+    setReviewForm({ firstName: '', lastName: '', text: '', role: '' });
+  };
+
   return (
     <div className="flex w-full flex-col bg-white">
 
@@ -80,12 +109,12 @@ export default function HomePage() {
           </p>
           <div className="grid grid-cols-3 gap-6 pt-12 w-full">
             {subjects.slice(0, 3).map((s) => (
-              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow">
+              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedSubject(s)}>
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">{s.icon}</div>
                 <div className="flex flex-col pt-7">
                   <h3 className="font-bold text-slate-900 text-2xl leading-8" style={{ fontFamily: "'Poppins', sans-serif" }}>{s.name}</h3>
                 </div>
-                <button type="button" className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedSubject(s); }} className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
                   ПЕРЕГЛЯНУТИ ІНФОРМАЦІЮ
                 </button>
               </article>
@@ -93,12 +122,12 @@ export default function HomePage() {
           </div>
           <div className="grid grid-cols-2 gap-6 pt-8 max-w-4xl w-full">
             {subjects.slice(3).map((s) => (
-              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow">
+              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedSubject(s)}>
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">{s.icon}</div>
                 <div className="flex flex-col pt-7">
                   <h3 className="font-bold text-slate-900 text-2xl leading-8" style={{ fontFamily: "'Poppins', sans-serif" }}>{s.name}</h3>
                 </div>
-                <button type="button" className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedSubject(s); }} className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
                   ПЕРЕГЛЯНУТИ ІНФОРМАЦІЮ
                 </button>
               </article>
@@ -109,24 +138,131 @@ export default function HomePage() {
 
       {/* ── Testimonials ── */}
       <section aria-label="Відгуки" className="w-full px-80 py-24 border-t border-[#dee1e6]">
-        <div className="grid grid-cols-2 gap-16 max-w-[1440px] mx-auto">
-          {testimonials.map((t) => (
-            <article key={t.title} className="flex flex-col items-start gap-12">
-              <h2 className="font-bold text-slate-900 text-4xl leading-10" style={{ fontFamily: "'Poppins', sans-serif" }}>{t.title}</h2>
+        <div className="max-w-[1440px] mx-auto flex flex-col gap-8">
+          <div className="grid grid-cols-2 gap-8">
+            {/* Student reviews */}
+            <div className="flex flex-col gap-6">
+              <h2 className="font-bold text-slate-900 text-4xl leading-10" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                Відгуки учнів
+              </h2>
               <div className="flex flex-col gap-6 p-8 bg-gray-50 rounded-2xl w-full">
                 <div className="flex items-center gap-4">
-                  <img src={t.avatar} alt={t.name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
+                  <div className="w-14 h-14 rounded-full bg-[#1f8cf9] flex items-center justify-center border-2 border-white shadow-sm flex-shrink-0">
+                    <span className="font-inter font-bold text-white text-lg">{studentReviews[studentIdx % studentReviews.length].avatar}</span>
+                  </div>
                   <div>
-                    <p className="font-bold text-slate-900 text-lg leading-7" style={{ fontFamily: "'Poppins', sans-serif" }}>{t.name}</p>
-                    <p className="text-[#565d6d] text-sm leading-5" style={{ fontFamily: "'Inter', sans-serif" }}>{t.role}</p>
+                    <p className="font-bold text-slate-900 text-lg leading-7" style={{ fontFamily: "'Poppins', sans-serif" }}>{studentReviews[studentIdx % studentReviews.length].name}</p>
+                    <p className="text-[#565d6d] text-sm leading-5" style={{ fontFamily: "'Inter', sans-serif" }}>{studentReviews[studentIdx % studentReviews.length].role}</p>
                   </div>
                 </div>
-                <blockquote className="italic text-[#565d6d] text-base leading-[26px]" style={{ fontFamily: "'Inter', sans-serif" }}>{t.quote}</blockquote>
+                <blockquote className="italic text-[#565d6d] text-base leading-[26px]" style={{ fontFamily: "'Inter', sans-serif" }}>{studentReviews[studentIdx % studentReviews.length].text}</blockquote>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setStudentIdx(i => (i + 1) % studentReviews.length)}
+                    aria-label="Наступний відгук учня"
+                    className="w-10 h-10 rounded-full border border-[#dee1e6] flex items-center justify-center hover:bg-gray-100 transition-colors"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2" aria-hidden="true">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-            </article>
-          ))}
+            </div>
+
+            {/* Teacher reviews */}
+            <div className="flex flex-col gap-6">
+              <h2 className="font-bold text-slate-900 text-4xl leading-10" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                Відгуки викладачів
+              </h2>
+              <div className="flex flex-col gap-6 p-8 bg-gray-50 rounded-2xl w-full">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#1f8cf9] flex items-center justify-center border-2 border-white shadow-sm flex-shrink-0">
+                    <span className="font-inter font-bold text-white text-lg">{teacherReviews[teacherIdx % teacherReviews.length].avatar}</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 text-lg leading-7" style={{ fontFamily: "'Poppins', sans-serif" }}>{teacherReviews[teacherIdx % teacherReviews.length].name}</p>
+                    <p className="text-[#565d6d] text-sm leading-5" style={{ fontFamily: "'Inter', sans-serif" }}>{teacherReviews[teacherIdx % teacherReviews.length].role}</p>
+                  </div>
+                </div>
+                <blockquote className="italic text-[#565d6d] text-base leading-[26px]" style={{ fontFamily: "'Inter', sans-serif" }}>{teacherReviews[teacherIdx % teacherReviews.length].text}</blockquote>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setTeacherIdx(i => (i + 1) % teacherReviews.length)}
+                    aria-label="Наступний відгук викладача"
+                    className="w-10 h-10 rounded-full border border-[#dee1e6] flex items-center justify-center hover:bg-gray-100 transition-colors"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2" aria-hidden="true">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
+
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setShowReviewModal(false); }}
+          role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl p-8 flex flex-col gap-5">
+            <h2 className="font-poppins font-bold text-xl text-slate-900">Підтвердити відгук</h2>
+            <p className="font-inter text-[#565d6d] text-sm">Будь ласка, вкажіть ваші дані та оберіть роль.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="font-inter font-bold text-slate-900 text-sm block mb-2">ІМ'Я</label>
+                <input type="text" value={reviewForm.firstName}
+                  onChange={e => setReviewForm(p => ({ ...p, firstName: e.target.value }))}
+                  placeholder="Ваше ім'я"
+                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
+              </div>
+              <div>
+                <label className="font-inter font-bold text-slate-900 text-sm block mb-2">ПРІЗВИЩЕ</label>
+                <input type="text" value={reviewForm.lastName}
+                  onChange={e => setReviewForm(p => ({ ...p, lastName: e.target.value }))}
+                  placeholder="Ваше прізвище"
+                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
+              </div>
+            </div>
+            <div>
+              <label className="font-inter font-bold text-slate-900 text-sm block mb-2">ВІДГУК</label>
+              <textarea value={reviewForm.text}
+                onChange={e => setReviewForm(p => ({ ...p, text: e.target.value }))}
+                placeholder="Розкажіть про свій досвід..."
+                rows={3}
+                className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] resize-none" />
+            </div>
+            <div>
+              <p className="font-inter font-bold text-slate-900 text-sm mb-3">ВАША РОЛЬ НА ПЛАТФОРМІ</p>
+              <div className="grid grid-cols-2 gap-3">
+                {(['student', 'teacher'] as const).map(role => (
+                  <button key={role} type="button"
+                    onClick={() => setReviewForm(p => ({ ...p, role }))}
+                    className={`py-3 rounded-xl font-inter font-medium text-sm border transition-colors ${
+                      reviewForm.role === role
+                        ? 'bg-[#1f8cf9] text-white border-[#1f8cf9]'
+                        : 'bg-white text-[#565d6d] border-[#dee1e6] hover:border-[#1f8cf9]'
+                    }`}>
+                    {role === 'student' ? 'Я — Учень' : 'Я — Викладач'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button type="button"
+              onClick={handleSubmitReview}
+              disabled={!reviewForm.firstName || !reviewForm.text || !reviewForm.role}
+              className="py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white hover:bg-blue-600 disabled:opacity-50">
+              Підтвердити
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Feedback ── */}
       <section className="w-full bg-blue-50 px-60 py-24">
@@ -145,6 +281,8 @@ export default function HomePage() {
               <div className="h-32 bg-gray-50/50 rounded-2xl overflow-hidden border border-[#dee1e6]">
                 <textarea
                   id="feedback-text"
+                  value={feedbackText}
+                  onChange={e => setFeedbackText(e.target.value)}
                   placeholder="Напишіть ваші враження тут..."
                   className="w-full h-full resize-none bg-transparent p-4 text-[#565d6d] text-base leading-6 placeholder:text-gray-400 outline-none"
                   style={{ fontFamily: "'Inter', sans-serif" }}
@@ -153,6 +291,7 @@ export default function HomePage() {
             </div>
             <button
               type="button"
+              onClick={() => { setReviewForm(p => ({ ...p, text: feedbackText })); setShowReviewModal(true); }}
               className="flex items-center justify-center gap-3 py-4 w-full bg-white rounded-xl border border-[#1f8cf9]/20 shadow-[0px_4px_7px_#1f8cf933] hover:bg-blue-50 transition-colors"
             >
               <span className="font-semibold text-[#1f8cf9] text-lg leading-7" style={{ fontFamily: "'Inter', sans-serif" }}>Надіслати відгук</span>
@@ -186,6 +325,49 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
+
+      {/* ── Subject Info Modal ── */}
+      {selectedSubject && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setSelectedSubject(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Інформація про ${selectedSubject.name}`}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-[0px_25px_50px_-12px_#00000040] w-full max-w-md mx-4 p-8 flex flex-col gap-5"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">
+                  {selectedSubject.icon}
+                </div>
+                <h2 className="font-poppins font-bold text-slate-900 text-2xl">{selectedSubject.name}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSubject(null)}
+                aria-label="Закрити"
+                className="text-[#9095a1] hover:text-slate-600"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <p className="font-inter text-[#565d6d] text-base leading-7">{selectedSubject.description}</p>
+            <button
+              type="button"
+              onClick={() => setSelectedSubject(null)}
+              className="w-full py-3 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors"
+            >
+              Зрозуміло
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
