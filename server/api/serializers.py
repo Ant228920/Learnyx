@@ -230,6 +230,30 @@ class AssignLessonSerializer(serializers.Serializer):
 class HomeworkSerializer(serializers.Serializer):
     teacher_homework_task = serializers.JSONField()
     homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
+    # LEAR-67: optional file attachment — saved as LessonMaterial on the lesson
+    file = serializers.FileField(required=False)
+    file_title = serializers.CharField(max_length=200, required=False, default='Homework material')
+
+    def validate_file(self, value):
+        if value:
+            from api.validators import validate_file_size, validate_file_extension
+            validate_file_size(value)
+            validate_file_extension(value)
+        return value
+
+
+# ── LEAR-75 ──────────────────────────────────────────────────────────────────
+
+class HomeworkGradeSerializer(serializers.Serializer):
+    homework_grade = serializers.IntegerField(
+        min_value=1,
+        max_value=10,
+        error_messages={
+            'required': 'Ви не оцінили виконання домашнього завдання',
+            'null': 'Ви не оцінили виконання домашнього завдання',
+            'invalid': 'Ви не оцінили виконання домашнього завдання',
+        },
+    )
 
 
 # ── LEAR-75 ──────────────────────────────────────────────────────────────────

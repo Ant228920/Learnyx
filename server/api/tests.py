@@ -1207,3 +1207,157 @@ class HomeworkSubmissionIntegrationTest(TestCase):
         self.client.force_authenticate(user=self.teacher_user)
         resp = self.client.post(self._submit_url(), {'file': self._pdf()}, format='multipart')
         self.assertEqual(resp.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# LEAR-67: Teacher assigns homework with optional file attachment
+# ---------------------------------------------------------------------------
+
+class HomeworkWithFileIntegrationTest(TestCase):
+    """POST /api/v1/lessons/{id}/homework/ accepts JSON-only and multipart+file."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.teacher_user = _make_user('hwf_teacher@test.test', 'Teacher')
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.other_teacher_user = _make_user('hwf_other@test.test', 'Teacher')
+        self.other_teacher = Teacher.objects.create(user=self.other_teacher_user)
+
+        self.student_user = _make_user('hwf_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+
+        self.package = _make_package(self.student, balance=5)
+        self.lesson = _make_conducted_lesson(self.teacher, self.student, self.package)
+
+    def _url(self):
+        return f'/api/v1/lessons/{self.lesson.pk}/homework/'
+
+    def _pdf(self, name='hw.pdf', size=None):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        content = b'%PDF-1.4 content'
+        if size:
+            content = b'X' * size
+        return SimpleUploadedFile(name, content, content_type='application/pdf')
+
+    def test_json_only_creates_journal_record_no_material(self):
+        """JSON POST (no file) → 201, JournalRecord created, no LessonMaterial."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.post(self._url(), {
+            'teacher_homework_task': {'description': 'Read chapter 1'},
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertIn('teacher_homework_task', resp.data)
+        self.assertNotIn('attached_material', resp.data)
+        self.assertEqual(LessonMaterial.objects.filter(lesson=self.lesson).count(), 0)
+
+    def test_json_second_call_returns_200(self):
+        """Second JSON POST on same lesson → 200 (update, not create)."""
+        self.client.force_authenticate(user=self.teacher_user)
+        self.client.post(self._url(), {'teacher_homework_task': {'description': 'First'}}, format='json')
+        resp = self.client.post(self._url(), {'teacher_homework_task': {'description': 'Updated'}}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        record = JournalRecord.objects.get(lesson=self.lesson)
+        self.assertEqual(record.teacher_homework_task, {'description': 'Updated'})
+
+    def test_multipart_with_valid_pdf_creates_material(self):
+        """Multipart POST with PDF → 201, LessonMaterial created, attached_material in response."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.post(self._url(), {
+            'teacher_homework_task': '{"description": "Read chapter 2"}',
+            'file': self._pdf('chapter2.pdf'),
+            'file_title': 'Chapter 2 PDF',
+        }, format='multipart')
+        self.assertEqual(resp.status_code, 201)
+        self.assertIn('attached_material', resp.data)
+        self.assertEqual(resp.data['attached_material']['title'], 'Chapter 2 PDF')
+        material = LessonMaterial.objects.filter(lesson=self.lesson).first()
+        self.assertIsNotNone(material)
+        self.assertEqual(material.title, 'Chapter 2 PDF')
+        self.assertEqual(material.uploaded_by, self.teacher)
+
+    def test_invalid_extension_returns_400(self):
+        """Multipart POST with .exe → 400 validation error."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_authenticate(user=self.teacher_user)
+        bad_file = SimpleUploadedFile('virus.exe', b'MZ', content_type='application/octet-stream')
+        resp = self.client.post(self._url(), {
+            'teacher_homework_task': '{"description": "Task"}',
+            'file': bad_file,
+        }, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(LessonMaterial.objects.filter(lesson=self.lesson).count(), 0)
+
+    def test_oversized_file_returns_400(self):
+        """Multipart POST with file > 10 MB → 400 validation error."""
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.post(self._url(), {
+            'teacher_homework_task': '{"description": "Task"}',
+            'file': self._pdf('big.pdf', size=11 * 1024 * 1024),
+        }, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(LessonMaterial.objects.filter(lesson=self.lesson).count(), 0)
+
+    def test_other_teacher_gets_403(self):
+        """Different teacher POST to homework endpoint → 403."""
+        self.client.force_authenticate(user=self.other_teacher_user)
+        resp = self.client.post(self._url(), {
+            'teacher_homework_task': {'description': 'Hijack'},
+        }, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# Security: bonus double-spend prevention (select_for_update inside atomic)
+# ---------------------------------------------------------------------------
+
+class ConcurrentBonusUseTest(TestCase):
+    """PackagePurchaseView fetches CourseCompletion inside atomic with select_for_update.
+    Sequential purchases prove the lock: first call consumes the bonus, second finds
+    is_discount_used=True and applies no discount."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.student_user = _make_user('cb_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+        Student.objects.filter(pk=self.student.pk).update(money_balance=9999)
+        self.student.refresh_from_db()
+
+        discipline, _ = Discipline.objects.get_or_create(name='Math')
+        course, _ = Course.objects.get_or_create(
+            discipline=discipline,
+            defaults={'title': 'Math 101', 'total_lessons_course': 20},
+        )
+        self.plan = PackagePlan.objects.create(
+            name='Lock test', total_lessons=5, price=50,
+        )
+        self.completion = CourseCompletion.objects.create(
+            student=self.student,
+            course=course,
+            earned_discount=10,
+            is_discount_used=False,
+            completed_at=timezone.now() - timezone.timedelta(days=10),
+        )
+
+    def _url(self):
+        return f'/api/v1/packages/{self.plan.pk}/purchase/'
+
+    def test_second_purchase_does_not_apply_already_used_bonus(self):
+        """First call uses the bonus; second call finds is_discount_used=True → no discount."""
+        self.client.force_authenticate(user=self.student_user)
+
+        resp1 = self.client.post(self._url(), {})
+        self.assertEqual(resp1.status_code, 201)
+        self.assertTrue(resp1.data['discount_applied'])
+
+        self.completion.refresh_from_db()
+        self.assertTrue(self.completion.is_discount_used)
+
+        # Re-fill balance so the second purchase can proceed
+        Student.objects.filter(pk=self.student.pk).update(money_balance=9999)
+
+        resp2 = self.client.post(self._url(), {})
+        self.assertEqual(resp2.status_code, 201)
+        self.assertFalse(resp2.data['discount_applied'])
+        self.assertEqual(resp2.data['discount_pct'], 0.0)

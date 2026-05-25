@@ -227,7 +227,7 @@ class JournalRecord(models.Model):
     is_present = models.BooleanField(default=True)
 
     teacher_homework_task = models.JSONField(blank=True, null=True, default=dict)
-    homework_answer_url = models.CharField(max_length=255, blank=True, null=True)
+    homework_answer_url = models.CharField(max_length=255, blank=True, null=True)  # legacy
     homework_file = models.FileField(
         upload_to='homework_answers/%Y/%m/',
         null=True, blank=True,
@@ -263,16 +263,13 @@ class JournalRecord(models.Model):
 
 class LessonMaterial(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='materials')
-    uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='lesson_materials')
-    
+    uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='materials')
     title = models.CharField(max_length=200)
     file = models.FileField(
         upload_to='lesson_materials/%Y/%m/',
         validators=[validate_file_size, validate_file_extension],
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
-<<<<<<< HEAD
-=======
 
     class Meta:
         ordering = ['-uploaded_at']
@@ -280,7 +277,6 @@ class LessonMaterial(models.Model):
     def __str__(self):
         return f'{self.title} (lesson {self.lesson_id})'
 
->>>>>>> origin/develop
 class Complaint(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
@@ -299,6 +295,8 @@ class Complaint(models.Model):
 
     def __str__(self):
         return f'Complaint #{self.pk}: {self.student} on lesson {self.lesson_id} ({self.status})'
+
+      
 
 class Transaction(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='transactions')
