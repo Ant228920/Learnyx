@@ -21,14 +21,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
     'django_filters',
-    
+
     # Project apps
     'api',
     'inventory',
@@ -137,6 +137,10 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ── Media files (lesson material uploads) ─────────────────────
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # ── Email Configuration (MOCK for development) ────────────────
 # Листи не відправлятимуться реально, а виводитимуться в консоль Docker
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -173,4 +177,21 @@ LOGGING = {
         'api': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
         'core': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
     },
+}
+
+DROPBOX_APP_KEY = os.getenv("DROPBOX_APP_KEY")
+DROPBOX_APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
+DROPBOX_REDIRECT_URI = os.getenv("DROPBOX_REDIRECT_URI")
+DROPBOX_ACCESS_TOKEN = os.getenv("DROPBOX_ACCESS_TOKEN")
+DROPBOX_REFRESH_TOKEN = os.getenv("DROPBOX_REFRESH_TOKEN")
+
+# ── File storage ──────────────────────────────────────────────
+_default_storage = (
+    "api.storage.DropboxStorage"
+    if DROPBOX_REFRESH_TOKEN
+    else "django.core.files.storage.FileSystemStorage"
+)
+STORAGES = {
+    "default": {"BACKEND": _default_storage},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }

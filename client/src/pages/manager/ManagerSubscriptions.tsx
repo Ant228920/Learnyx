@@ -2,31 +2,23 @@ import { useManagerSubscriptions } from '../../features/manager/subscriptions';
 import type { Subscription } from '../../features/manager/subscriptions';
 import ManagerLayout from './ManagerLayout';
 
-type SubscriptionStatus = 'Активна' | 'Закінчується' | 'Завершена';
-
 const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
 
-function getStatusLabel(sub: Subscription): SubscriptionStatus {
-  if (sub.status === 'active') {
-    return sub.balance <= 2 ? 'Закінчується' : 'Активна';
-  }
-  return 'Завершена';
+function getStatusBadge(sub: Subscription): { label: string; cls: string } {
+  if (sub.total_lessons === 0) return { label: 'Вичерпано', cls: 'bg-gray-100 text-gray-500' };
+  const pct = sub.balance / sub.total_lessons;
+  if (pct > 0.5) return { label: 'Активний', cls: 'bg-[#e0faea] text-green-700' };
+  if (pct > 0.2) return { label: 'Майже закінчується', cls: 'bg-orange-100 text-orange-600' };
+  if (pct > 0)   return { label: 'Закінчується', cls: 'bg-red-100 text-red-600' };
+  return { label: 'Вичерпано', cls: 'bg-gray-100 text-gray-500' };
 }
 
-function getStatusStyle(status: SubscriptionStatus) {
-  switch (status) {
-    case 'Активна':     return 'border border-[#dee1e6] text-slate-700 bg-white';
-    case 'Закінчується':return 'border border-[#f5a83d] text-[#f5a83d] bg-white';
-    case 'Завершена':   return 'border border-[#e64c4c] text-[#e64c4c] bg-white';
-  }
-}
-
-function getProgressStyle(status: SubscriptionStatus) {
-  switch (status) {
-    case 'Активна':     return 'border border-[#dee1e6] text-slate-700 bg-white';
-    case 'Закінчується':return 'border border-[#f5a83d] text-[#f5a83d] bg-[#fff8ee]';
-    case 'Завершена':   return 'border border-[#e64c4c] text-[#e64c4c] bg-[#fff0f0]';
-  }
+function getProgressCls(sub: Subscription): string {
+  if (sub.total_lessons === 0) return 'border border-[#dee1e6] text-gray-400 bg-white';
+  const pct = sub.balance / sub.total_lessons;
+  if (pct > 0.5) return 'border border-[#dee1e6] text-slate-700 bg-white';
+  if (pct > 0.2) return 'border border-[#f5a83d] text-[#f5a83d] bg-[#fff8ee]';
+  return 'border border-[#e64c4c] text-[#e64c4c] bg-[#fff0f0]';
 }
 
 const IconBook = () => (
@@ -76,7 +68,7 @@ export default function ManagerSubscriptions() {
           )}
 
           {subscriptions.map((sub, index) => {
-            const statusLabel = getStatusLabel(sub);
+            const badge = getStatusBadge(sub);
             return (
               <div
                 key={sub.id}
@@ -98,13 +90,13 @@ export default function ManagerSubscriptions() {
                   <span className="font-inter font-semibold text-slate-800 text-sm">{sub.total_lessons} занять</span>
                 </div>
                 <div>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full font-inter font-bold text-sm ${getProgressStyle(statusLabel)}`}>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full font-inter font-bold text-sm ${getProgressCls(sub)}`}>
                     {sub.balance} / {sub.total_lessons}
                   </span>
                 </div>
                 <div>
-                  <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-inter font-medium text-sm ${getStatusStyle(statusLabel)}`}>
-                    {statusLabel}
+                  <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-inter font-bold text-xs ${badge.cls}`}>
+                    {badge.label}
                   </span>
                 </div>
               </div>

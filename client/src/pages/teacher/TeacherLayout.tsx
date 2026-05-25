@@ -1,5 +1,5 @@
-import { type ReactNode } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { type ReactNode, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 
 const NAV_ITEMS = [
@@ -18,10 +18,21 @@ const IconLogo = () => (
   </svg>
 );
 
+function roleLabel(role: string | undefined): string {
+  switch ((role ?? '').toLowerCase()) {
+    case 'student': return 'Учень';
+    case 'teacher': return 'Викладач';
+    case 'manager': return 'Менеджер';
+    case 'admin': return 'Адміністратор';
+    default: return '—';
+  }
+}
+
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showProfile, setShowProfile] = useState(false);
 
   return (
     <div className="flex w-full min-h-screen bg-[#f8f9fb]">
@@ -31,12 +42,12 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
         aria-label="Навігація викладача"
         className="fixed top-0 left-0 flex h-full w-64 flex-col border-r border-[#dee1e6] bg-white z-30"
       >
-        <Link to="/" className="flex w-full items-center gap-3 p-6">
+        <button type="button" onClick={() => void navigate('/')} className="flex w-full items-center gap-3 p-6 hover:bg-gray-50 transition-colors">
           <div className="w-8 h-8 bg-[#1f8cf9] rounded-md flex items-center justify-center">
             <IconLogo />
           </div>
           <span className="font-poppins font-bold text-[#1f8cf9] text-xl">LearNYX</span>
-        </Link>
+        </button>
 
         <div className="flex flex-1 flex-col w-full pt-4">
           <nav aria-label="Розділи" className="flex flex-1 flex-col gap-2 px-4">
@@ -84,7 +95,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
 
         {/* Header */}
         <header className="h-16 flex items-center justify-end px-10 bg-white border-b border-[#dee1e6] sticky top-0 z-20">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 cursor-pointer" onClick={() => setShowProfile(true)}>
             <div className="flex flex-col items-end">
               <span className="font-inter font-bold text-slate-900 text-sm">{user?.firstName} {user?.lastName}</span>
               <span className="font-inter font-bold text-[#1f8cf9] text-[10px] tracking-[0.50px] uppercase">
@@ -92,7 +103,7 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
             <div className="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-[#f4f4f6]">
-              <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}</span>
+              <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
               <div className="absolute right-0 bottom-0 w-2.5 h-2.5 bg-[#26d962] rounded-full border-2 border-white" />
             </div>
           </div>
@@ -117,6 +128,44 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
           </div>
         </footer>
       </div>
+
+      {/* Profile Modal */}
+      {showProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setShowProfile(false); }}
+          role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl p-8 flex flex-col items-center gap-5 relative">
+            <button onClick={() => setShowProfile(false)}
+              className="absolute top-4 right-4 text-[#9095a1] hover:text-slate-900">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+            <div className="w-20 h-20 rounded-full bg-[#1f8cf91a] flex items-center justify-center">
+              <span className="font-poppins font-bold text-[#1f8cf9] text-2xl">
+                {(user?.firstName?.[0] ?? '') + (user?.lastName?.[0] ?? '')}
+              </span>
+            </div>
+            <div className="text-center">
+              <p className="font-poppins font-bold text-slate-900 text-xl">Профіль</p>
+              <p className="font-inter text-[#1f8cf9] text-sm">LearNYX Ecosystem</p>
+            </div>
+            <div className="w-full flex flex-col gap-3">
+              {[
+                { label: "ІМ'Я ПРІЗВИЩЕ", value: (`${user?.firstName ?? ''} ${user?.lastName ?? ''}`).trim() || '—' },
+                { label: 'РОЛЬ', value: roleLabel(user?.role) },
+                { label: 'НОМЕР ТЕЛЕФОНУ', value: user?.phone || '—' },
+                { label: 'ЕЛЕКТРОННА ПОШТА', value: user?.email || '—' },
+                { label: 'TELEGRAM NICKNAME', value: user?.nickname || '—' },
+              ].map(f => (
+                <div key={f.label} className="flex flex-col gap-0.5 pb-3 border-b border-[#f4f4f6] last:border-0">
+                  <span className="font-inter font-bold text-[#565d6d] text-[10px] tracking-widest uppercase">{f.label}</span>
+                  <span className="font-inter font-semibold text-slate-800 text-sm">{f.value}</span>
+                </div>
+              ))}
+            </div>
+            <p className="font-inter text-[#9095a1] text-xs">ACCOUNT ID: LYX-{String(user?.id ?? '0').padStart(4, '0')}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -96,6 +96,7 @@ export default function ManagerApplications() {
   const [filterSubject, setFilterSubject] = useState<FilterSubject>('Усі');
   const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject'; id: number; name: string } | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
@@ -110,13 +111,16 @@ export default function ManagerApplications() {
   );
 
   const handleConfirm = async () => {
-    if (!confirmAction) return;
+    if (!confirmAction || confirming) return;
     const { type, id } = confirmAction;
     const name = applicants.find((a) => a.id === id)?.name ?? '';
+    setConfirming(true);
     try {
       if (type === 'approve') await approve(id);
       else await reject(id);
-    } catch { /* hook manages error */ }
+    } catch { /* hook manages error */ } finally {
+      setConfirming(false);
+    }
     if (selectedUser?.id === id) setSelectedUser(null);
     setConfirmAction(null);
     setSuccessMessage(
@@ -212,13 +216,17 @@ export default function ManagerApplications() {
                     </div>
 
                     <div className="flex flex-col w-44 flex-shrink-0">
-                      <span className="font-inter font-semibold text-slate-800 text-sm">{app.subject}</span>
-                      <span className="font-inter text-[#565d6d] text-xs">{app.level}</span>
+                      {app.subject && <span className="font-inter font-semibold text-slate-800 text-sm">{app.subject}</span>}
+                      {app.level && <span className="font-inter text-[#565d6d] text-xs">{app.level}</span>}
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <IconCalendar />
-                      <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">{app.date}</span>
+                      {app.date && (
+                        <>
+                          <IconCalendar />
+                          <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">{app.date}</span>
+                        </>
+                      )}
                     </div>
 
                     <button
@@ -265,10 +273,12 @@ export default function ManagerApplications() {
                   { label: selectedUser.role === 'Вчитель' ? 'ПІБ ВЧИТЕЛЯ' : 'ПІБ СТУДЕНТА', value: selectedUser.name, icon: <IconUser /> },
                   { label: 'НОМЕР ТЕЛЕФОНУ', value: selectedUser.phone, icon: <IconPhone /> },
                   { label: 'ЕЛЕКТРОННА ПОШТА', value: selectedUser.email, icon: <IconMail /> },
-                  { label: 'TELEGRAM НІКНЕЙМ', value: selectedUser.telegram, icon: <IconAt /> },
-                  { label: 'ОБРАНИЙ ПРЕДМЕТ', value: selectedUser.subject, icon: <IconBook /> },
-                  { label: 'РІВЕНЬ ПІДГОТОВКИ', value: selectedUser.level, icon: <IconTrend /> },
-                ].map((field) => (
+                  { label: 'TELEGRAM НІКНЕЙМ', value: selectedUser.telegram_nickname, icon: <IconAt /> },
+                  ...(selectedUser.role === 'Вчитель' ? [
+                    { label: 'ОБРАНИЙ ПРЕДМЕТ', value: selectedUser.subject, icon: <IconBook /> },
+                    { label: 'РІВЕНЬ ПІДГОТОВКИ', value: selectedUser.level, icon: <IconTrend /> },
+                  ] : []),
+                ].filter(field => field.value).map((field) => (
                   <div key={field.label} className="flex flex-col gap-1 pb-3 border-b border-[#f4f4f6] last:border-0 last:pb-0">
                     <span className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[1px] uppercase">
                       {field.label}
@@ -330,12 +340,13 @@ export default function ManagerApplications() {
               </button>
               <button
                 type="button"
+                disabled={confirming}
                 onClick={() => void handleConfirm()}
-                className={`flex-1 py-3 rounded-xl font-inter font-medium text-sm text-white transition-colors ${
+                className={`flex-1 py-3 rounded-xl font-inter font-medium text-sm text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                   confirmAction.type === 'approve' ? 'bg-[#1f8cf9] hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'
                 }`}
               >
-                {confirmAction.type === 'approve' ? 'Прийняти' : 'Відхилити'}
+                {confirming ? 'Обробка...' : confirmAction.type === 'approve' ? 'Прийняти' : 'Відхилити'}
               </button>
             </div>
           </div>

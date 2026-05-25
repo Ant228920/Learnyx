@@ -27,6 +27,12 @@ from api.views import (
     StudentLearningRequestView,
     ManagerLearningRequestsView,
     ReviewView,
+    StudentReportView,
+    ComplaintListCreateView,
+    ComplaintDetailView,
+    LessonMaterialView,
+    HomeworkDetailView,
+    HomeworkSubmitView,
 )
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
@@ -45,6 +51,8 @@ urlpatterns = [
     path('v1/packages/', PackagePlanListView.as_view(), name='package-plans'),
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
     path('v1/packages/<int:pk>/purchase/', PackagePurchaseView.as_view(), name='package-purchase'),
+    path('v1/package-plans/', PackagePlanCatalogView.as_view(), name='package-plan-catalog'),
+    path('v1/package-plans/<int:pk>/purchase/', PackagePlanPurchaseView.as_view(), name='package-plan-purchase'),
     path('v1/students/available/', AvailableStudentListView.as_view(), name='student-available'),
     path('v1/students/', StudentListView.as_view(), name='student-list'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),
@@ -79,8 +87,22 @@ urlpatterns = [
     path('v1/manager/learning-requests/', ManagerLearningRequestsView.as_view(), name='manager-learning-requests'),
     path('v1/manager/learning-requests/<int:pk>/', ManagerLearningRequestsView.as_view(), name='manager-learning-request-detail'),
 
+    # ── Student report
+    path('v1/student/report/', StudentReportView.as_view(), name='student-report'),
+
     # ── Reviews
     path('v1/reviews/', ReviewView.as_view(), name='reviews'),
+
+    # ── Complaints
+    path('v1/complaints/', ComplaintListCreateView.as_view(), name='complaint-list'),
+    path('v1/complaints/<int:pk>/', ComplaintDetailView.as_view(), name='complaint-detail'),
+
+    # ── Lesson materials
+    path('v1/lessons/<int:lesson_id>/materials/', LessonMaterialView.as_view(), name='lesson-materials'),
+
+    # ── Homework (LEAR-74)
+    path('v1/homeworks/<int:pk>/', HomeworkDetailView.as_view(), name='homework-detail'),
+    path('v1/homeworks/<int:pk>/submit/', HomeworkSubmitView.as_view(), name='homework-submit'),
 
     # ── ViewSets
     path('', include(router.urls)),
