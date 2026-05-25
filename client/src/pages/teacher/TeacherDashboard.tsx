@@ -92,7 +92,13 @@ export default function TeacherDashboard() {
       setGradeForm({ activityGrade: 10, homeworkTopic: '', homeworkFile: null, studentAbsent: false });
       void fetchDashboard();
     } catch (err) {
-      setGradeError(extractErrorMessage(err));
+      const data = (err as { response?: { data?: unknown } })?.response?.data;
+      const msg = typeof data === 'string'
+        ? data
+        : (data as Record<string, unknown[]>)?.activity_grade?.[0]?.toString()
+          || (data as Record<string, string>)?.error
+          || 'Помилка збереження оцінки';
+      setGradeError(msg);
     } finally {
       setGrading(false);
     }

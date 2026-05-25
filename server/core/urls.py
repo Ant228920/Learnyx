@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.conf import settings
+from django.conf.urls.static import static
 from datetime import datetime, timezone
 
 from api.health import health_check
@@ -15,6 +17,9 @@ urlpatterns = [
     # Маршрути для користувачів, логіну та заявок
     path("api/", include("users.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
 def handler404(request, exception):

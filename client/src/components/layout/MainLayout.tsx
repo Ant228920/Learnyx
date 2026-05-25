@@ -13,6 +13,13 @@ function roleDashboard(role: string): string {
 export default function MainLayout() {
   const { openModal, user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (user && location.pathname === '/') {
+      void navigate(roleDashboard(user.role));
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();

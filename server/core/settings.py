@@ -137,6 +137,10 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ── Media files (lesson material uploads) ─────────────────────
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # ── Email Configuration (MOCK for development) ────────────────
 # Листи не відправлятимуться реально, а виводитимуться в консоль Docker
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
