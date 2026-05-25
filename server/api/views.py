@@ -116,7 +116,7 @@ class ApplicantRejectView(APIView):
 
 class ApproveRegistrationRequestView(APIView):
     """Сценарій 2: Апрув заявки менеджером та створення акаунту."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsManager]
 
     def post(self, request, pk):
         reg_request = get_object_or_404(RegistrationRequest, pk=pk)
@@ -686,6 +686,9 @@ class BonusBalanceView(APIView):
 
     def get(self, request, student_id):
         student = get_object_or_404(Student, pk=student_id)
+        role = request.user.role_obj.name.lower() if request.user.role_obj else ''
+        if role != 'manager' and student.user_id != request.user.pk:
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
         return Response({'student_id': student_id, **get_bonus_balance(student)})
 
 
@@ -1096,30 +1099,31 @@ class PackagePurchaseView(APIView):
             return Response({'detail': 'No course configured.'}, status=status.HTTP_400_BAD_REQUEST)
 
         from decimal import Decimal
-        final_price = plan.price
-        discount_pct = Decimal('0')
-        discount_applied = False
-
         cutoff = timezone.now() - timezone.timedelta(days=180)
-        completion = CourseCompletion.objects.filter(
-            student=student, is_discount_used=False, earned_discount__gt=0,
-            completed_at__gte=cutoff,
-        ).order_by('-earned_discount').first()
-
-        if completion:
-            discount_pct = completion.earned_discount
-            final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
-            discount_applied = True
-
-        if role == 'student' and student.money_balance < final_price:
-            return Response({
-                'error': 'Недостатньо коштів на балансі',
-                'required': float(final_price),
-                'available': float(student.money_balance),
-            }, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             student_locked = Student.objects.select_for_update().get(pk=student.pk)
+            completion = CourseCompletion.objects.select_for_update().filter(
+                student=student, is_discount_used=False, earned_discount__gt=0,
+                completed_at__gte=cutoff,
+            ).order_by('-earned_discount').first()
+
+            final_price = plan.price
+            discount_pct = Decimal('0')
+            discount_applied = False
+
+            if completion:
+                discount_pct = completion.earned_discount
+                final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
+                discount_applied = True
+
+            if role == 'student' and student_locked.money_balance < final_price:
+                return Response({
+                    'error': 'Недостатньо коштів на балансі',
+                    'required': float(final_price),
+                    'available': float(student_locked.money_balance),
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             student_locked.money_balance -= final_price
             student_locked.save(update_fields=['money_balance'])
             Package.objects.filter(student=student, status='active').update(status='completed')

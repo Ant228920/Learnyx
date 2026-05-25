@@ -1306,3 +1306,58 @@ class HomeworkWithFileIntegrationTest(TestCase):
             'teacher_homework_task': {'description': 'Hijack'},
         }, format='json')
         self.assertEqual(resp.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# Security: bonus double-spend prevention (select_for_update inside atomic)
+# ---------------------------------------------------------------------------
+
+class ConcurrentBonusUseTest(TestCase):
+    """PackagePurchaseView fetches CourseCompletion inside atomic with select_for_update.
+    Sequential purchases prove the lock: first call consumes the bonus, second finds
+    is_discount_used=True and applies no discount."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.student_user = _make_user('cb_student@test.test', 'Student')
+        self.student = Student.objects.create(user=self.student_user)
+        Student.objects.filter(pk=self.student.pk).update(money_balance=9999)
+        self.student.refresh_from_db()
+
+        discipline, _ = Discipline.objects.get_or_create(name='Math')
+        course, _ = Course.objects.get_or_create(
+            discipline=discipline,
+            defaults={'title': 'Math 101', 'total_lessons_course': 20},
+        )
+        self.plan = PackagePlan.objects.create(
+            name='Lock test', total_lessons=5, price=50,
+        )
+        self.completion = CourseCompletion.objects.create(
+            student=self.student,
+            course=course,
+            earned_discount=10,
+            is_discount_used=False,
+            completed_at=timezone.now() - timezone.timedelta(days=10),
+        )
+
+    def _url(self):
+        return f'/api/v1/packages/{self.plan.pk}/purchase/'
+
+    def test_second_purchase_does_not_apply_already_used_bonus(self):
+        """First call uses the bonus; second call finds is_discount_used=True → no discount."""
+        self.client.force_authenticate(user=self.student_user)
+
+        resp1 = self.client.post(self._url(), {})
+        self.assertEqual(resp1.status_code, 201)
+        self.assertTrue(resp1.data['discount_applied'])
+
+        self.completion.refresh_from_db()
+        self.assertTrue(self.completion.is_discount_used)
+
+        # Re-fill balance so the second purchase can proceed
+        Student.objects.filter(pk=self.student.pk).update(money_balance=9999)
+
+        resp2 = self.client.post(self._url(), {})
+        self.assertEqual(resp2.status_code, 201)
+        self.assertFalse(resp2.data['discount_applied'])
+        self.assertEqual(resp2.data['discount_pct'], 0.0)
