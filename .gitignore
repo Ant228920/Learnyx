@@ -5,7 +5,8 @@ db.sqlite3
 .env
 /.env
 .idea/
-
+US_AUDIT.md
+server/media/
 # Node / Frontend
 node_modules/
 dist/
