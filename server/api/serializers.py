@@ -153,12 +153,13 @@ class StudentListSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name')
     email = serializers.EmailField(source='user.email')
     phone = serializers.CharField(source='user.phone', allow_null=True, default=None)
+    telegram_nickname = serializers.CharField(source='user.nickname', allow_null=True, default=None)
     level = serializers.CharField(source='level.name', allow_null=True, default=None)
     lessons_balance = serializers.IntegerField()
 
     class Meta:
         model = Student
-        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'level', 'lessons_balance']
+        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'telegram_nickname', 'level', 'lessons_balance']
 
 
 class JournalListSerializer(serializers.ModelSerializer):
@@ -229,6 +230,30 @@ class AssignLessonSerializer(serializers.Serializer):
 class HomeworkSerializer(serializers.Serializer):
     teacher_homework_task = serializers.JSONField()
     homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
+    # LEAR-67: optional file attachment — saved as LessonMaterial on the lesson
+    file = serializers.FileField(required=False)
+    file_title = serializers.CharField(max_length=200, required=False, default='Homework material')
+
+    def validate_file(self, value):
+        if value:
+            from api.validators import validate_file_size, validate_file_extension
+            validate_file_size(value)
+            validate_file_extension(value)
+        return value
+
+
+# ── LEAR-75 ──────────────────────────────────────────────────────────────────
+
+class HomeworkGradeSerializer(serializers.Serializer):
+    homework_grade = serializers.IntegerField(
+        min_value=1,
+        max_value=10,
+        error_messages={
+            'required': 'Ви не оцінили виконання домашнього завдання',
+            'null': 'Ви не оцінили виконання домашнього завдання',
+            'invalid': 'Ви не оцінили виконання домашнього завдання',
+        },
+    )
 
 
 # ── LEAR-75 ──────────────────────────────────────────────────────────────────
@@ -282,6 +307,29 @@ class PackagePlanSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'total_lessons', 'price', 'description', 'is_active']
 
 
+class StudentAvailablePackageSerializer(serializers.ModelSerializer):
+    """Package records pre-created for a student and available for purchase."""
+    class Meta:
+        model = Package
+        fields = ['id', 'total_lessons', 'balance', 'final_price', 'discount', 'status']
+
+
+class ManagerPackageSerializer(serializers.ModelSerializer):
+    """Full package info for manager views — includes student name."""
+    student_name = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj) -> str:
+        try:
+            u = obj.student.user
+            return f'{u.first_name} {u.last_name}'.strip() or u.email
+        except Exception:
+            return '—'
+
+    class Meta:
+        model = Package
+        fields = ['id', 'student', 'student_name', 'total_lessons', 'balance', 'final_price', 'discount', 'status', 'purchased_at']
+
+
 class LearningRequestSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_email = serializers.SerializerMethodField()
@@ -304,6 +352,12 @@ class LearningRequestSerializer(serializers.ModelSerializer):
 
 
 class LearningRequestCreateSerializer(serializers.ModelSerializer):
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=Package.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
         model = LearningRequest
         fields = ['subject', 'level', 'preferred_days', 'preferred_time', 'notes', 'package']

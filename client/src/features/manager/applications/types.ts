@@ -6,7 +6,7 @@ export interface Application {
   level: string;
   email: string;
   phone: string;
-  telegram: string;
+  telegram_nickname: string;
   date: string;
   avatarBg: string;
 }

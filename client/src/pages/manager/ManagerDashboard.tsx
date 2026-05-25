@@ -146,13 +146,17 @@ export default function ManagerDashboard() {
                   </div>
 
                   <div className="flex flex-col w-44 flex-shrink-0">
-                    <span className="font-inter font-semibold text-slate-800 text-sm">{reg.subject}</span>
-                    <span className="font-inter text-[#565d6d] text-xs">{reg.level}</span>
+                    {reg.subject && <span className="font-inter font-semibold text-slate-800 text-sm">{reg.subject}</span>}
+                    {reg.level && <span className="font-inter text-[#565d6d] text-xs">{reg.level}</span>}
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <IconCalendar />
-                    <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">{reg.date}</span>
+                    {reg.date && (
+                      <>
+                        <IconCalendar />
+                        <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">{reg.date}</span>
+                      </>
+                    )}
                   </div>
 
                   <button
@@ -202,9 +206,11 @@ export default function ManagerDashboard() {
                   { label: 'НОМЕР ТЕЛЕФОНУ', value: selectedUser.phone, icon: <IconPhone /> },
                   { label: 'ЕЛЕКТРОННА ПОШТА', value: selectedUser.email, icon: <IconMail /> },
                   { label: 'TELEGRAM НІКНЕЙМ', value: selectedUser.telegram, icon: <IconAt /> },
-                  { label: 'ОБРАНИЙ ПРЕДМЕТ', value: selectedUser.subject, icon: <IconBook /> },
-                  { label: 'РІВЕНЬ ПІДГОТОВКИ', value: selectedUser.level, icon: <IconTrend /> },
-                ].map((field) => (
+                  ...(selectedUser.role === 'Вчитель' ? [
+                    { label: 'ОБРАНИЙ ПРЕДМЕТ', value: selectedUser.subject, icon: <IconBook /> },
+                    { label: 'РІВЕНЬ ПІДГОТОВКИ', value: selectedUser.level, icon: <IconTrend /> },
+                  ] : []),
+                ].filter(field => field.value).map((field) => (
                   <div key={field.label} className="flex flex-col gap-1 pb-3 border-b border-[#f4f4f6] last:border-0 last:pb-0">
                     <span className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[1px] uppercase">
                       {field.label}

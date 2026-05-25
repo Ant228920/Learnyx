@@ -16,3 +16,16 @@ PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
 # capture emails in memory instead of printing to console
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+
+# Tests must not reach the real Dropbox
+import tempfile
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+MEDIA_ROOT = tempfile.gettempdir() + '/learnyx_test_media'
+
+DROPBOX_APP_KEY = ''
+DROPBOX_APP_SECRET = ''
+DROPBOX_REFRESH_TOKEN = ''
