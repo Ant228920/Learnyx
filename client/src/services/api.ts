@@ -207,6 +207,7 @@ export function extractErrorMessage(error: unknown): string {
       phone: 'Телефон',
       full_name: 'ПІБ',
       telegram_nickname: 'Telegram нікнейм',
+      start_time: 'Час початку',
       role: 'Роль',
       subject: 'Предмет',
       level: 'Рівень',
@@ -223,6 +224,7 @@ export function extractErrorMessage(error: unknown): string {
       'Invalid pk': 'Невірний ідентифікатор.',
       'No active account found': 'Акаунт не знайдено або пароль невірний.',
       'Невірний email або пароль': 'Невірний email або пароль.',
+      'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час для слоту.',
     };
 
     for (const key of ['message', 'detail', 'error']) {

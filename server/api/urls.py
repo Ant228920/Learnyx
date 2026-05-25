@@ -27,6 +27,8 @@ from api.views import (
     StudentLearningRequestView,
     ManagerLearningRequestsView,
     ReviewView,
+    PackagePlanCatalogView,
+    PackagePlanPurchaseView,
 )
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
@@ -45,6 +47,8 @@ urlpatterns = [
     path('v1/packages/', PackagePlanListView.as_view(), name='package-plans'),
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
     path('v1/packages/<int:pk>/purchase/', PackagePurchaseView.as_view(), name='package-purchase'),
+    path('v1/package-plans/', PackagePlanCatalogView.as_view(), name='package-plan-catalog'),
+    path('v1/package-plans/<int:pk>/purchase/', PackagePlanPurchaseView.as_view(), name='package-plan-purchase'),
     path('v1/students/available/', AvailableStudentListView.as_view(), name='student-available'),
     path('v1/students/', StudentListView.as_view(), name='student-list'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),

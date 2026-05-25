@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useManagerMatching, useManagerLearningRequests } from '../../features/manager/matching';
 import ManagerLayout from './ManagerLayout';
 import { apiClient, extractErrorMessage } from '../../services/api';
+import type { LearningRequestItem } from '../../services/api';
 
 interface Slot {
   id: number;
@@ -31,6 +32,10 @@ const LEVELS_ENGLISH = ['A1 - Початковий', 'A2 - Елементарн�
 const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
 const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
 const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
+const MANAGER_TIME_OPTIONS = Array.from({ length: 27 }, (_, i) => {
+  const total = 8 * 60 + i * 30;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+});
 
 function getLevels(subject: string): string[] {
   return subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER;
@@ -78,6 +83,11 @@ export default function ManagerMatching() {
   const [assignError, setAssignError] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<LearningRequestItem | null>(null);
+  const [managerDays, setManagerDays] = useState<string[]>([]);
+  const [managerTimeFrom, setManagerTimeFrom] = useState('08:00');
+  const [managerTimeTo, setManagerTimeTo] = useState('12:00');
+  const [successCount, setSuccessCount] = useState(0);
 
   useEffect(() => {
     if (!student && rawStudents.length > 0) {
@@ -106,35 +116,69 @@ export default function ManagerMatching() {
   const handleSearch = async () => {
     setSearching(true);
     setAssignError('');
+    const searchSubject = selectedRequest ? selectedRequest.subject : subject;
+    const searchLevel = selectedRequest ? selectedRequest.level : level;
+    const searchDays = selectedRequest?.preferred_days
+      ? selectedRequest.preferred_days.split(', ').filter(Boolean)
+      : managerDays;
+    const searchTimeFrom = selectedRequest?.preferred_time?.split('-')[0] ?? managerTimeFrom;
+    const searchTimeTo = selectedRequest?.preferred_time?.split('-')[1] ?? managerTimeTo;
     try {
-      const res = await apiClient.get('/teachers/');
-      const raw = (Array.isArray(res.data) ? res.data : []) as Array<{
+      const [teachersRes, slotsRes] = await Promise.all([
+        apiClient.get('/teachers/'),
+        apiClient.get('/slots/available/'),
+      ]);
+      const raw = (Array.isArray(teachersRes.data) ? teachersRes.data : []) as Array<{
         user_id: number; email: string; first_name: string; last_name: string;
         discipline?: string | null; level?: string | null;
       }>;
 
       let filtered = raw;
 
-      if (subject) {
-        const subLower = subject.toLowerCase();
+      if (searchSubject) {
+        const subLower = searchSubject.toLowerCase();
         filtered = filtered.filter(t => {
           const disc = (t.discipline ?? '').toLowerCase();
           return disc === '' || disc.includes(subLower) || subLower.includes(disc);
         });
       }
 
-      if (level) {
-        const lvlLower = level.toLowerCase();
+      if (searchLevel) {
+        const lvlLower = searchLevel.toLowerCase();
         filtered = filtered.filter(t => {
           const lvl = (t.level ?? '').toLowerCase();
           return lvl === '' || lvl.includes(lvlLower) || lvlLower.includes(lvl);
         });
       }
 
-      // If filters narrowed to zero, show all (subject/level may not be set on teachers yet)
       const source = filtered.length > 0 ? filtered : raw;
 
-      const cards: Teacher[] = source.map((t, i) => ({
+      // Group available slots by teacher user_id for day/time filtering
+      const allSlots = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<{
+        id: number; teacher: { user_id: number }; start_time: string;
+      }>;
+      const slotsByTeacher: Record<number, Array<{ start_time: string }>> = {};
+      for (const s of allSlots) {
+        const tid = s.teacher.user_id;
+        if (!slotsByTeacher[tid]) slotsByTeacher[tid] = [];
+        slotsByTeacher[tid].push(s);
+      }
+
+      let finalSource = source;
+      if (searchDays.length > 0) {
+        const withMatchingSlots = source.filter(t =>
+          (slotsByTeacher[t.user_id] ?? []).some(s => {
+            const dayName = new Date(s.start_time).toLocaleDateString('uk-UA', { weekday: 'long' });
+            const slotTime = s.start_time.slice(11, 16);
+            const dayOk = searchDays.some(d => dayName.toLowerCase().includes(d.toLowerCase()));
+            const timeOk = slotTime >= searchTimeFrom && slotTime < searchTimeTo;
+            return dayOk && timeOk;
+          })
+        );
+        if (withMatchingSlots.length > 0) finalSource = withMatchingSlots;
+      }
+
+      const cards: Teacher[] = finalSource.map((t, i) => ({
         id: t.user_id,
         name: `${t.first_name} ${t.last_name}`.trim() || t.email,
         experience: '—',
@@ -192,23 +236,45 @@ export default function ManagerMatching() {
         return;
       }
 
-      // 3. Try to match a slot by requested day, otherwise take first
-      let chosenSlot = slotsData[0];
-      if (slots.length > 0) {
-        const matched = slotsData.find(ts => {
-          const dayName = new Date(ts.start_time).toLocaleDateString('uk-UA', { weekday: 'long' });
-          return slots.some(s => dayName.toLowerCase().includes(s.day.toLowerCase()));
-        });
-        if (matched) chosenSlot = matched;
+      // 3. Determine filter criteria from selected request or manager form
+      const searchDays = selectedRequest?.preferred_days
+        ? selectedRequest.preferred_days.split(', ').filter(Boolean)
+        : managerDays;
+      const searchTimeFrom = selectedRequest?.preferred_time?.split('-')[0] ?? managerTimeFrom;
+      const searchTimeTo = selectedRequest?.preferred_time?.split('-')[1] ?? managerTimeTo;
+
+      // 4. Filter slots by days + time range; fall back to first slot if none match
+      let slotsToBook = slotsData.filter(ts => {
+        const dayName = new Date(ts.start_time).toLocaleDateString('uk-UA', { weekday: 'long' });
+        const slotTime = ts.start_time.slice(11, 16);
+        const dayOk = searchDays.length === 0 || searchDays.some(d => dayName.toLowerCase().includes(d.toLowerCase()));
+        const timeOk = slotTime >= searchTimeFrom && slotTime < searchTimeTo;
+        return dayOk && timeOk;
+      });
+      if (slotsToBook.length === 0) slotsToBook = [slotsData[0]];
+
+      // 5. Book all matching slots, skip conflicts
+      let bookedCount = 0;
+      for (const slotToBook of slotsToBook) {
+        try {
+          await apiClient.post('/lessons/assign/', {
+            slot: slotToBook.id,
+            student: selectedStudentObj.id,
+            package: studentPackage.id,
+          });
+          bookedCount++;
+        } catch {
+          // Skip — slot already booked or student conflict at this time
+        }
       }
 
-      // 4. Assign lesson
-      await apiClient.post('/lessons/assign/', {
-        slot: chosenSlot.id,
-        student: selectedStudentObj.id,
-        package: studentPackage.id,
-      });
+      if (bookedCount === 0) {
+        setAssignError('Не вдалося призначити жодного заняття. Всі підходящі слоти вже зайняті або конфліктують.');
+        setAssignLoading(false);
+        return;
+      }
 
+      setSuccessCount(bookedCount);
       setSuccessTeacher(teacher.name);
       setTeachers([]);
       setSearched(false);
@@ -246,7 +312,20 @@ export default function ManagerMatching() {
             <h2 className="font-poppins font-bold text-slate-900 text-xl">Запити від студентів</h2>
             <div className="flex flex-col gap-3">
               {requests.map((req) => (
-                <div key={req.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6]">
+                <div key={req.id}
+                  className={`flex items-center gap-4 p-4 bg-white rounded-2xl border cursor-pointer transition-colors ${
+                    selectedRequest?.id === req.id ? 'border-[#1f8cf9] bg-blue-50/50' : 'border-[#dee1e6] hover:border-[#1f8cf9]/50'
+                  }`}
+                  onClick={() => {
+                    if (selectedRequest?.id === req.id) {
+                      setSelectedRequest(null);
+                    } else {
+                      setSelectedRequest(req);
+                      setSubject(req.subject);
+                      setLevel(getLevels(req.subject)[0]);
+                    }
+                  }}
+                >
                   <div className="flex flex-col gap-0.5 flex-1">
                     <span className="font-inter font-bold text-slate-900 text-sm">{req.student_name || req.student_email}</span>
                     <span className="font-inter text-[#565d6d] text-xs">
@@ -330,6 +409,60 @@ export default function ManagerMatching() {
                       {getLevels(subject).map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                     <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Дні тижня</label>
+                <div className="flex flex-wrap gap-2">
+                  {DAYS.map(day => (
+                    <button key={day} type="button"
+                      onClick={() => setManagerDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
+                      className={`px-3 py-1.5 rounded-xl font-inter text-xs font-medium border transition-colors ${
+                        managerDays.includes(day) ? 'bg-[#1f8cf9] text-white border-[#1f8cf9]' : 'bg-white text-[#565d6d] border-[#dee1e6] hover:border-[#1f8cf9]'
+                      }`}>
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Час</label>
+                <div className="flex items-end gap-2">
+                  <div className="flex flex-col gap-1 flex-1">
+                    <span className="font-inter text-[#565d6d] text-xs">З</span>
+                    <div className="relative">
+                      <select
+                        value={managerTimeFrom}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setManagerTimeFrom(val);
+                          if (managerTimeTo <= val) {
+                            const nextIdx = MANAGER_TIME_OPTIONS.indexOf(val) + 1;
+                            setManagerTimeTo(MANAGER_TIME_OPTIONS[nextIdx] ?? '21:00');
+                          }
+                        }}
+                        aria-label="Час початку"
+                        className={selectClass}>
+                        {MANAGER_TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 flex-1">
+                    <span className="font-inter text-[#565d6d] text-xs">До</span>
+                    <div className="relative">
+                      <select
+                        value={managerTimeTo}
+                        onChange={e => setManagerTimeTo(e.target.value)}
+                        aria-label="Час завершення"
+                        className={selectClass}>
+                        {MANAGER_TIME_OPTIONS.filter(t => t > managerTimeFrom).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -477,7 +610,7 @@ export default function ManagerMatching() {
             </div>
             <h2 className="font-poppins font-bold text-xl text-slate-900 text-center">Готово!</h2>
             <p className="font-inter text-sm text-[#565d6d] text-center">
-              Викладача <strong>{successTeacher}</strong> успішно призначено студенту.
+              Призначено <strong>{successCount}</strong> занять з викладачем <strong>{successTeacher}</strong>.
             </p>
             <button onClick={() => setSuccessTeacher(null)}
               className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">

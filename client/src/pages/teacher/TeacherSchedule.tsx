@@ -2,17 +2,16 @@ import { useState } from 'react';
 import TeacherLayout from './TeacherLayout';
 import { useTeacherSchedule } from '../../features/teacher/schedule';
 import type { SlotItem } from '../../features/teacher/schedule';
+import { apiClient, extractErrorMessage } from '../../services/api';
 
 const DAYS_HEADER = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'НД'];
-const TODAY = new Date().getDate();
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth(); // 0-indexed
+const MONTH_NAMES = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
 
-function buildCalendar() {
-  const firstDay = new Date(CURRENT_YEAR, CURRENT_MONTH, 1).getDay();
+function buildCalendar(year: number, month: number) {
+  const firstDay = new Date(year, month, 1).getDay();
   const startOffset = firstDay === 0 ? 6 : firstDay - 1;
-  const daysInMonth = new Date(CURRENT_YEAR, CURRENT_MONTH + 1, 0).getDate();
-  const prevMonthDays = new Date(CURRENT_YEAR, CURRENT_MONTH, 0).getDate();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
   const cells: Array<{ day: number; prev?: boolean; next?: boolean }> = [];
   for (let i = 0; i < startOffset; i++) cells.push({ day: prevMonthDays - startOffset + 1 + i, prev: true });
   for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d });
@@ -21,26 +20,53 @@ function buildCalendar() {
   return cells;
 }
 
-const MONTH_NAMES = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
-
 export default function TeacherSchedule() {
-  const { slotsByDay, loading, error, createSlot, deleteSlot } = useTeacherSchedule();
+  const { slotsByDay, loading, error, createSlot, deleteSlot, refetch } = useTeacherSchedule();
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [dayModal, setDayModal] = useState<number | null>(null);
   const [cancelSlot, setCancelSlot] = useState<SlotItem & { day: number } | null>(null);
   const [freeFrom, setFreeFrom] = useState('08:30');
   const [freeTo, setFreeTo] = useState('09:30');
-  const cells = buildCalendar();
+  const [cancelError, setCancelError] = useState('');
+
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();
+  const today = new Date();
+  const todayDate = today.getDate();
+  const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
+
+  const cells = buildCalendar(currentYear, currentMonth);
+
+  const prevMonth = () => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const nextMonth = () => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
+  const handleCancelLesson = async (slot: SlotItem) => {
+    if (!confirm('Скасувати це заняття?')) return;
+    setCancelError('');
+    try {
+      const lessonsRes = await apiClient.get(`/lessons/?slot_id=${slot.id}`);
+      const raw = lessonsRes.data as { results?: unknown[] } | unknown[];
+      const lessons = (Array.isArray(raw) ? raw : (raw as { results?: unknown[] }).results ?? []) as Array<{ id: number }>;
+      if (lessons.length > 0) {
+        await apiClient.patch(`/lessons/${lessons[0].id}/cancel/`);
+      }
+      await deleteSlot(slot.id);
+      void refetch();
+    } catch (err) {
+      setCancelError(extractErrorMessage(err));
+    }
+  };
+
   const handleAddFreeSlot = async () => {
     if (!dayModal) return;
     const pad = (n: number) => String(n).padStart(2, '0');
-    const month = pad(CURRENT_MONTH + 1);
+    const month = pad(currentMonth + 1);
     const day = pad(dayModal);
-    const startIso = `${CURRENT_YEAR}-${month}-${day}T${freeFrom}:00`;
-    const endIso = `${CURRENT_YEAR}-${month}-${day}T${freeTo}:00`;
+    const startIso = `${currentYear}-${month}-${day}T${freeFrom}:00`;
+    const endIso = `${currentYear}-${month}-${day}T${freeTo}:00`;
     try {
       await createSlot(startIso, endIso);
     } catch { /* error shown by hook */ }
@@ -64,11 +90,11 @@ export default function TeacherSchedule() {
             <p className="font-inter text-[#565d6d] text-lg mt-2">Керуйте вашим навчальним часом та новими заняттями.</p>
           </div>
           <div className="flex items-center gap-2 border border-[#dee1e6] rounded-xl px-4 py-2.5 bg-white">
-            <button type="button" aria-label="Попередній місяць" title="Попередній місяць" className="text-[#565d6d] hover:text-slate-900">
+            <button type="button" onClick={prevMonth} aria-label="Попередній місяць" title="Попередній місяць" className="text-[#565d6d] hover:text-slate-900">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
-            <span className="font-inter font-semibold text-slate-900 text-sm px-2">{MONTH_NAMES[CURRENT_MONTH]} {CURRENT_YEAR}</span>
-            <button type="button" aria-label="Наступний місяць" title="Наступний місяць" className="text-[#565d6d] hover:text-slate-900">
+            <span className="font-inter font-semibold text-slate-900 text-sm px-2">{MONTH_NAMES[currentMonth]} {currentYear}</span>
+            <button type="button" onClick={nextMonth} aria-label="Наступний місяць" title="Наступний місяць" className="text-[#565d6d] hover:text-slate-900">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
           </div>
@@ -84,7 +110,7 @@ export default function TeacherSchedule() {
             <div key={wi} className="grid grid-cols-7">
               {cells.slice(wi * 7, wi * 7 + 7).map((cell, ci) => {
                 const slots = (!cell.prev && !cell.next && slotsByDay[cell.day]) || [];
-                const isToday = cell.day === TODAY && !cell.prev && !cell.next;
+                const isToday = cell.day === todayDate && !cell.prev && !cell.next && isCurrentMonth;
                 const total = slots.length;
                 return (
                   <div key={ci}
@@ -131,7 +157,7 @@ export default function TeacherSchedule() {
           role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl animate-fade-in overflow-hidden">
             <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <h2 className="font-poppins font-bold text-slate-900 text-xl">День — {dayModal} {MONTH_NAMES[CURRENT_MONTH]} {CURRENT_YEAR}</h2>
+              <h2 className="font-poppins font-bold text-slate-900 text-xl">День — {dayModal} {MONTH_NAMES[currentMonth]} {currentYear}</h2>
               <button type="button" onClick={() => setDayModal(null)} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
@@ -151,12 +177,18 @@ export default function TeacherSchedule() {
                     <span className="font-inter font-semibold text-slate-800 text-sm">{slot.time}</span>
                     {slot.is_booked && <span className="text-[10px] font-inter text-[#f5a83d]">(забронійовано)</span>}
                   </div>
-                  {!slot.is_booked && (
-                    <button type="button" onClick={() => { setCancelSlot({ ...slot, day: dayModal }); setDayModal(null); }}
-                      className="font-inter text-[#e64c4c] text-xs hover:underline">Видалити</button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {slot.is_booked ? (
+                      <button type="button" onClick={() => void handleCancelLesson(slot)}
+                        className="font-inter text-red-500 hover:text-red-600 text-xs underline">Скасувати</button>
+                    ) : (
+                      <button type="button" onClick={() => { setCancelSlot({ ...slot, day: dayModal }); setDayModal(null); }}
+                        className="font-inter text-[#e64c4c] text-xs hover:underline">Видалити</button>
+                    )}
+                  </div>
                 </div>
               ))}
+              {cancelError && <p className="font-inter text-red-500 text-xs">{cancelError}</p>}
             </div>
 
             <div className="border-t border-[#dee1e6] px-6 py-4">
@@ -204,7 +236,7 @@ export default function TeacherSchedule() {
             <div className="flex flex-col gap-2 p-4 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
               <div className="flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                <span className="font-inter font-bold text-slate-900 text-sm">{cancelSlot.day} {MONTH_NAMES[CURRENT_MONTH]} {CURRENT_YEAR}</span>
+                <span className="font-inter font-bold text-slate-900 text-sm">{cancelSlot.day} {MONTH_NAMES[currentMonth]} {currentYear}</span>
               </div>
               <div className="flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>

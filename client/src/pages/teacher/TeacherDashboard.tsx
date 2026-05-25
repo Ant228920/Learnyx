@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import TeacherLayout from './TeacherLayout';
 import { useAuth } from '../../app/providers';
-import { teacherApi, extractErrorMessage } from '../../services/api';
+import { teacherApi, apiClient, extractErrorMessage } from '../../services/api';
 import type { TeacherDashboard as DashboardData } from '../../services/api';
 
 interface UploadedFile { id: number; name: string; size: string; type: string; }
@@ -19,15 +19,16 @@ export default function TeacherDashboard() {
   const [apiError, setApiError] = useState('');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [showAllFiles, setShowAllFiles] = useState(false);
-  const [gradeLesson, setGradeLesson] = useState<DashboardData['today_lessons'][0] | null>(null);
+  const [gradeModal, setGradeModal] = useState<DashboardData['today_lessons'][0] | null>(null);
   const [linkModal, setLinkModal] = useState(false);
   const [linkLessonId, setLinkLessonId] = useState<number | null>(null);
-  const [gradeForm, setGradeForm] = useState({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' });
+  const [gradeForm, setGradeForm] = useState({ activityGrade: 10, homeworkTopic: '', homeworkFile: null as File | null, studentAbsent: false });
   const [gradeSuccess, setGradeSuccess] = useState('');
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState('');
   const [gradedIds, setGradedIds] = useState<number[]>([]);
-  const [gradeLoading, setGradeLoading] = useState(false);
+  const [startedLessons, setStartedLessons] = useState<Set<number>>(new Set());
+  const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,27 +56,45 @@ export default function TeacherDashboard() {
     if (e.target) e.target.value = '';
   };
 
+  const handleStartLesson = (lesson: DashboardData['today_lessons'][0]) => {
+    if (!lesson.meeting_link) {
+      setLinkLessonId(lesson.lesson_id ?? null);
+      setLinkModal(true);
+      return;
+    }
+    window.open(lesson.meeting_link, '_blank', 'noopener,noreferrer');
+    if (lesson.lesson_id) {
+      setStartedLessons(prev => new Set([...prev, lesson.lesson_id!]));
+    }
+  };
+
+  const fetchDashboard = () => teacherApi.getDashboard().then(setData).catch(() => {});
+
   const handleGradeSubmit = async () => {
-    if (!gradeLesson?.lesson_id) return;
-    setGradeLoading(true);
+    if (!gradeModal?.lesson_id) return;
+    setGrading(true);
     setGradeError('');
     try {
-      await teacherApi.evaluateLesson(gradeLesson.lesson_id, {
-        is_present: gradeForm.isPresent,
-        activity_grade: gradeForm.isPresent ? gradeForm.activityGrade : undefined,
-        homework_grade: gradeForm.isPresent && gradeForm.homeworkGrade > 0 ? gradeForm.homeworkGrade : undefined,
-        teacher_notes: gradeForm.notes || undefined,
-      });
-      await teacherApi.setLessonStatus(gradeLesson.lesson_id, gradeForm.isPresent ? 'conducted' : 'student_missed');
-      setGradedIds(p => [...p, gradeLesson.lesson_id!]);
+      if (gradeForm.studentAbsent) {
+        await apiClient.patch(`/lessons/${gradeModal.lesson_id}/status/`, { status: 'student_missed' });
+        await teacherApi.evaluateLesson(gradeModal.lesson_id, { is_present: false, activity_grade: 0 });
+      } else {
+        await teacherApi.evaluateLesson(gradeModal.lesson_id, {
+          is_present: true,
+          activity_grade: gradeForm.activityGrade,
+          teacher_homework_task: gradeForm.homeworkTopic || undefined,
+        });
+        await teacherApi.setLessonStatus(gradeModal.lesson_id, 'conducted');
+      }
+      setGradedIds(p => [...p, gradeModal.lesson_id!]);
       setGradeSuccess('Оцінку виставлено успішно!');
-      setGradeLesson(null);
-      setGradeForm({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' });
-      teacherApi.getDashboard().then(setData).catch(() => {});
+      setGradeModal(null);
+      setGradeForm({ activityGrade: 10, homeworkTopic: '', homeworkFile: null, studentAbsent: false });
+      void fetchDashboard();
     } catch (err) {
       setGradeError(extractErrorMessage(err));
     } finally {
-      setGradeLoading(false);
+      setGrading(false);
     }
   };
 
@@ -151,7 +170,7 @@ export default function TeacherDashboard() {
               <div className="bg-white rounded-2xl border border-[#dee1e6] overflow-hidden">
                 {data.today_lessons.map((lesson, i) => {
                   const graded = gradedIds.includes(lesson.lesson_id ?? -1);
-                  const canGrade = lesson.can_start || graded;
+                  const started = lesson.lesson_id ? startedLessons.has(lesson.lesson_id) : false;
                   return (
                     <div key={lesson.slot_id} className={`flex items-center gap-6 px-6 py-5 ${i > 0 ? 'border-t border-[#dee1e6]' : ''}`}>
                       <span className="font-inter font-bold text-slate-900 text-sm w-28 flex-shrink-0">
@@ -164,31 +183,35 @@ export default function TeacherDashboard() {
                       <div className="flex items-center gap-3 flex-shrink-0">
                         {graded ? (
                           <span className="px-4 py-2 bg-gray-100 rounded-xl font-inter font-semibold text-gray-400 text-sm">Оцінено</span>
-                        ) : (
+                        ) : lesson.lesson_id ? (
                           <>
-                            {lesson.meeting_link ? (
+                            {!lesson.meeting_link ? (
                               <button type="button"
-                                onClick={() => window.open(lesson.meeting_link!, '_blank', 'noopener,noreferrer')}
+                                onClick={() => { setLinkLessonId(lesson.lesson_id ?? null); setLinkModal(true); }}
+                                className="px-4 py-2 border border-[#1f8cf9] text-[#1f8cf9] rounded-xl font-inter text-sm hover:bg-blue-50 transition-colors">
+                                Додати посилання
+                              </button>
+                            ) : started ? (
+                              <>
+                                <button type="button" disabled
+                                  className="px-4 py-2 bg-gray-200 text-gray-500 rounded-xl font-inter text-sm cursor-not-allowed">
+                                  Урок розпочато
+                                </button>
+                                <button type="button"
+                                  onClick={() => setGradeModal(lesson)}
+                                  className="px-4 py-2 bg-[#1f8cf9] text-white rounded-xl font-inter text-sm hover:bg-blue-600 transition-colors">
+                                  Поставити оцінку
+                                </button>
+                              </>
+                            ) : (
+                              <button type="button"
+                                onClick={() => handleStartLesson(lesson)}
                                 className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
                                 Розпочати урок
                               </button>
-                            ) : (
-                              <button type="button"
-                                onClick={() => { setLinkLessonId(lesson.lesson_id ?? null); setLinkModal(true); }}
-                                className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
-                                Додати посилання
-                              </button>
                             )}
-                            <button type="button"
-                              disabled={!canGrade}
-                              onClick={() => canGrade && lesson.lesson_id && setGradeLesson(lesson)}
-                              title={!canGrade ? 'Доступно після початку уроку' : ''}
-                              className={`px-4 py-2 rounded-xl font-inter font-semibold text-sm flex items-center gap-1.5 transition-colors ${canGrade ? 'bg-[#1f8cf9] text-white hover:bg-blue-600' : 'bg-gray-50 border border-[#dee1e6] text-gray-300 cursor-not-allowed'}`}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
-                              Поставити оцінку
-                            </button>
                           </>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -254,53 +277,84 @@ export default function TeacherDashboard() {
       </div>
 
       {/* Grade Modal */}
-      {gradeLesson && (
+      {gradeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) { setGradeLesson(null); setGradeForm({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' }); } }}
+          onClick={e => { if (e.target === e.currentTarget) { setGradeModal(null); setGradeForm({ activityGrade: 10, homeworkTopic: '', homeworkFile: null, studentAbsent: false }); } }}
           role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl animate-fade-in p-8 flex flex-col gap-5">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl p-8 flex flex-col gap-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-poppins font-bold text-slate-900 text-xl">Поставити оцінку</h2>
-              <button type="button" onClick={() => { setGradeLesson(null); setGradeForm({ isPresent: true, activityGrade: 10, homeworkGrade: 0, notes: '' }); }} aria-label="Закрити" title="Закрити" className="text-[#9095a1] hover:text-slate-600">
+              <h2 className="font-poppins font-bold text-xl text-slate-900">Поставити оцінку</h2>
+              <button onClick={() => { setGradeModal(null); setGradeForm({ activityGrade: 10, homeworkTopic: '', homeworkFile: null, studentAbsent: false }); }} className="text-[#9095a1] hover:text-slate-900">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
 
-            <label className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100 cursor-pointer">
-              <input type="checkbox" checked={gradeForm.isPresent} onChange={e => setGradeForm(f => ({ ...f, isPresent: e.target.checked }))} className="w-4 h-4 accent-[#1f8cf9]" />
-              <span className="font-inter font-medium text-slate-800 text-sm">Присутній на уроці</span>
+            <label className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100 cursor-pointer">
+              <input type="checkbox"
+                checked={gradeForm.studentAbsent}
+                onChange={e => setGradeForm(p => ({ ...p, studentAbsent: e.target.checked, activityGrade: 0 }))}
+                className="w-4 h-4 rounded" />
+              <span className="font-inter font-medium text-red-700 text-sm">Учень не з'явився на урок</span>
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="activity-grade" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за активність</label>
-                <input id="activity-grade" type="number" min={1} max={12} value={gradeForm.activityGrade}
-                  onChange={e => setGradeForm(f => ({ ...f, activityGrade: Math.min(12, Math.max(1, parseInt(e.target.value) || 1)) }))}
-                  disabled={!gradeForm.isPresent}
-                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] disabled:bg-[#f8f9fb] disabled:text-[#9095a1]" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="hw-grade" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка за ДЗ</label>
-                <input id="hw-grade" type="number" min={0} max={12} value={gradeForm.homeworkGrade}
-                  onChange={e => setGradeForm(f => ({ ...f, homeworkGrade: Math.min(12, Math.max(0, parseInt(e.target.value) || 0)) }))}
-                  disabled={!gradeForm.isPresent}
-                  placeholder="Не обов'язково"
-                  className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] disabled:bg-[#f8f9fb] disabled:text-[#9095a1]" />
-              </div>
-            </div>
+            {!gradeForm.studentAbsent && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <label className="font-inter font-bold text-slate-900 text-sm">Оцінка за урок</label>
+                  <select
+                    value={gradeForm.activityGrade}
+                    onChange={e => setGradeForm(p => ({ ...p, activityGrade: Number(e.target.value) }))}
+                    className="border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]">
+                    {Array.from({ length: 11 }, (_, i) => (
+                      <option key={i} value={i}>{i === 0 ? '0 — не оцінювати' : `${i}/10`}</option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="flex flex-col gap-1">
-              <label htmlFor="teacher-notes" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Коментар вчителя</label>
-              <textarea id="teacher-notes" value={gradeForm.notes} onChange={e => setGradeForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Додаткові нотатки..." rows={3}
-                className="w-full border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
-            </div>
+                <div className="flex flex-col gap-2">
+                  <label className="font-inter font-bold text-slate-900 text-sm">Тема домашнього завдання</label>
+                  <input type="text"
+                    value={gradeForm.homeworkTopic}
+                    onChange={e => setGradeForm(p => ({ ...p, homeworkTopic: e.target.value }))}
+                    placeholder="Введіть тему ДЗ..."
+                    className="border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
+                </div>
 
-            {gradeError && <p className="text-sm text-red-600 font-inter">{gradeError}</p>}
+                <div className="flex flex-col gap-2">
+                  <label className="font-inter font-bold text-slate-900 text-sm">Завантажити файл домашнього завдання</label>
+                  <div className="border-2 border-dashed border-[#dee1e6] rounded-xl p-5 text-center hover:border-[#1f8cf9] transition-colors">
+                    <input type="file" id="hw-file" className="hidden"
+                      accept=".pdf,.docx,.jpg,.png"
+                      onChange={e => setGradeForm(p => ({ ...p, homeworkFile: e.target.files?.[0] ?? null }))} />
+                    <label htmlFor="hw-file" className="cursor-pointer flex flex-col items-center gap-2">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9095a1" strokeWidth="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      <span className="font-inter text-[#565d6d] text-sm">Перетягніть файл або натисніть</span>
+                      <span className="font-inter text-[#9095a1] text-xs">PDF, DOCX, JPG до 10MB</span>
+                    </label>
+                  </div>
+                  {gradeForm.homeworkFile && (
+                    <div className="flex items-center gap-3 p-3 bg-[#f4f4f6] rounded-xl">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      <span className="font-inter text-slate-800 text-sm flex-1">{gradeForm.homeworkFile.name}</span>
+                      <button onClick={() => setGradeForm(p => ({ ...p, homeworkFile: null }))} className="text-[#9095a1] hover:text-red-500">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
-            <button type="button" onClick={() => void handleGradeSubmit()} disabled={gradeLoading}
-              className="w-full py-3.5 bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors">
-              {gradeLoading ? 'Збереження...' : 'Підтвердити оцінку'}
+            {gradeError && <p className="font-inter text-red-600 text-sm">{gradeError}</p>}
+
+            <button type="button" onClick={() => void handleGradeSubmit()} disabled={grading}
+              className="py-3 w-full bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white hover:bg-blue-600 disabled:opacity-50">
+              {grading ? 'Зберігаємо...' : gradeForm.studentAbsent ? 'Позначити відсутність' : 'Підтвердити оцінку'}
             </button>
           </div>
         </div>

@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
 import StudentLayout from './StudentLayout';
 import { useAuth } from '../../app/providers';
-import { studentApi, extractErrorMessage } from '../../services/api';
+import { studentApi, apiClient, extractErrorMessage } from '../../services/api';
 import type { StudentDashboard as DashboardData } from '../../services/api';
-
-// Час завантаження сторінки — поза компонентом, не порушує чистоту
-const PAGE_LOAD_TIME = new Date();
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -15,6 +12,7 @@ export default function StudentDashboard() {
   const [complaintOpen, setComplaintOpen] = useState(false);
   const [complaintSent, setComplaintSent] = useState(false);
   const [joinError, setJoinError] = useState('');
+  const [complainSent, setComplainSent] = useState<number | null>(null);
 
   useEffect(() => {
     studentApi.getDashboard()
@@ -26,13 +24,33 @@ export default function StudentDashboard() {
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
 
-  const minutesUntil = (iso: string) => Math.floor((new Date(iso).getTime() - PAGE_LOAD_TIME.getTime()) / 60000);
-
   const handleJoinLesson = (meetingLink: string | null) => {
     if (meetingLink) {
       window.open(meetingLink, '_blank', 'noopener,noreferrer');
     } else {
       setJoinError('Викладач ще не додав посилання на урок. Очікуйте повідомлення.');
+    }
+  };
+
+  const getLessonAction = (lesson: DashboardData['today_lessons'][0]) => {
+    if (lesson.meeting_link) return 'join';
+    const startTime = new Date(lesson.start_time);
+    const now = new Date();
+    const minutesUntilStart = (startTime.getTime() - now.getTime()) / (1000 * 60);
+    if (minutesUntilStart <= 15 && minutesUntilStart > -60) return 'complain';
+    return 'waiting';
+  };
+
+  const handleComplain = async (lesson: DashboardData['today_lessons'][0]) => {
+    try {
+      await apiClient.post('/user-requests/', {
+        title: `Вчитель не розпочав урок вчасно. Урок ID: ${lesson.lesson_id ?? ''}`,
+        status: 'new',
+      });
+      setComplainSent(lesson.lesson_id ?? null);
+      alert('Скаргу надіслано менеджеру. Урок не буде списано з абонементу.');
+    } catch (err) {
+      alert(extractErrorMessage(err));
     }
   };
 
@@ -114,7 +132,7 @@ export default function StudentDashboard() {
                       } />
                   </div>
                   <div className="flex justify-between">
-                    {['85%', '90%', '95%'].map(v => (
+                    {['5%', '10%', '15%'].map(v => (
                       <span key={v} className="font-inter font-bold text-xs text-[#565d6d]">{v}</span>
                     ))}
                   </div>
@@ -142,9 +160,8 @@ export default function StudentDashboard() {
               {data?.today_lessons && data.today_lessons.length > 0 ? (
                 <div className="bg-white rounded-2xl border border-[#dee1e6] shadow-[0px_1px_2.5px_#171a1f12] overflow-hidden">
                   {data.today_lessons.map((lesson, i) => {
-                    const mins = minutesUntil(lesson.start_time);
-                    const isSoon = mins > 0 && mins <= 15;
-                    const isActive = mins <= 0 && minutesUntil(lesson.end_time) > 0;
+                    const action = getLessonAction(lesson);
+                    const alreadyComplained = complainSent === lesson.lesson_id;
                     return (
                       <article key={lesson.lesson_id}
                         className={`flex items-center justify-between gap-6 px-6 py-5 ${i > 0 ? 'border-t border-[#dee1e6]' : ''}`}>
@@ -156,46 +173,27 @@ export default function StudentDashboard() {
                         </div>
                         <p className="font-inter font-medium text-[#171a1f] text-base flex-1">{lesson.teacher}</p>
                         <div className="flex items-center gap-3 flex-shrink-0">
-                          {isActive ? (
-                            <>
-                              <button type="button"
-                                onClick={() => handleJoinLesson(lesson.meeting_link)}
-                                className="px-4 py-1.5 bg-[#1f8cf9] rounded-md font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
-                                Приєднатися до уроку
-                              </button>
-                              <button type="button" onClick={() => setComplaintOpen(true)}
-                                className="px-4 py-1.5 border border-red-500 rounded-md font-inter font-semibold text-red-500 text-sm hover:bg-red-50 transition-colors">
-                                Поскаржитись
-                              </button>
-                            </>
-                          ) : isSoon ? (
-                            <>
-                              <span className="px-3 py-1.5 bg-orange-50 rounded-md font-inter font-semibold text-orange-500 text-sm">
-                                Через {mins} хв
+                          {action === 'join' ? (
+                            <button type="button"
+                              onClick={() => handleJoinLesson(lesson.meeting_link)}
+                              className="px-4 py-1.5 bg-[#1f8cf9] rounded-md font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
+                              Приєднатися до уроку
+                            </button>
+                          ) : action === 'complain' ? (
+                            alreadyComplained ? (
+                              <span className="px-4 py-1.5 bg-orange-50 rounded-md font-inter font-semibold text-orange-500 text-sm">
+                                Скаргу надіслано
                               </span>
-                              <button type="button" onClick={() => setComplaintOpen(true)}
-                                className="px-4 py-1.5 border border-red-500 rounded-md font-inter font-semibold text-red-500 text-sm hover:bg-red-50 transition-colors">
+                            ) : (
+                              <button type="button" onClick={() => void handleComplain(lesson)}
+                                className="px-4 py-1.5 bg-orange-500 rounded-md font-inter font-semibold text-white text-sm hover:bg-orange-600 transition-colors">
                                 Поскаржитись
                               </button>
-                            </>
-                          ) : mins > 15 ? (
-                            <>
-                              <span className="px-3 py-1.5 bg-[#f4f4f6] rounded-md font-inter font-semibold text-[#565d6d] text-sm">
-                                Через {mins} хв
-                              </span>
-                              <button type="button" disabled
-                                className="px-4 py-1.5 bg-gray-50 border border-[#dee1e6] rounded-md font-inter font-semibold text-gray-300 text-sm cursor-not-allowed">
-                                Поскаржитись
-                              </button>
-                            </>
+                            )
                           ) : (
-                            <>
-                              <span className="px-4 py-1.5 bg-gray-100 rounded-md font-inter font-semibold text-gray-400 text-sm">Завершено</span>
-                              <button type="button" onClick={() => setComplaintOpen(true)}
-                                className="px-4 py-1.5 border border-red-500 rounded-md font-inter font-semibold text-red-500 text-sm hover:bg-red-50 transition-colors">
-                                Поскаржитись
-                              </button>
-                            </>
+                            <span className="px-3 py-1.5 bg-gray-100 rounded-md font-inter font-semibold text-gray-400 text-sm">
+                              Очікуйте посилання
+                            </span>
                           )}
                         </div>
                       </article>

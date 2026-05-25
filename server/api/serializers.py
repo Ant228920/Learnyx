@@ -153,12 +153,13 @@ class StudentListSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name')
     email = serializers.EmailField(source='user.email')
     phone = serializers.CharField(source='user.phone', allow_null=True, default=None)
+    telegram_nickname = serializers.CharField(source='user.nickname', allow_null=True, default=None)
     level = serializers.CharField(source='level.name', allow_null=True, default=None)
     lessons_balance = serializers.IntegerField()
 
     class Meta:
         model = Student
-        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'level', 'lessons_balance']
+        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'telegram_nickname', 'level', 'lessons_balance']
 
 
 class JournalListSerializer(serializers.ModelSerializer):

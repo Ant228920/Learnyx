@@ -296,8 +296,10 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign'):
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework'):
             return [IsTeacher()]
+        if self.action == 'assign':
+            return [(IsTeacher | IsManager)()]
         if self.action in ('upcoming', 'cancel'):
             return [IsStudent()]
         return [IsAuthenticated()]
@@ -507,7 +509,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=False, methods=['post'], url_path='assign')
     def assign(self, request):
-        """LEAR-182: Teacher assigns a free student to their own slot (atomic)."""
+        """LEAR-182: Teacher or Manager assigns a student to a slot (atomic)."""
         serializer = AssignLessonSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -515,12 +517,15 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         student = serializer.validated_data['student']
         curriculum_lesson = serializer.validated_data.get('curriculum_lesson')
 
-        teacher = get_object_or_404(Teacher, user=request.user)
-        if slot.teacher_id != teacher.pk:
-            return Response(
-                {'detail': 'You can only assign students to your own slots.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Teachers must own the slot; managers can assign any slot
+        role = getattr(getattr(request.user, 'role_obj', None), 'name', '').lower()
+        if role == 'teacher':
+            teacher = get_object_or_404(Teacher, user=request.user)
+            if slot.teacher_id != teacher.pk:
+                return Response(
+                    {'detail': 'You can only assign students to your own slots.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         # Resolve package: use supplied or pick student's active package
         package = serializer.validated_data.get('package')
@@ -566,7 +571,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 curriculum_lesson=curriculum_lesson,
             )
 
-        logger.info(f'Lesson {lesson.id} assigned by teacher {teacher.pk}: student {student.pk}, slot {slot.pk}')
+        logger.info(f'Lesson {lesson.id} assigned by user {request.user.id}: student {student.pk}, slot {slot.pk}')
         return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='homework')
@@ -645,6 +650,7 @@ class TeacherListView(APIView):
                 'first_name': t.user.first_name,
                 'last_name': t.user.last_name,
                 'phone': t.user.phone or None,
+                'telegram_nickname': t.user.nickname or None,
                 'discipline': t.discipline.name if t.discipline else None,
                 'level': t.level.name if t.level else None,
             }
@@ -1064,6 +1070,79 @@ class StudentBalanceTopUpView(APIView):
             'added': amount,
             'message': f'Баланс поповнено на ₴{amount:.0f}',
         })
+
+
+class PackagePlanCatalogView(APIView):
+    """GET /package-plans/ — list active PackagePlan templates for students."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        plans = PackagePlan.objects.filter(is_active=True).order_by('total_lessons')
+        data = [
+            {
+                'id': p.id,
+                'total_lessons': p.total_lessons,
+                'price': str(p.price),
+                'description': p.description,
+            }
+            for p in plans
+        ]
+        return Response(data)
+
+
+class PackagePlanPurchaseView(APIView):
+    """POST /package-plans/<pk>/purchase/ — create an active Package from a plan template."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from decimal import Decimal
+
+        plan = get_object_or_404(PackagePlan, pk=pk, is_active=True)
+        student = get_object_or_404(Student, user=request.user)
+
+        existing = Package.objects.filter(student=student, status='active').first()
+        if existing:
+            return Response(
+                {'detail': 'У вас вже є активний абонемент.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        bonus_pct = int(request.data.get('bonus_discount_pct', 0) or 0)
+        base_price = Decimal(str(plan.price))
+        final_price = base_price * (Decimal('1') - Decimal(str(bonus_pct)) / Decimal('100'))
+
+        if student.money_balance < final_price:
+            return Response(
+                {'detail': f'Недостатньо коштів. Баланс: ₴{student.money_balance:.0f}. Потрібно: ₴{final_price:.0f}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course = Course.objects.filter(is_active=True).first()
+        if not course:
+            return Response(
+                {'detail': 'Немає доступних курсів. Зверніться до менеджера.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        student.money_balance -= final_price
+        student.save(update_fields=['money_balance'])
+
+        pkg = Package.objects.create(
+            student=student,
+            course=course,
+            total_lessons=plan.total_lessons,
+            balance=plan.total_lessons,
+            final_price=final_price,
+            discount=Decimal(str(bonus_pct)),
+            status='active',
+        )
+
+        return Response({
+            'message': f'Абонемент на {plan.total_lessons} уроків придбано!',
+            'package_id': pkg.id,
+            'total_lessons': plan.total_lessons,
+            'final_price': str(final_price),
+        }, status=status.HTTP_201_CREATED)
 
 
 class TeacherFinancesView(APIView):

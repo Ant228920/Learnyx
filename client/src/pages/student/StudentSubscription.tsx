@@ -3,7 +3,6 @@ import StudentLayout from './StudentLayout';
 import { useStudentSubscription } from '../../features/student/subscription';
 import { studentApi, apiClient, extractErrorMessage } from '../../services/api';
 
-const PLAN_FEATURES = ['Доступ до всіх лекцій 24/7', 'Стандартна підтримка куратора', 'Доступ через мобільний додаток', 'Сертифікат про завершення курсу'];
 const SUBJECT_OPTIONS = [
   { value: 'english', label: 'Англійська мова' },
   { value: 'math', label: 'Математика' },
@@ -53,7 +52,6 @@ export default function StudentSubscription() {
   const { subData, loading, error, moneyBalance, bonusDiscountPct, topUp } = useStudentSubscription();
   const [pagePlans, setPagePlans] = useState(DEFAULT_PLANS as typeof DEFAULT_PLANS);
   const [purchasing, setPurchasing] = useState<number | null>(null);
-  const [purchasedIds, setPurchasedIds] = useState<number[]>([]);
   const [purchaseError, setPurchaseError] = useState('');
   const [purchaseSuccess, setPurchaseSuccess] = useState('');
   const [showTopUp, setShowTopUp] = useState(false);
@@ -111,8 +109,9 @@ export default function StudentSubscription() {
       const res = await apiClient.post(`/packages/${plan.id}/purchase/`);
       const data = res.data as { package_id?: number; total_lessons?: number; message?: string };
       setPurchasedPackageId(data.package_id ?? plan.id);
-      setPurchasedIds(prev => [...prev, plan.id]);
       setPurchaseSuccess(data.message ?? `Абонемент на ${data.total_lessons ?? plan.total_lessons} уроків успішно придбано!`);
+      // Remove purchased plan from the list
+      setPagePlans(prev => prev.filter(p => p.id !== plan.id));
     } catch (err) {
       setPurchaseError(extractErrorMessage(err));
     } finally {
@@ -229,16 +228,9 @@ export default function StudentSubscription() {
               </div>
             )}
           </div>
+          </div>
           <div className="grid grid-cols-3 gap-6">
-            {pagePlans.filter(p => !purchasedIds.includes(p.id)).length === 0 ? (
-              <div className="col-span-3 p-8 bg-white rounded-2xl border border-[#dee1e6] text-center">
-                <svg className="mx-auto mb-3" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="1.5">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-                <p className="font-poppins font-bold text-slate-900 text-lg">Абонемент придбано!</p>
-                <p className="font-inter text-[#565d6d] text-sm mt-2">Ваш абонемент активний. Розпочніть навчання.</p>
-              </div>
-            ) : pagePlans.filter(p => !purchasedIds.includes(p.id)).map(plan => (
+            {pagePlans.map(plan => (
               <div key={plan.id}
                 className={`flex flex-col gap-4 p-6 bg-white rounded-2xl border transition-all ${
                   plan.popular ? 'border-[#1f8cf9] shadow-[0px_4px_24px_#1f8cf920]' : 'border-[#dee1e6]'
@@ -320,8 +312,7 @@ export default function StudentSubscription() {
           </div>
 
         </div>
-      </div>
-
+ 
       {/* Purchase success modal */}
       {purchaseSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"

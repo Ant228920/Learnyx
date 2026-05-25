@@ -10,7 +10,7 @@ function avatarBg(id: number): string {
 }
 
 function formatDate(raw?: string): string {
-  if (!raw) return '—';
+  if (!raw) return '';
   return new Date(raw).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
@@ -18,13 +18,13 @@ function formatDate(raw?: string): string {
 function mapRequest(r: any): Application {
   return {
     id: r.id,
-    name: r.full_name ?? '—',
+    name: r.full_name ?? '',
     role: r.role === 'student' ? 'Учень' : 'Вчитель',
-    subject: r.subject ?? '—',
-    level: r.level ?? '—',
-    email: r.email ?? '—',
-    phone: r.phone ?? '—',
-    telegram_nickname: r.telegram_nickname ?? '—',
+    subject: r.subject ?? '',
+    level: r.level ?? '',
+    email: r.email ?? '',
+    phone: r.phone ?? '',
+    telegram_nickname: r.telegram_nickname ?? '',
     date: formatDate(r.created_at),
     avatarBg: avatarBg(r.id),
   };

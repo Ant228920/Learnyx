@@ -9,7 +9,7 @@ function avatarBg(id: number): string {
 }
 
 function formatDate(raw?: string): string {
-  if (!raw) return '—';
+  if (!raw) return '';
   return new Date(raw).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
@@ -19,11 +19,11 @@ function toRegistration(u: any, role: DashboardRegistration['role']): DashboardR
     id: u.user_id ?? u.id ?? 0,
     name: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
     role,
-    subject: u.subject ?? u.discipline ?? '—',
-    phone: u.phone ?? '—',
-    email: u.email ?? '—',
-    telegram: u.telegram_nickname ?? '—',
-    level: u.level ?? '—',
+    subject: u.subject ?? u.discipline ?? '',
+    phone: u.phone ?? '',
+    email: u.email ?? '',
+    telegram: u.telegram_nickname ?? '',
+    level: u.level ?? '',
     date: formatDate(u.created_at),
     avatarBg: avatarBg(u.user_id ?? u.id ?? 0),
   };

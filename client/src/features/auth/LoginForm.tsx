@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconEye, IconEyeOff, IconMail } from '../../components/layout/icons';
-import { authApi, extractErrorMessage } from '../../services/api';
+import { authApi, profileApi, extractErrorMessage } from '../../services/api';
 import { useAuth } from '../../app/providers';
 
 interface Props {
@@ -39,22 +39,27 @@ export default function LoginForm({ onSuccess }: Props) {
     try {
       const data = await authApi.login({ email, password });
 
-      // Зберігаємо refresh токен
       localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('token', data.accessToken);
 
-      const raw = data.user.role ?? '';
-      const role = (raw.charAt(0).toUpperCase() + raw.slice(1)) as 'Student' | 'Teacher' | 'Manager' | 'Admin';
-
-      const normalizedUser = {
+      const baseUser = {
         ...data.user,
         role: (data.user.role ?? '').toLowerCase() as 'student' | 'teacher' | 'manager' | 'admin',
       };
 
-      login(data.accessToken, normalizedUser);
+      let phone: string | undefined;
+      let nickname: string | undefined;
+      try {
+        const profile = await profileApi.get() as { phone?: string; telegram_nickname?: string };
+        if (profile.phone) phone = profile.phone;
+        if (profile.telegram_nickname) nickname = profile.telegram_nickname;
+      } catch { /* proceed without phone/nickname */ }
+
+      login(data.accessToken, { ...baseUser, phone, nickname });
       onSuccess?.();
 
       setTimeout(() => {
-        void navigate(getRedirectPath(normalizedUser.role));
+        void navigate(getRedirectPath(baseUser.role));
       }, 0);
     } catch (err) {
       setError(extractErrorMessage(err));
