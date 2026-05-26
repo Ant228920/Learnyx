@@ -6,6 +6,8 @@ from api.views import (
     ApproveRegistrationRequestView,
     ApplicantRejectView,
     PackagePlanListView,
+    PackagePlanCatalogView,
+    PackagePlanPurchaseView,
     ActivatePackageView,
     StudentBalanceView,
     SlotViewSet,
