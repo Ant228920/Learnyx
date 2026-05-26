@@ -1,14 +1,14 @@
 from django.urls import path, include
 from .views import PackagePlanCatalogView, PackagePlanPurchaseView
 from rest_framework.routers import DefaultRouter
-from users.views import LoginView, TokenRefreshView
+from users.views import LoginView, TokenRefreshView, StudentBalanceView
+from inventory.views import PackagePurchaseView
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
     ApplicantRejectView,
     PackagePlanListView,
     ActivatePackageView,
-    StudentBalanceView,
     SlotViewSet,
     LessonViewSet,
     BonusBalanceView,
@@ -19,7 +19,6 @@ from api.views import (
     JournalListView,
     AvailableStudentListView,
     LessonArchiveView,
-    PackagePurchaseView,
     ProfileView,
     TeacherFinancesView,
     ManagerSubscriptionsView,
