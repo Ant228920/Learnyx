@@ -65,6 +65,8 @@ class Command(BaseCommand):
         )
 
         # 7. Створюємо Демо-Студента та Викладача (щоб не чіпати твого вимкненого студента)
+        student_role = Role.objects.get(name='Student')
+        teacher_role = Role.objects.get(name='Teacher')
         user_demo_student, _ = User.objects.get_or_create(
             email='demo_student@learnyx.com', 
             defaults={'username': 'demo_student', 'first_name': 'Олег', 'last_name': 'Демо', 'role_obj': student_role}
