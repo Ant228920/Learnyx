@@ -554,7 +554,6 @@ class HomeworkGradeIntegrationTest(TestCase):
         self.assertEqual(record.homework_status, JournalRecord.HomeworkStatus.REVIEWED)
         self.assertIsNotNone(record.reviewed_at)
 
-    @unittest.skip("404 instead of 403: view does Teacher lookup before permission check — to fix")
     def test_student_cannot_grade_homework(self):
         """Student trying to grade → 403."""
         self.client.force_authenticate(user=self.student_user)
@@ -639,7 +638,6 @@ class StudentReportIntegrationTest(TestCase):
 # LEAR-72: 180-day bonus expiry in PackagePurchaseView
 # ---------------------------------------------------------------------------
 
-@unittest.skip("POST to /packages/<pk>/purchase/ returns 404 — endpoint expects Package.pk not PackagePlan.pk")
 class BonusExpiryTest(TestCase):
     """Expired CourseCompletion (> 180 days) must not be applied during purchase."""
 
@@ -658,6 +656,14 @@ class BonusExpiryTest(TestCase):
         self.plan = PackagePlan.objects.create(
             name='Basic', total_lessons=8, price=100,
         )
+        self.package = Package.objects.create(
+            student=self.student,
+            course=course,
+            total_lessons=self.plan.total_lessons,
+            balance=self.plan.total_lessons,
+            final_price=str(self.plan.price),
+            status='available',
+        )
 
         # Expired completion — 200 days ago
         self.expired_completion = CourseCompletion.objects.create(
@@ -669,7 +675,7 @@ class BonusExpiryTest(TestCase):
         )
 
     def _url(self):
-        return f'/api/v1/packages/{self.plan.pk}/purchase/'
+        return f'/api/v1/packages/{self.package.pk}/purchase/'
 
     def test_expired_bonus_not_applied(self):
         """Bonus older than 180 days → discount_applied=False, full price charged."""
@@ -1232,7 +1238,7 @@ class HomeworkWithFileIntegrationTest(TestCase):
         self.student = Student.objects.create(user=self.student_user)
 
         self.package = _make_package(self.student, balance=5)
-        self.lesson = _make_conducted_lesson(self.teacher, self.student, self.package)
+        self.lesson = _make_lesson_with_slot(self.teacher, self.student, self.package, hours_delta=-2, status='conducted')
 
     def _url(self):
         return f'/api/v1/lessons/{self.lesson.pk}/homework/'
@@ -1244,7 +1250,6 @@ class HomeworkWithFileIntegrationTest(TestCase):
             content = b'X' * size
         return SimpleUploadedFile(name, content, content_type='application/pdf')
 
-    @unittest.skip("returns 200 instead of 201 — endpoint logic changed in develop merge")
     def test_json_only_creates_journal_record_no_material(self):
         """JSON POST (no file) → 201, JournalRecord created, no LessonMaterial."""
         self.client.force_authenticate(user=self.teacher_user)
@@ -1265,7 +1270,6 @@ class HomeworkWithFileIntegrationTest(TestCase):
         record = JournalRecord.objects.get(lesson=self.lesson)
         self.assertEqual(record.teacher_homework_task, {'description': 'Updated'})
 
-    @unittest.skip("returns 200 instead of 201 — endpoint logic changed in develop merge")
     def test_multipart_with_valid_pdf_creates_material(self):
         """Multipart POST with PDF → 201, LessonMaterial created, attached_material in response."""
         self.client.force_authenticate(user=self.teacher_user)
@@ -1317,7 +1321,6 @@ class HomeworkWithFileIntegrationTest(TestCase):
 # Security: bonus double-spend prevention (select_for_update inside atomic)
 # ---------------------------------------------------------------------------
 
-@unittest.skip("POST to /packages/<pk>/purchase/ returns 404 — endpoint expects Package.pk not PackagePlan.pk")
 class ConcurrentBonusUseTest(TestCase):
     """PackagePurchaseView fetches CourseCompletion inside atomic with select_for_update.
     Sequential purchases prove the lock: first call consumes the bonus, second finds
@@ -1338,6 +1341,22 @@ class ConcurrentBonusUseTest(TestCase):
         self.plan = PackagePlan.objects.create(
             name='Lock test', total_lessons=5, price=50,
         )
+        self.package1 = Package.objects.create(
+            student=self.student,
+            course=course,
+            total_lessons=self.plan.total_lessons,
+            balance=self.plan.total_lessons,
+            final_price=str(self.plan.price),
+            status='available',
+        )
+        self.package2 = Package.objects.create(
+            student=self.student,
+            course=course,
+            total_lessons=self.plan.total_lessons,
+            balance=self.plan.total_lessons,
+            final_price=str(self.plan.price),
+            status='available',
+        )
         self.completion = CourseCompletion.objects.create(
             student=self.student,
             course=course,
@@ -1346,24 +1365,22 @@ class ConcurrentBonusUseTest(TestCase):
             completed_at=timezone.now() - timezone.timedelta(days=10),
         )
 
-    def _url(self):
-        return f'/api/v1/packages/{self.plan.pk}/purchase/'
-
     def test_second_purchase_does_not_apply_already_used_bonus(self):
         """First call uses the bonus; second call finds is_discount_used=True → no discount."""
         self.client.force_authenticate(user=self.student_user)
 
-        resp1 = self.client.post(self._url(), {})
+        resp1 = self.client.post(f'/api/v1/packages/{self.package1.pk}/purchase/', {})
         self.assertEqual(resp1.status_code, 201)
         self.assertTrue(resp1.data['discount_applied'])
 
         self.completion.refresh_from_db()
         self.assertTrue(self.completion.is_discount_used)
 
-        # Re-fill balance so the second purchase can proceed
+        # Complete first package and re-fill balance so the second purchase can proceed
+        Package.objects.filter(pk=self.package1.pk).update(status='completed')
         Student.objects.filter(pk=self.student.pk).update(money_balance=9999)
 
-        resp2 = self.client.post(self._url(), {})
+        resp2 = self.client.post(f'/api/v1/packages/{self.package2.pk}/purchase/', {})
         self.assertEqual(resp2.status_code, 201)
         self.assertFalse(resp2.data['discount_applied'])
         self.assertEqual(resp2.data['discount_pct'], 0.0)
