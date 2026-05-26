@@ -465,10 +465,7 @@ class LessonMaterialListSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.SerializerMethodField()
 
     def get_file_url(self, obj):
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.file.url)
-        return obj.file.url
+        return obj.file.url if obj.file else None
 
     def get_uploaded_by_name(self, obj):
         u = obj.uploaded_by.user
