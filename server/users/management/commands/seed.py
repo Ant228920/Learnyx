@@ -1,11 +1,7 @@
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-from users.models import Role, StudentLevel, TeacherLevel, User, Manager, Student
-from inventory.models import (
-    Discipline, Course, PackagePlan, 
-    Teacher, Material, CourseCompletion, 
-    Package, LearningRequest, Transaction
-)
+from users.models import Role, StudentLevel, TeacherLevel, User, Manager
+from inventory.models import Discipline, Course, PackagePlan
+
 
 class Command(BaseCommand):
     help = 'Наповнює базу даних стартовими (seed) даними'
@@ -49,7 +45,7 @@ class Command(BaseCommand):
         #    Actual Package records are created per-student on account approval.
         plans_data = [
             {'name': 'Стартовий', 'total_lessons': 8,  'price': '2400.00', 'description': 'Базовий пакет для початку навчання',         'is_active': True},
-            {'name': 'Стандарт',  'total_lessons': 10, 'price': '2900.00', 'description': 'Найпопулярніший вибір студентів',              'is_active': True},
+            {'name': 'Стандарт',  'total_lessons': 10, 'price': '2900.00', 'description': 'Найпопулярніший вибір студентів',             'is_active': True},
             {'name': 'Преміум',   'total_lessons': 12, 'price': '3400.00', 'description': 'Максимальний результат за мінімальну ціну',  'is_active': True},
         ]
         for plan_data in plans_data:
@@ -59,10 +55,6 @@ class Command(BaseCommand):
         # =========================================================
         # ЧАСТИНА 2: НОВІ ДАНІ ДЛЯ ЕТАПУ 5 (The Big Merge)
         # =========================================================
-        
-        # ДОДАНО: Отримуємо ролі, щоб прив'язати їх до демо-користувачів
-        student_role = Role.objects.get(name='Student')
-        teacher_role = Role.objects.get(name='Teacher')
 
         # 6. Створюємо тестову Дисципліну та Курс
         discipline, _ = Discipline.objects.get_or_create(name="Англійська мова")
@@ -73,24 +65,16 @@ class Command(BaseCommand):
         )
 
         # 7. Створюємо Демо-Студента та Викладача (щоб не чіпати твого вимкненого студента)
-        user_demo_student, created_student = User.objects.get_or_create(
+        user_demo_student, _ = User.objects.get_or_create(
             email='demo_student@learnyx.com', 
             defaults={'username': 'demo_student', 'first_name': 'Олег', 'last_name': 'Демо', 'role_obj': student_role}
         )
-        if created_student:
-            user_demo_student.set_password('student123')
-            user_demo_student.save()
-            
         demo_student, _ = Student.objects.get_or_create(user=user_demo_student, defaults={'money_balance': 2000.00})
 
-        user_demo_teacher, created_teacher = User.objects.get_or_create(
+        user_demo_teacher, _ = User.objects.get_or_create(
             email='demo_teacher@learnyx.com', 
             defaults={'username': 'demo_teacher', 'first_name': 'Олена', 'last_name': 'Вчитель', 'role_obj': teacher_role}
         )
-        if created_teacher:
-            user_demo_teacher.set_password('teacher123')
-            user_demo_teacher.save()
-            
         demo_teacher, _ = Teacher.objects.get_or_create(user=user_demo_teacher, defaults={'discipline': discipline, 'salary': 350.00})
 
         # 8. ТАРИФНІ ПЛАНИ (PackagePlans)
@@ -137,7 +121,7 @@ class Command(BaseCommand):
         # 12. ЗАЯВКА НА ПІДБІР ВИКЛАДАЧА (LearningRequest)
         LearningRequest.objects.get_or_create(
             student=demo_student,
-            subject="english",
+            subject="Англійська мова",
             defaults={
                 "package": test_package,
                 "level": "B2",

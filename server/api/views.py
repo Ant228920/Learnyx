@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets, mixins, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.parsers import MultiPartParser, JSONParser
+from rest_framework.parsers import MultiPartParser
 
 from api.models import RegistrationRequest
 from api.permissions import IsTeacher, IsStudent, IsManager
@@ -118,7 +118,7 @@ class ApplicantRejectView(APIView):
 
 class ApproveRegistrationRequestView(APIView):
     """Сценарій 2: Апрув заявки менеджером та створення акаунту."""
-    permission_classes = [IsManager]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         reg_request = get_object_or_404(RegistrationRequest, pk=pk)
@@ -334,7 +334,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign', 'grade_homework'):
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework'):
             return [IsTeacher()]
         if self.action == 'assign':
             return [(IsTeacher | IsManager)()]
@@ -619,14 +619,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         logger.info(f'Lesson {lesson.id} assigned by user {request.user.id}: student {student.pk}, slot {slot.pk}')
         return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post'], url_path='homework', parser_classes=[JSONParser, MultiPartParser])
+    @action(detail=True, methods=['post'], url_path='homework')
     def homework(self, request, pk=None):
-        """LEAR-186 + LEAR-67: Teacher sets homework text; optionally attaches a file.
-
-        Accepts both JSON and multipart/form-data.
-        When a file is present it is saved as a LessonMaterial on this lesson
-        and returned as `attached_material` in the response.
-        """
+        """LEAR-186: Teacher sets homework text (and optional URL) on a conducted lesson."""
         lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
 
         teacher = get_object_or_404(Teacher, user=request.user)
@@ -646,55 +641,12 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         serializer.is_valid(raise_exception=True)
 
         record, created = JournalRecord.objects.get_or_create(lesson=lesson)
-        homework_was_empty = not record.teacher_homework_task
         record.teacher_homework_task = serializer.validated_data['teacher_homework_task']
         record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
         record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
 
-        material = None
-        uploaded_file = serializer.validated_data.get('file')
-        if uploaded_file:
-            title = serializer.validated_data.get('file_title') or 'Homework material'
-            material = LessonMaterial.objects.create(
-                lesson=lesson,
-                uploaded_by=teacher,
-                title=title,
-                file=uploaded_file,
-            )
-            logger.info(
-                f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
-            )
-
-        http_status = status.HTTP_201_CREATED if (created or homework_was_empty) else status.HTTP_200_OK
-        data = JournalRecordSerializer(record).data
-        if material:
-            data['attached_material'] = LessonMaterialListSerializer(
-                material, context={'request': request}
-            ).data
-        return Response(data, status=http_status)
-
-    @action(detail=True, methods=['patch'], url_path='homework/grade')
-    def grade_homework(self, request, pk=None):
-        """LEAR-75: Teacher grades a student's homework (1–10) on a conducted lesson."""
-        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
-
-        teacher = get_object_or_404(Teacher, user=request.user)
-        if lesson.slot.teacher_id != teacher.pk:
-            return Response(
-                {'detail': 'You can only grade homework for your own lessons.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        serializer = HomeworkGradeSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
-        record.homework_grade = serializer.validated_data['homework_grade']
-        record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
-        record.reviewed_at = timezone.now()
-        record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
-
-        return Response(JournalRecordSerializer(record).data)
+        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(JournalRecordSerializer(record).data, status=http_status)
 
     @action(detail=True, methods=['patch'], url_path='homework/grade')
     def grade_homework(self, request, pk=None):
@@ -726,9 +678,6 @@ class BonusBalanceView(APIView):
 
     def get(self, request, student_id):
         student = get_object_or_404(Student, pk=student_id)
-        role = request.user.role_obj.name.lower() if request.user.role_obj else ''
-        if role != 'manager' and student.user_id != request.user.pk:
-            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
         return Response({'student_id': student_id, **get_bonus_balance(student)})
 
 
@@ -1176,46 +1125,31 @@ class PackagePurchaseView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        from decimal import Decimal
-        cutoff = timezone.now() - timezone.timedelta(days=180)
-
-        with transaction.atomic():
-            student_locked = Student.objects.select_for_update().get(pk=student.pk)
-            completion = CourseCompletion.objects.select_for_update().filter(
-                student=student, is_discount_used=False, earned_discount__gt=0,
-                completed_at__gte=cutoff,
-            ).order_by('-earned_discount').first()
-
-            final_price = plan.price
-            discount_pct = Decimal('0')
-            discount_applied = False
-
-            if completion:
-                discount_pct = completion.earned_discount
-                final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
-                discount_applied = True
-
-            if role == 'student' and student_locked.money_balance < final_price:
-                return Response({
-                    'error': 'Недостатньо коштів на балансі',
-                    'required': float(final_price),
-                    'available': float(student_locked.money_balance),
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            student_locked.money_balance -= final_price
-            student_locked.save(update_fields=['money_balance'])
-            Package.objects.filter(student=student, status='active').update(status='completed')
-            package = Package.objects.create(
-                student=student,
-                course=course,
-                total_lessons=plan.total_lessons,
-                balance=plan.total_lessons,
-                final_price=round(final_price, 2),
-                status='active',
+        if package.status == 'active':
+            return Response(
+                {'detail': 'Цей пакет вже активний.'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            if completion:
-                completion.is_discount_used = True
-                completion.save(update_fields=['is_discount_used'])
+
+        # Block purchase if student already has a different active package
+        existing_active = Package.objects.filter(student=student, status='active').exclude(pk=pk).first()
+        if existing_active:
+            return Response(
+                {'detail': 'У вас вже є активний абонемент. Завершіть поточний курс перед покупкою нового.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if package.status != 'available':
+            return Response(
+                {'detail': 'Цей пакет недоступний для покупки.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        package.status = 'active'
+        package.purchased_at = timezone.now()
+        package.save(update_fields=['status', 'purchased_at'])
+
+        logger.info(f'Package {pk} purchased by student {student.pk}')
 
         return Response({
             'package_id': package.id,

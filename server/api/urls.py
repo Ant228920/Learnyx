@@ -1,14 +1,13 @@
 from django.urls import path, include
-from .views import PackagePlanCatalogView, PackagePlanPurchaseView
 from rest_framework.routers import DefaultRouter
-from users.views import LoginView, TokenRefreshView, StudentBalanceView
-from inventory.views import PackagePurchaseView
+from users.views import LoginView, TokenRefreshView
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
     ApplicantRejectView,
     PackagePlanListView,
     ActivatePackageView,
+    StudentBalanceView,
     SlotViewSet,
     LessonViewSet,
     BonusBalanceView,
@@ -19,6 +18,7 @@ from api.views import (
     JournalListView,
     AvailableStudentListView,
     LessonArchiveView,
+    PackagePurchaseView,
     ProfileView,
     TeacherFinancesView,
     ManagerSubscriptionsView,
@@ -27,12 +27,8 @@ from api.views import (
     StudentLearningRequestView,
     ManagerLearningRequestsView,
     ReviewView,
-    StudentReportView,
-    ComplaintListCreateView,
-    ComplaintDetailView,
-    LessonMaterialView,
-    HomeworkDetailView,
-    HomeworkSubmitView,
+    PackagePlanCatalogView,
+    PackagePlanPurchaseView,
 )
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
