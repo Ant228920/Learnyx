@@ -506,12 +506,7 @@ class HomeworkDetailSerializer(serializers.ModelSerializer):
         return LessonMaterialListSerializer(qs, many=True, context={'request': request}).data
 
     def get_homework_file_url(self, obj):
-        if not obj.homework_file:
-            return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.homework_file.url)
-        return obj.homework_file.url
+        return obj.homework_file.url if obj.homework_file else None
 
     class Meta:
         model = JournalRecord
