@@ -1,13 +1,14 @@
 from django.urls import path, include
+from .views import PackagePlanCatalogView, PackagePlanPurchaseView
 from rest_framework.routers import DefaultRouter
-from users.views import LoginView, TokenRefreshView
+from users.views import LoginView, TokenRefreshView, StudentBalanceView
+from inventory.views import PackagePurchaseView
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
     ApplicantRejectView,
     PackagePlanListView,
     ActivatePackageView,
-    StudentBalanceView,
     SlotViewSet,
     LessonViewSet,
     BonusBalanceView,
@@ -18,7 +19,6 @@ from api.views import (
     JournalListView,
     AvailableStudentListView,
     LessonArchiveView,
-    PackagePurchaseView,
     ProfileView,
     TeacherFinancesView,
     ManagerSubscriptionsView,
@@ -27,8 +27,12 @@ from api.views import (
     StudentLearningRequestView,
     ManagerLearningRequestsView,
     ReviewView,
-    PackagePlanCatalogView,
-    PackagePlanPurchaseView,
+    StudentReportView,
+    ComplaintListCreateView,
+    ComplaintDetailView,
+    LessonMaterialView,
+    HomeworkDetailView,
+    HomeworkSubmitView,
 )
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
@@ -83,8 +87,22 @@ urlpatterns = [
     path('v1/manager/learning-requests/', ManagerLearningRequestsView.as_view(), name='manager-learning-requests'),
     path('v1/manager/learning-requests/<int:pk>/', ManagerLearningRequestsView.as_view(), name='manager-learning-request-detail'),
 
+    # ── Student report
+    path('v1/student/report/', StudentReportView.as_view(), name='student-report'),
+
     # ── Reviews
     path('v1/reviews/', ReviewView.as_view(), name='reviews'),
+
+    # ── Complaints
+    path('v1/complaints/', ComplaintListCreateView.as_view(), name='complaint-list'),
+    path('v1/complaints/<int:pk>/', ComplaintDetailView.as_view(), name='complaint-detail'),
+
+    # ── Lesson materials
+    path('v1/lessons/<int:lesson_id>/materials/', LessonMaterialView.as_view(), name='lesson-materials'),
+
+    # ── Homework (LEAR-74)
+    path('v1/homeworks/<int:pk>/', HomeworkDetailView.as_view(), name='homework-detail'),
+    path('v1/homeworks/<int:pk>/submit/', HomeworkSubmitView.as_view(), name='homework-submit'),
 
     # ── ViewSets
     path('', include(router.urls)),

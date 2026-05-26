@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
-from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest
+from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest, Complaint, LessonMaterial
 from users.models import Student, Review
 
 
@@ -230,6 +230,44 @@ class AssignLessonSerializer(serializers.Serializer):
 class HomeworkSerializer(serializers.Serializer):
     teacher_homework_task = serializers.JSONField()
     homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
+    # LEAR-67: optional file attachment — saved as LessonMaterial on the lesson
+    file = serializers.FileField(required=False)
+    file_title = serializers.CharField(max_length=200, required=False, default='Homework material')
+
+    def validate_file(self, value):
+        if value:
+            from api.validators import validate_file_size, validate_file_extension
+            validate_file_size(value)
+            validate_file_extension(value)
+        return value
+
+
+# ── LEAR-75 ──────────────────────────────────────────────────────────────────
+
+class HomeworkGradeSerializer(serializers.Serializer):
+    homework_grade = serializers.IntegerField(
+        min_value=1,
+        max_value=10,
+        error_messages={
+            'required': 'Ви не оцінили виконання домашнього завдання',
+            'null': 'Ви не оцінили виконання домашнього завдання',
+            'invalid': 'Ви не оцінили виконання домашнього завдання',
+        },
+    )
+
+
+# ── LEAR-75 ──────────────────────────────────────────────────────────────────
+
+class HomeworkGradeSerializer(serializers.Serializer):
+    homework_grade = serializers.IntegerField(
+        min_value=1,
+        max_value=10,
+        error_messages={
+            'required': 'Ви не оцінили виконання домашнього завдання',
+            'null': 'Ви не оцінили виконання домашнього завдання',
+            'invalid': 'Ви не оцінили виконання домашнього завдання',
+        },
+    )
 
 
 # ── LEAR-189/190 ────────────────────────────────────────────────────────────
@@ -339,3 +377,174 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def get_user_role(self, obj):
         return obj.user.role_obj.name if obj.user.role_obj else None
+
+
+# ── LEAR-84 ──────────────────────────────────────────────────────────────────
+
+class GradeEntrySerializer(serializers.Serializer):
+    """Read-only schema for one item in lesson_grades / homework_grades arrays."""
+    lesson_id = serializers.IntegerField()
+    date = serializers.DateTimeField()
+    discipline = serializers.CharField(allow_null=True)
+    teacher_name = serializers.CharField()
+    grade = serializers.IntegerField(allow_null=True)
+
+
+# ── LEAR-266 ──────────────────────────────────────────────────────────────────
+
+class ComplaintCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Complaint
+        fields = ['lesson', 'reason']
+
+    def validate(self, data):
+        lesson = data.get('lesson')
+        if lesson.status != 'teacher_missed':
+            raise serializers.ValidationError(
+                {'lesson': 'Скаргу можна подати лише на урок зі статусом teacher_missed.'}
+            )
+        request = self.context.get('request')
+        if request:
+            try:
+                student = Student.objects.get(user=request.user)
+            except Student.DoesNotExist:
+                raise serializers.ValidationError({'lesson': 'Профіль учня не знайдено.'})
+            if lesson.student_id != student.pk:
+                raise serializers.ValidationError(
+                    {'lesson': 'Ви можете поскаржитись лише на свій урок.'}
+                )
+            if Complaint.objects.filter(student=student, lesson=lesson).exists():
+                raise serializers.ValidationError(
+                    {'lesson': 'Ви вже подали скаргу на цей урок.'}
+                )
+        return data
+
+
+class ComplaintListSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    teacher_name = serializers.SerializerMethodField()
+    lesson_date = serializers.DateTimeField(source='lesson.slot.start_time', read_only=True)
+
+    def get_student_name(self, obj):
+        u = obj.student.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    def get_teacher_name(self, obj):
+        u = obj.lesson.slot.teacher.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    class Meta:
+        model = Complaint
+        fields = [
+            'id', 'student_name', 'teacher_name', 'lesson_date',
+            'reason', 'status', 'created_at', 'reviewed_at',
+        ]
+        read_only_fields = fields
+
+
+class ComplaintStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=Complaint.Status.choices)
+
+
+# ── LEAR-125 ──────────────────────────────────────────────────────────────────
+
+class LessonMaterialUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LessonMaterial
+        fields = ['title', 'file']
+
+    def validate_file(self, value):
+        from api.validators import validate_file_size, validate_file_extension
+        validate_file_size(value)
+        validate_file_extension(value)
+        return value
+
+
+class LessonMaterialListSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.SerializerMethodField()
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
+
+    def get_uploaded_by_name(self, obj):
+        u = obj.uploaded_by.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    class Meta:
+        model = LessonMaterial
+        fields = ['id', 'title', 'file_url', 'uploaded_by_name', 'uploaded_at']
+
+
+# ── LEAR-74 ──────────────────────────────────────────────────────────────────
+
+class HomeworkDetailSerializer(serializers.ModelSerializer):
+    lesson_id = serializers.IntegerField(source='lesson.pk', read_only=True)
+    lesson_date = serializers.DateTimeField(source='lesson.slot.start_time', read_only=True)
+    teacher_name = serializers.SerializerMethodField()
+    discipline = serializers.SerializerMethodField()
+    teacher_materials = serializers.SerializerMethodField()
+    homework_file_url = serializers.SerializerMethodField()
+
+    def get_teacher_name(self, obj):
+        u = obj.lesson.slot.teacher.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    def get_discipline(self, obj):
+        pkg = obj.lesson.package
+        if not pkg:
+            return None
+        if pkg.discipline:
+            return pkg.discipline.name
+        if pkg.course and pkg.course.discipline:
+            return pkg.course.discipline.name
+        return None
+
+    def get_teacher_materials(self, obj):
+        qs = obj.lesson.materials.select_related('uploaded_by__user').all()
+        request = self.context.get('request')
+        return LessonMaterialListSerializer(qs, many=True, context={'request': request}).data
+
+    def get_homework_file_url(self, obj):
+        if not obj.homework_file:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.homework_file.url)
+        return obj.homework_file.url
+
+    class Meta:
+        model = JournalRecord
+        fields = [
+            'id', 'lesson_id', 'lesson_date', 'teacher_name', 'discipline',
+            'teacher_homework_task', 'homework_status',
+            'teacher_materials',
+            'homework_file_url', 'homework_grade',
+            'homework_submitted_at', 'reviewed_at',
+        ]
+
+
+class HomeworkSubmitSerializer(serializers.Serializer):
+    file = serializers.FileField()
+
+    def validate_file(self, value):
+        from api.validators import validate_file_size, validate_file_extension
+        validate_file_size(value)
+        validate_file_extension(value)
+        return value
+
+    def validate(self, data):
+        record = self.context.get('record')
+        if record:
+            if record.homework_status == JournalRecord.HomeworkStatus.REVIEWED:
+                raise serializers.ValidationError(
+                    'Домашнє завдання вже перевірено — повторна здача неможлива.'
+                )
+            if not record.teacher_homework_task:
+                raise serializers.ValidationError(
+                    'Викладач ще не задав домашнє завдання.'
+                )
+        return data
