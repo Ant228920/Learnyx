@@ -5,12 +5,15 @@ from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as _BaseTokenRefreshView
 
 from .models import Request, User, Role, Student
 from users.serializers import LoginSerializer
+
+# ДОДАНО: Імпортуємо нашу безпечну сервісну функцію
+from users.services import get_student_balance 
 
 class TokenRefreshView(_BaseTokenRefreshView):
     """Return accessToken (camelCase) to match the login response convention."""
@@ -103,9 +106,10 @@ class RequestViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
+            # ВИПРАВЛЕНО: Замість 500 помилки повертаємо 400 (Backend Bug Fixing)
             return Response(
                 {"detail": f"Помилка при підтвердженні (транзакцію скасовано): {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -133,3 +137,19 @@ class LoginView(APIView):
                 'lastName': user.last_name,
             }
         }, status=status.HTTP_200_OK)
+
+
+# ДОДАНО: Ендпоінт для перевірки балансу
+class StudentBalanceView(APIView):
+    """
+    Ендпоінт для отримання балансу студента.
+    Демонструє використання безпечного Service Layer.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Передаємо ID поточного юзера у нашу захищену сервісну функцію
+        balance = get_student_balance(student_id=request.user.id)
+        
+        # Якщо помилок не було (Exception не спрацював), віддаємо баланс
+        return Response({"money_balance": balance}, status=status.HTTP_200_OK)
