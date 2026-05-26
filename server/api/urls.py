@@ -27,12 +27,8 @@ from api.views import (
     StudentLearningRequestView,
     ManagerLearningRequestsView,
     ReviewView,
-    StudentReportView,
-    ComplaintListCreateView,
-    ComplaintDetailView,
-    LessonMaterialView,
-    HomeworkDetailView,
-    HomeworkSubmitView,
+    PackagePlanCatalogView,
+    PackagePlanPurchaseView,
 )
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
