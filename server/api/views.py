@@ -316,18 +316,13 @@ class SlotViewSet(viewsets.ModelViewSet):
                     lesson.status = 'cancelled'
                     lesson.save(update_fields=['status'])
 
-                    if lesson.package and lesson.package.status == 'active':
-                        lesson.package.balance += 1
-                        lesson.package.save(update_fields=['balance'])
-
                     logger.info(
-                        f'Slot {slot.pk} deleted: lesson {lesson.pk} cancelled, '
-                        f'balance restored for package {lesson.package_id}'
+                        f'Slot {slot.pk} deleted: lesson {lesson.pk} cancelled'
                     )
                     slot.delete()
 
                 return Response({
-                    'message': 'Слот видалено. Урок скасовано, баланс студента відновлено.',
+                    'message': 'Слот видалено. Урок скасовано.',
                     'lesson_id': lesson.pk,
                     'lesson_status': 'cancelled',
                 }, status=status.HTTP_200_OK)
