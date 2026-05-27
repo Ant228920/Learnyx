@@ -107,13 +107,10 @@ class ApplicantRejectView(APIView):
     permission_classes = [IsManager]
 
     def post(self, request, pk):
-        try:
-            req = RegistrationRequest.objects.get(pk=pk)
-            req.status = 'rejected'
-            req.save()
-            return Response({'message': 'Заявку відхилено.'})
-        except RegistrationRequest.DoesNotExist:
-            return Response({'error': 'Not found'}, status=404)
+        req = get_object_or_404(RegistrationRequest, pk=pk)
+        req.status = 'rejected'
+        req.save()
+        return Response({'message': 'Заявку відхилено.'})
 
 
 class ApproveRegistrationRequestView(APIView):
@@ -352,7 +349,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign',
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework',
                            'grade_homework', 'reset_homework_grade'):
             return [IsTeacher()]
         if self.action == 'assign':
