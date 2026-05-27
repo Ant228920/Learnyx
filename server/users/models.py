@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.db.models import CheckConstraint, Q
+from django.db.models import CheckConstraint, Q, Count
 
 # Рівні навчання (студенти та викладачі)
 class StudentLevel(models.Model):
@@ -67,8 +67,24 @@ class StudentQuerySet(models.QuerySet):
     def with_details(self):
         # Оптимізація JOIN: миттєво дістаємо і юзера, і його рівень
         return self.select_related('user', 'level')
+        
+    def with_analytics(self):
+        # Оптимізація JOIN + Aggregations: дістаємо кількість залишених відгуків та заявок
+        return self.annotate(
+            total_requests=Count('user__requests', distinct=True),
+            total_reviews=Count('user__reviews', distinct=True)
+        ).select_related('user')
 
-# Студент, Викладач, Менеджер
+class ManagerQuerySet(models.QuerySet):
+    def with_analytics(self):
+        # Complex Query: SQL Aggregations для дашборду менеджера
+        # Рахує, скільки всього заявок має менеджер і скільки з них вже вирішено
+        return self.annotate(
+            total_assigned_requests=Count('assigned_requests'),
+            resolved_requests=Count('assigned_requests', filter=Q(assigned_requests__status='resolved'))
+        ).select_related('user')
+
+# Студент, Менеджер
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='student_profile')
     level = models.ForeignKey(StudentLevel, on_delete=models.SET_NULL, null=True, related_name='students')
@@ -76,12 +92,23 @@ class Student(models.Model):
 
     objects = StudentQuerySet.as_manager()
 
+    class Meta:
+        constraints = [
+            # Data Integrity: Грошовий баланс студента ніколи не може бути від'ємним!
+            CheckConstraint(
+                condition=Q(money_balance__gte=0),
+                name='check_positive_money_balance'
+            )
+        ]
+
     def __str__(self):
         return f"Студент: {self.user.first_name} {self.user.last_name}"
 
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='manager_profile')
     is_active = models.BooleanField(default=True)
+
+    objects = ManagerQuerySet.as_manager()
 
     class Meta:
         indexes = [

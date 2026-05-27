@@ -32,6 +32,14 @@ tags:
     description: Адміністративні ендпоінти для менеджера
   - name: Requests
     description: Заявки до менеджера
+  - name: Homework
+    description: Домашні завдання (призначення, здача, оцінювання)
+  - name: Materials
+    description: Навчальні матеріали уроків (зберігаються у Dropbox)
+  - name: Complaints
+    description: Скарги учнів на пропущені заняття
+  - name: Student
+    description: Студентські ендпоінти (дашборд, звіт)
 
 paths:
 
@@ -304,6 +312,18 @@ paths:
             type: string
             format: date
           example: "2026-04-10"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "LEAR-126: Filter slots from this date (inclusive)"
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "LEAR-126: Filter slots until this date (inclusive)"
       responses:
         '200':
           description: Список слотів
@@ -361,6 +381,28 @@ paths:
                 path: "/api/v1/slots/"
 
   /slots/{id}/:
+    patch:
+      tags: [Slots]
+      summary: "LEAR-127: Partial update a slot (teacher only)"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start_time: {type: string, format: date-time}
+                end_time: {type: string, format: date-time}
+      responses:
+        '200': {description: Slot updated}
+        '403': {description: Forbidden}
+        '404': {description: Not found}
     delete:
       tags: [Slots]
       summary: Видалити слот (тільки незаброньований)
@@ -514,12 +556,13 @@ paths:
 
   /lessons/{id}/homework/:
     post:
-      tags: [Lessons]
-      summary: Задати домашнє завдання (викладач)
+      tags: [Homework]
+      summary: "LEAR-67: Create or update homework task for lesson (teacher, supports file upload)"
       description: |
-        Викладач задає ДЗ після проведеного уроку. Зберігається в `JournalRecord`.
-        Поля: `teacher_homework_task` (текст, обов'язково), `homework_answer_url` (URL, опціонально).
-        Урок має бути у статусі `conducted`.
+        Викладач задає ДЗ після проведеного або запланованого уроку. Зберігається в `JournalRecord`.
+        Перший виклик → 201 (JournalRecord створено). Повторний виклик → 200 (оновлено).
+        Підтримує multipart/form-data для прикріплення файлу (PDF/DOCX/PNG/JPG, до 10 МБ).
+        Файл зберігається у Dropbox, URL повертається в `attached_material`.
       security:
         - BearerAuth: []
       parameters:
@@ -532,28 +575,47 @@ paths:
       requestBody:
         required: true
         content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [teacher_homework_task]
+              properties:
+                teacher_homework_task:
+                  type: string
+                  description: JSON-рядок або об'єкт з описом завдання
+                homework_answer_url:
+                  type: string
+                  format: uri
+                file:
+                  type: string
+                  format: binary
+                  description: Опціональний файл (PDF/DOCX/PNG/JPG/PPTX, max 10 МБ)
+                file_title:
+                  type: string
+                  description: Назва файлу (за замовчуванням — "Homework material")
           application/json:
             schema:
               $ref: '#/components/schemas/HomeworkRequest'
             example:
-              teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+              teacher_homework_task: {description: "Розв'язати задачі 1-5 стор. 45"}
               homework_answer_url: "https://drive.google.com/file/abc"
       responses:
+        '201':
+          description: Домашнє завдання створено (новий JournalRecord)
+          content:
+            application/json:
+              example:
+                id: 15
+                lesson: 10
+                teacher_homework_task: {description: "Розв'язати задачі 1-5 стор. 45"}
+                homework_answer_url: ""
+                attached_material:
+                  id: 3
+                  title: "Chapter 2 PDF"
         '200':
-          description: Домашнє завдання збережено
-          content:
-            application/json:
-              example:
-                lesson_id: 10
-                teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
-                homework_answer_url: "https://drive.google.com/file/abc"
+          description: Домашнє завдання оновлено (існуючий JournalRecord)
         '400':
-          description: Урок не у статусі conducted або невалідні дані
-          content:
-            application/json:
-              example:
-                errorCode: "LESSON_NOT_CONDUCTED"
-                message: "Домашнє завдання можна задати лише після проведеного уроку"
+          description: Невалідні дані або файл перевищує ліміт / неприпустимий формат
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -771,7 +833,7 @@ paths:
             type: integer
           example: 5
       responses:
-        '200':
+        '201':
           description: Пакет активовано (знижка застосована або ні)
           content:
             application/json:
@@ -779,19 +841,27 @@ paths:
                 $ref: '#/components/schemas/PurchaseResponse'
               examples:
                 with_discount:
-                  summary: З бонусною знижкою
+                  summary: З бонусною знижкою (180-day cashback)
                   value:
                     package_id: 5
-                    final_price: "2160.00"
+                    total_lessons: 12
+                    balance: 12
+                    final_price: 2160.0
+                    status: active
                     discount_applied: true
-                    discount_pct: 10
+                    discount_pct: 10.0
+                    message: "Пакет на 12 уроків успішно придбано!"
                 no_discount:
                   summary: Без знижки
                   value:
                     package_id: 5
-                    final_price: "2400.00"
+                    total_lessons: 12
+                    balance: 12
+                    final_price: 2400.0
+                    status: active
                     discount_applied: false
-                    discount_pct: 0
+                    discount_pct: 0.0
+                    message: "Пакет на 12 уроків успішно придбано!"
         '400':
           description: Пакет вже активний або інша помилка валідації
           content:
@@ -1105,6 +1175,309 @@ paths:
           $ref: '#/components/responses/NotFound'
 
 # ───────────────────────────────────────────
+  # PACKAGE PLANS (LEAR-72)
+  # ───────────────────────────────────────────
+
+  /package-plans/:
+    get:
+      tags: [Packages]
+      summary: List available package plans (catalog)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of active package plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/PackagePlan'}
+
+  /package-plans/{id}/purchase/:
+    post:
+      tags: [Packages]
+      summary: Purchase a package plan (creates active Package from plan template)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+          description: PackagePlan ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bonus_discount_pct:
+                  type: integer
+                  description: Optional cashback discount percentage to apply
+      responses:
+        '201': {description: Package created and activated from plan}
+        '400': {description: Insufficient balance or already has active package}
+        '403': {description: Forbidden}
+        '404': {description: Plan not found or inactive}
+
+  # ───────────────────────────────────────────
+  # HOMEWORK (LEAR-74, LEAR-75)
+  # ───────────────────────────────────────────
+
+  /homeworks/{id}/:
+    get:
+      tags: [Homework]
+      summary: "LEAR-74: Get homework details for a JournalRecord"
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+          description: JournalRecord ID
+      responses:
+        '200':
+          description: Homework detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HomeworkDetail'}
+        '403': {description: Forbidden}
+        '404': {description: Not found}
+
+  /homeworks/{id}/submit/:
+    post:
+      tags: [Homework]
+      summary: "LEAR-74: Student submits homework answer (file or URL)"
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+          description: JournalRecord ID
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                homework_answer_url: {type: string, format: uri}
+                file:
+                  type: string
+                  format: binary
+                  description: Homework file (PDF/DOCX/PNG/JPG, max 10 МБ)
+      responses:
+        '200': {description: Homework submitted — status set to submitted}
+        '403': {description: Forbidden — student only}
+        '404': {description: Not found}
+
+  /lessons/{id}/homework/grade/:
+    patch:
+      tags: [Homework]
+      summary: "LEAR-75: Teacher grades student homework (1–10)"
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+          description: Lesson ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [homework_grade]
+              properties:
+                homework_grade:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                teacher_notes:
+                  type: string
+            example:
+              homework_grade: 8
+      responses:
+        '200':
+          description: Homework graded — status set to reviewed
+          content:
+            application/json:
+              example:
+                id: 15
+                lesson: 10
+                homework_grade: 8
+                homework_status: reviewed
+                reviewed_at: "2026-05-27T12:00:00Z"
+        '400': {description: Invalid grade value or missing field}
+        '403': {description: Forbidden — teacher only}
+        '404': {description: Lesson not found}
+
+  # ───────────────────────────────────────────
+  # STUDENT REPORT (LEAR-84)
+  # ───────────────────────────────────────────
+
+  /student/report/:
+    get:
+      tags: [Student]
+      summary: "LEAR-84: Student grade report with optional date filters"
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: start_date
+          schema: {type: string, format: date}
+          description: Filter from this date
+        - in: query
+          name: end_date
+          schema: {type: string, format: date}
+          description: Filter until this date
+      responses:
+        '200':
+          description: Grade report split into lesson_grades and homework_grades arrays
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lesson_grades:
+                    type: array
+                    items: {$ref: '#/components/schemas/GradeEntry'}
+                  homework_grades:
+                    type: array
+                    items: {$ref: '#/components/schemas/GradeEntry'}
+              example:
+                lesson_grades:
+                  - lesson_id: 10
+                    date: "2026-05-01T10:00:00Z"
+                    grade: 8
+                    homework_grade: null
+                homework_grades:
+                  - lesson_id: 12
+                    date: "2026-05-03T10:00:00Z"
+                    grade: null
+                    homework_grade: 9
+        '403': {description: Forbidden — student only}
+
+  # ───────────────────────────────────────────
+  # LESSON MATERIALS (LEAR-125)
+  # ───────────────────────────────────────────
+
+  /lessons/{id}/materials/:
+    post:
+      tags: [Materials]
+      summary: "LEAR-125: Upload lesson material (teacher, stored in Dropbox)"
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+          description: Lesson ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, title]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File (PDF/DOCX/PNG/JPG/PPTX, max 10 МБ). Stored in Dropbox.
+                title: {type: string}
+      responses:
+        '201':
+          description: Material uploaded to Dropbox — file_url is a direct dl=1 link
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LessonMaterial'}
+        '400': {description: Invalid file type or size}
+        '403': {description: Forbidden — teacher only}
+    get:
+      tags: [Materials]
+      summary: "LEAR-125: List lesson materials with Dropbox download URLs"
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+          description: Lesson ID
+      responses:
+        '200':
+          description: List of materials
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/LessonMaterial'}
+
+  # ───────────────────────────────────────────
+  # COMPLAINTS (LEAR-266)
+  # ───────────────────────────────────────────
+
+  /complaints/:
+    post:
+      tags: [Complaints]
+      summary: "LEAR-266: Student creates a complaint about a missed lesson"
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ComplaintCreate'}
+      responses:
+        '201': {description: Complaint created}
+        '400': {description: Lesson not in teacher_missed status or duplicate}
+        '403': {description: Forbidden — student only}
+    get:
+      tags: [Complaints]
+      summary: List complaints (student sees own, manager sees all)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of complaints
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Complaint'}
+
+  /complaints/{id}/:
+    patch:
+      tags: [Complaints]
+      summary: Update complaint status (manager only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, reviewed]
+      responses:
+        '200': {description: Status updated}
+        '403': {description: Forbidden — manager only}
+        '404': {description: Not found}
+
+# ───────────────────────────────────────────
 # COMPONENTS
 # ───────────────────────────────────────────
 
@@ -1246,17 +1619,99 @@ components:
     PurchaseResponse:
       type: object
       properties:
-        package_id:
-          type: integer
+        package_id: {type: integer}
+        total_lessons: {type: integer}
+        balance: {type: integer}
         final_price:
-          type: string
+          type: number
           description: Фінальна ціна після знижки (або оригінальна)
+        status: {type: string, example: active}
         discount_applied:
           type: boolean
-          description: Чи було застосовано бонусну знижку
+          description: Чи було застосовано бонусну знижку (180-day cashback)
         discount_pct:
+          type: number
+          description: Відсоток знижки (0.0 якщо не застосовано)
+        message: {type: string}
+
+    LessonMaterial:
+      type: object
+      properties:
+        id: {type: integer}
+        lesson: {type: integer}
+        title: {type: string}
+        file_url:
+          type: string
+          description: "Direct Dropbox download URL (dl=1). Example: https://www.dropbox.com/scl/fi/...?rlkey=...&dl=1"
+        uploaded_by_name: {type: string}
+        uploaded_at: {type: string, format: date-time}
+
+    HomeworkDetail:
+      type: object
+      properties:
+        id: {type: integer}
+        lesson_id: {type: integer}
+        lesson_date: {type: string, format: date-time}
+        teacher_name: {type: string}
+        teacher_homework_task: {type: object}
+        homework_answer_url: {type: string}
+        homework_file_url:
+          type: string
+          nullable: true
+          description: Direct Dropbox download URL for submitted homework file
+        homework_grade:
           type: integer
-          description: Відсоток знижки (0 якщо не застосовано)
+          nullable: true
+          minimum: 1
+          maximum: 10
+        homework_status:
+          type: string
+          enum: [not_assigned, assigned, submitted, reviewed]
+        teacher_notes: {type: string, nullable: true}
+        attached_material:
+          type: object
+          nullable: true
+          properties:
+            id: {type: integer}
+            title: {type: string}
+
+    GradeEntry:
+      type: object
+      properties:
+        lesson_id: {type: integer}
+        date: {type: string, format: date-time}
+        grade: {type: integer, nullable: true}
+        homework_grade: {type: integer, nullable: true}
+
+    ComplaintCreate:
+      type: object
+      required: [lesson, reason]
+      properties:
+        lesson: {type: integer}
+        reason: {type: string, maxLength: 1000}
+
+    Complaint:
+      type: object
+      properties:
+        id: {type: integer}
+        lesson: {type: integer}
+        student: {type: integer}
+        reason: {type: string}
+        status:
+          type: string
+          enum: [pending, reviewed]
+        created_at: {type: string, format: date-time}
+        reviewed_at: {type: string, format: date-time, nullable: true}
+
+    PackagePlan:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        total_lessons: {type: integer}
+        price: {type: number}
+        description: {type: string}
+        is_active: {type: boolean}
 
     ErrorResponse:
       type: object

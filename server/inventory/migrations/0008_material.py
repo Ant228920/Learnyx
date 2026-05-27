@@ -8,9 +8,26 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('inventory', '0007_learning_request'),
+        ('users', '0005_review_is_visible'),
     ]
 
     operations = [
+        migrations.CreateModel(
+            name='Complaint',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('reason', models.TextField(max_length=1000)),
+                ('status', models.CharField(choices=[('pending', 'Pending'), ('reviewed', 'Reviewed')], default='pending', max_length=20)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('reviewed_at', models.DateTimeField(blank=True, null=True)),
+                ('lesson', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='complaints', to='inventory.lesson')),
+                ('student', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='complaints', to='users.student')),
+            ],
+            options={
+                'ordering': ['-created_at'],
+                'unique_together': {('student', 'lesson')},
+            },
+        ),
         migrations.CreateModel(
             name='Material',
             fields=[
@@ -22,3 +39,4 @@ class Migration(migrations.Migration):
             ],
         ),
     ]
+    

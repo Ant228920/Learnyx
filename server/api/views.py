@@ -307,13 +307,36 @@ class SlotViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         slot = self.get_object()
+
         if slot.status == 'booked':
-            return Response(
-                {'message': 'Неможливо видалити заброньований слот.'},
-                status=status.HTTP_409_CONFLICT,
-            )
+            lesson = Lesson.objects.filter(slot=slot).select_related('package').first()
+
+            if lesson:
+                with transaction.atomic():
+                    lesson.status = 'cancelled'
+                    lesson.save(update_fields=['status'])
+
+                    if lesson.package and lesson.package.status == 'active':
+                        lesson.package.balance += 1
+                        lesson.package.save(update_fields=['balance'])
+
+                    logger.info(
+                        f'Slot {slot.pk} deleted: lesson {lesson.pk} cancelled, '
+                        f'balance restored for package {lesson.package_id}'
+                    )
+                    slot.delete()
+
+                return Response({
+                    'message': 'Слот видалено. Урок скасовано, баланс студента відновлено.',
+                    'lesson_id': lesson.pk,
+                    'lesson_status': 'cancelled',
+                }, status=status.HTTP_200_OK)
+            else:
+                slot.delete()
+                return Response({'message': 'Слот видалено.'}, status=status.HTTP_200_OK)
+
         slot.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({'message': 'Слот видалено.'}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='available')
     def available(self, request):
@@ -334,11 +357,12 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign', 'grade_homework'):
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign',
+                           'grade_homework', 'reset_homework_grade'):
             return [IsTeacher()]
         if self.action == 'assign':
             return [(IsTeacher | IsManager)()]
-        if self.action in ('upcoming', 'cancel'):
+        if self.action in ('upcoming', 'cancel', 'submit_homework'):
             return [IsStudent()]
         return [IsAuthenticated()]
 
@@ -696,28 +720,66 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         return Response(JournalRecordSerializer(record).data)
 
-    @action(detail=True, methods=['patch'], url_path='homework/grade')
-    def grade_homework(self, request, pk=None):
-        """LEAR-75: Teacher grades a student's homework (1–10) on a conducted lesson."""
-        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
-
+    @action(detail=True, methods=['post'], url_path='homework/grade/reset')
+    def reset_homework_grade(self, request, pk=None):
+        """LEAR-rollback: Teacher resets homework grade back to submitted state."""
+        lesson = self.get_object()
         teacher = get_object_or_404(Teacher, user=request.user)
+
         if lesson.slot.teacher_id != teacher.pk:
+            return Response({'error': 'Немає доступу'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            record = JournalRecord.objects.get(lesson=lesson)
+        except JournalRecord.DoesNotExist:
+            return Response({'error': 'ДЗ не знайдено'}, status=status.HTTP_404_NOT_FOUND)
+
+        if record.homework_status != JournalRecord.HomeworkStatus.REVIEWED:
             return Response(
-                {'detail': 'You can only grade homework for your own lessons.'},
+                {'error': 'Оцінку можна скасувати тільки якщо статус reviewed'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            record.homework_grade = None
+            record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
+            record.reviewed_at = None
+            record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
+
+        return Response({
+            'id': record.pk,
+            'homework_grade': record.homework_grade,
+            'homework_status': record.homework_status,
+            'message': 'Оцінку скасовано — статус повернуто до submitted',
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='submit-homework')
+    def submit_homework(self, request, pk=None):
+        """Student submits homework answer URL for a lesson."""
+        lesson = get_object_or_404(Lesson.objects.select_related('student'), pk=pk)
+        student = get_object_or_404(Student, user=request.user)
+
+        if lesson.student_id != student.pk:
+            return Response(
+                {'detail': 'You can only submit homework for your own lessons.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        serializer = HomeworkGradeSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        answer_url = request.data.get('homework_answer_url', '')
+        if not answer_url:
+            return Response(
+                {'detail': 'homework_answer_url is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
-        record.homework_grade = serializer.validated_data['homework_grade']
-        record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
-        record.reviewed_at = timezone.now()
-        record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
+        # Store up to 2000 chars (CharField max_length is 255, but we store a URL or short data ref)
+        record.homework_answer_url = str(answer_url)[:255]
+        record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
+        record.homework_submitted_at = timezone.now()
+        record.save(update_fields=['homework_answer_url', 'homework_status', 'homework_submitted_at'])
 
-        return Response(JournalRecordSerializer(record).data)
+        return Response(JournalRecordSerializer(record).data, status=status.HTTP_200_OK)
 
 
 class BonusBalanceView(APIView):
@@ -1154,77 +1216,147 @@ class PackagePlanListView(generics.ListAPIView):
 
 class PackagePurchaseView(APIView):
     """
-    Activate a pre-created Package record (status: available → active).
-    Any authenticated user with a Student profile can purchase their own package.
+    POST /packages/<pk>/purchase/
+    pk = Package.pk  → activate an existing available package (ACID discount applied).
+    pk = PackagePlan.pk → create a new active Package from that plan template.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        from decimal import Decimal
+
         try:
             student = Student.objects.get(user=request.user)
         except Student.DoesNotExist:
-            return Response(
-                {'detail': 'У вас немає профілю студента.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response({'detail': 'У вас немає профілю студента.'}, status=status.HTTP_403_FORBIDDEN)
 
-        package = get_object_or_404(Package, pk=pk)
-
-        if package.student_id != student.pk:
-            return Response(
-                {'detail': 'Цей пакет не належить вам.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        from decimal import Decimal
         cutoff = timezone.now() - timezone.timedelta(days=180)
 
-        with transaction.atomic():
-            student_locked = Student.objects.select_for_update().get(pk=student.pk)
-            completion = CourseCompletion.objects.select_for_update().filter(
-                student=student, is_discount_used=False, earned_discount__gt=0,
-                completed_at__gte=cutoff,
-            ).order_by('-earned_discount').first()
+        package = Package.objects.filter(pk=pk, student=student).first()
 
-            final_price = plan.price
-            discount_pct = Decimal('0')
-            discount_applied = False
+        if package is not None:
+            # ── Path A: activate an existing Package ──────────────────────────
+            if package.status != 'available':
+                return Response(
+                    {'detail': f'Пакет вже має статус «{package.status}».'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            with transaction.atomic():
+                student_locked = Student.objects.select_for_update().get(pk=student.pk)
+                completion = CourseCompletion.objects.select_for_update().filter(
+                    student=student, is_discount_used=False, earned_discount__gt=0,
+                    completed_at__gte=cutoff,
+                ).order_by('-earned_discount').first()
 
-            if completion:
-                discount_pct = completion.earned_discount
-                final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
-                discount_applied = True
+                base_price = package.final_price
+                discount_pct = Decimal('0')
+                discount_applied = False
 
-            if role == 'student' and student_locked.money_balance < final_price:
-                return Response({
-                    'error': 'Недостатньо коштів на балансі',
-                    'required': float(final_price),
-                    'available': float(student_locked.money_balance),
-                }, status=status.HTTP_400_BAD_REQUEST)
+                if completion:
+                    discount_pct = completion.earned_discount
+                    base_price = base_price * (Decimal('1') - discount_pct / Decimal('100'))
+                    discount_applied = True
 
-            student_locked.money_balance -= final_price
-            student_locked.save(update_fields=['money_balance'])
-            Package.objects.filter(student=student, status='active').update(status='completed')
-            package = Package.objects.create(
-                student=student,
-                course=course,
-                total_lessons=plan.total_lessons,
-                balance=plan.total_lessons,
-                final_price=round(final_price, 2),
-                status='active',
-            )
-            if completion:
-                completion.is_discount_used = True
-                completion.save(update_fields=['is_discount_used'])
+                if student_locked.money_balance < base_price:
+                    return Response({
+                        'error': 'Недостатньо коштів на балансі',
+                        'required': float(base_price),
+                        'available': float(student_locked.money_balance),
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                student_locked.money_balance -= base_price
+                student_locked.save(update_fields=['money_balance'])
+                package.status = 'active'
+                package.purchased_at = timezone.now()
+                package.final_price = round(base_price, 2)
+                package.discount = discount_pct
+                package.save(update_fields=['status', 'purchased_at', 'final_price', 'discount'])
+
+                if completion:
+                    completion.is_discount_used = True
+                    completion.save(update_fields=['is_discount_used'])
+
+        else:
+            # ── Path B: pk is a PackagePlan — create a new Package ────────────
+            plan = get_object_or_404(PackagePlan, pk=pk, is_active=True)
+
+            if Package.objects.filter(student=student, status='active').exists():
+                return Response({'detail': 'У вас вже є активний абонемент.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            bonus_pct = int(request.data.get('bonus_discount_pct', 0) or 0)
+            base_price = Decimal(str(plan.price))
+            final_price = base_price * (Decimal('1') - Decimal(str(bonus_pct)) / Decimal('100'))
+
+            if student.money_balance < final_price:
+                return Response(
+                    {'detail': f'Недостатньо коштів. Баланс: ₴{student.money_balance:.0f}. Потрібно: ₴{final_price:.0f}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            course = Course.objects.filter(is_active=True).first()
+            if not course:
+                return Response({'detail': 'Немає доступних курсів. Зверніться до менеджера.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            with transaction.atomic():
+                student_locked = Student.objects.select_for_update().get(pk=student.pk)
+                student_locked.money_balance -= final_price
+                student_locked.save(update_fields=['money_balance'])
+                package = Package.objects.create(
+                    student=student,
+                    course=course,
+                    total_lessons=plan.total_lessons,
+                    balance=plan.total_lessons,
+                    final_price=round(final_price, 2),
+                    discount=Decimal(str(bonus_pct)),
+                    status='active',
+                )
+                discount_pct = Decimal(str(bonus_pct))
+                discount_applied = bool(bonus_pct)
+
+        logger.info(f'Package {package.pk} purchased/activated by student {student.pk}')
 
         return Response({
-            'package_id': package.id,
+            'package_id': package.pk,
             'total_lessons': package.total_lessons,
             'balance': package.balance,
             'final_price': float(package.final_price),
             'status': package.status,
+            'discount_applied': discount_applied,
+            'discount_pct': float(discount_pct),
             'message': f'Пакет на {package.total_lessons} уроків успішно придбано!',
         }, status=status.HTTP_201_CREATED)
+
+
+class PackageCancelView(APIView):
+    """POST /packages/<pk>/cancel/ — cancel an active package (Student or Manager)."""
+    permission_classes = [(IsStudent | IsManager)]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        try:
+            package = Package.objects.select_for_update().get(pk=pk)
+        except Package.DoesNotExist:
+            return Response({'error': 'Пакет не знайдено'}, status=status.HTTP_404_NOT_FOUND)
+
+        if hasattr(request.user, 'student_profile'):
+            if package.student_id != request.user.student_profile.pk:
+                return Response({'error': 'Немає доступу'}, status=status.HTTP_403_FORBIDDEN)
+
+        if package.status != 'active':
+            return Response(
+                {'error': f'Неможливо скасувати пакет зі статусом «{package.status}»'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        package.status = 'cancelled'
+        package.save(update_fields=['status'])
+        logger.info(f'Package {pk} cancelled by user {request.user.pk}')
+
+        return Response({
+            'package_id': package.pk,
+            'status': package.status,
+            'message': 'Пакет успішно скасовано',
+        }, status=status.HTTP_200_OK)
 
 
 class StudentWalletView(APIView):

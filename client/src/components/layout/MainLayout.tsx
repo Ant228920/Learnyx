@@ -1,4 +1,5 @@
-import { Outlet, useNavigate, Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../app/providers';
 import AuthModal from '../../features/auth/AuthModal';
 
@@ -19,7 +20,7 @@ export default function MainLayout() {
     if (user && location.pathname === '/') {
       void navigate(roleDashboard(user.role));
     }
-  }, [user]);
+  }, [user, location.pathname, navigate]);
 
   const handleLogout = () => {
     logout();
