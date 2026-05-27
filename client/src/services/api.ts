@@ -121,6 +121,8 @@ export interface JournalRecord {
   teacher_notes: string | null;
   start_time?: string;
   lesson_status?: string;
+  homework_status?: string;   // 'assigned' | 'submitted' | 'reviewed'
+  student_name?: string;      // returned by JournalListSerializer
 }
 
 export interface StudentDashboard {
@@ -212,6 +214,7 @@ export function extractErrorMessage(error: unknown): string {
       subject: 'Предмет',
       level: 'Рівень',
       non_field_errors: '',
+      homework_answer_url: 'Файл відповіді',
     };
 
     const ERROR_TRANSLATIONS: Record<string, string> = {
@@ -225,6 +228,7 @@ export function extractErrorMessage(error: unknown): string {
       'No active account found': 'Акаунт не знайдено або пароль невірний.',
       'Невірний email або пароль': 'Невірний email або пароль.',
       'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час для слоту.',
+      'Enter a valid URL.': 'Завантажте файл правильного формату.',
     };
 
     for (const key of ['message', 'detail', 'error']) {
@@ -362,6 +366,24 @@ export const studentApi = {
   topUp: async (amount: number): Promise<{ money_balance: number; added: number; message: string }> => {
     const { data } = await apiClient.post('/students/me/topup/', { amount });
     return data;
+  },
+
+  // POST /homeworks/{journalId}/submit/ — student uploads homework file (multipart)
+  submitHomework: async (journalId: number, file: File): Promise<JournalRecord> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await apiClient.post(`/homeworks/${journalId}/submit/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data as JournalRecord;
+  },
+
+  // POST /lessons/{lessonId}/submit-homework/ — student submits answer URL
+  submitHomeworkUrl: async (lessonId: number, homework_answer_url: string): Promise<JournalRecord> => {
+    const { data } = await apiClient.post(`/lessons/${lessonId}/submit-homework/`, {
+      homework_answer_url,
+    });
+    return data as JournalRecord;
   },
 
   getLearningRequests: async () => {

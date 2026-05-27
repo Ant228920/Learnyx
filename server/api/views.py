@@ -338,7 +338,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             return [IsTeacher()]
         if self.action == 'assign':
             return [(IsTeacher | IsManager)()]
-        if self.action in ('upcoming', 'cancel'):
+        if self.action in ('upcoming', 'cancel', 'submit_homework'):
             return [IsStudent()]
         return [IsAuthenticated()]
 
@@ -647,6 +647,35 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(JournalRecordSerializer(record).data, status=http_status)
+
+
+    @action(detail=True, methods=['post'], url_path='submit-homework')
+    def submit_homework(self, request, pk=None):
+        """Student submits homework answer URL for a lesson."""
+        lesson = get_object_or_404(Lesson.objects.select_related('student'), pk=pk)
+        student = get_object_or_404(Student, user=request.user)
+
+        if lesson.student_id != student.pk:
+            return Response(
+                {'detail': 'You can only submit homework for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        answer_url = request.data.get('homework_answer_url', '')
+        if not answer_url:
+            return Response(
+                {'detail': 'homework_answer_url is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
+        # Store up to 2000 chars (CharField max_length is 255, but we store a URL or short data ref)
+        record.homework_answer_url = str(answer_url)[:255]
+        record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
+        record.homework_submitted_at = timezone.now()
+        record.save(update_fields=['homework_answer_url', 'homework_status', 'homework_submitted_at'])
+
+        return Response(JournalRecordSerializer(record).data, status=status.HTTP_200_OK)
 
 
 class BonusBalanceView(APIView):
@@ -1140,8 +1169,6 @@ class PackagePurchaseView(APIView):
             'balance': package.balance,
             'final_price': float(package.final_price),
             'status': package.status,
-            'discount_applied': discount_applied,
-            'discount_pct': discount_pct,
             'message': f'Пакет на {package.total_lessons} уроків успішно придбано!',
         }, status=status.HTTP_201_CREATED)
 
