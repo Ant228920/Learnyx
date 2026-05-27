@@ -334,7 +334,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
-        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework'):
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'grade_homework'):
             return [IsTeacher()]
         if self.action == 'assign':
             return [(IsTeacher | IsManager)()]
@@ -645,8 +645,22 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
         record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
 
+        material_data = None
+        uploaded_file = serializer.validated_data.get('file')
+        if uploaded_file:
+            material = LessonMaterial.objects.create(
+                lesson=lesson,
+                uploaded_by=teacher,
+                title=serializer.validated_data.get('file_title') or 'Homework material',
+                file=uploaded_file,
+            )
+            material_data = {'id': material.id, 'title': material.title}
+
         http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
-        return Response(JournalRecordSerializer(record).data, status=http_status)
+        data = dict(JournalRecordSerializer(record).data)
+        if material_data:
+            data['attached_material'] = material_data
+        return Response(data, status=http_status)
 
     @action(detail=True, methods=['patch'], url_path='homework/grade')
     def grade_homework(self, request, pk=None):
@@ -1145,9 +1159,37 @@ class PackagePurchaseView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        package.status = 'active'
-        package.purchased_at = timezone.now()
-        package.save(update_fields=['status', 'purchased_at'])
+        from decimal import Decimal
+
+        discount_pct = 0.0
+        discount_applied = False
+
+        with transaction.atomic():
+            package = Package.objects.select_for_update().get(pk=pk)
+            completion = (
+                CourseCompletion.objects
+                .select_for_update()
+                .filter(
+                    student=student,
+                    is_discount_used=False,
+                    earned_discount__gt=0,
+                    completed_at__gte=timezone.now() - timezone.timedelta(days=180),
+                )
+                .first()
+            )
+            if completion:
+                discount_pct = float(completion.earned_discount)
+                discount_applied = True
+                package.final_price = package.final_price * (
+                    Decimal('1') - Decimal(str(int(discount_pct))) / Decimal('100')
+                )
+                package.discount = Decimal(str(int(discount_pct)))
+                completion.is_discount_used = True
+                completion.save(update_fields=['is_discount_used'])
+
+            package.status = 'active'
+            package.purchased_at = timezone.now()
+            package.save(update_fields=['status', 'purchased_at', 'final_price', 'discount'])
 
         logger.info(f'Package {pk} purchased by student {student.pk}')
 
@@ -1157,6 +1199,8 @@ class PackagePurchaseView(APIView):
             'balance': package.balance,
             'final_price': float(package.final_price),
             'status': package.status,
+            'discount_applied': discount_applied,
+            'discount_pct': discount_pct,
             'message': f'Пакет на {package.total_lessons} уроків успішно придбано!',
         }, status=status.HTTP_201_CREATED)
 
