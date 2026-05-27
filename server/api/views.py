@@ -38,12 +38,10 @@ from api.serializers import (
     AssignLessonSerializer,
     HomeworkSerializer,
     HomeworkGradeSerializer,
-    GradeEntrySerializer,
     LessonArchiveSerializer,
     PackagePlanSerializer,
     StudentAvailablePackageSerializer,
     ManagerPackageSerializer,
-    TeacherListSerializer,
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
     ReviewSerializer,
@@ -56,8 +54,8 @@ from api.serializers import (
     HomeworkSubmitSerializer,
 )
 from users.models import User, Role, Student, Manager, Review
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
-from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS, notify_manager_low_balance
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
+from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from api.validators import validate_file_size, validate_file_extension
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
-    def __str__(self): 
+    def __str__(self):
         return self.name
 
 class TeacherQuerySet(models.QuerySet):
@@ -32,6 +32,9 @@ class Teacher(models.Model):
 
     objects = TeacherQuerySet.as_manager()
 
+    def __str__(self):
+        return self.user.get_full_name() or self.user.email
+
 class Material(models.Model):
     title = models.CharField(max_length=255)
     file_url = models.CharField(max_length=500)
@@ -45,7 +48,7 @@ class Slot(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='slots')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    
+
     STATUS_CHOICES = [
         ('available', 'Available'),
         ('booked', 'Booked'),
@@ -65,6 +68,9 @@ class Slot(models.Model):
                 name='check_valid_slot_time_range'
             )
         ]
+
+    def __str__(self):
+        return f'Slot {self.pk}: {self.teacher} {self.start_time:%Y-%m-%d %H:%M}'
 
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name='courses')
@@ -93,6 +99,9 @@ class Topic(models.Model):
     level_topics = models.CharField(max_length=50, blank=True, null=True)
     order_index = models.IntegerField()
 
+    def __str__(self):
+        return self.title
+
 class CurriculumLesson(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='curriculum_lessons')
     title = models.CharField(max_length=255)
@@ -100,6 +109,9 @@ class CurriculumLesson(models.Model):
     theory_material_url = models.CharField(max_length=255, blank=True, null=True)
     default_homework = models.TextField(blank=True, null=True)
     order_index = models.IntegerField()
+
+    def __str__(self):
+        return f'{self.topic} #{self.order_index}'
 
 
 # --- COMPLEX QUERIES MANAGERS ---
@@ -118,7 +130,7 @@ class CourseCompletion(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='completions')
     completed_lessons_count = models.IntegerField(default=0)
     total_points = models.IntegerField(default=0)
-    
+
     earned_discount = models.IntegerField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(100)]
@@ -139,7 +151,7 @@ class CourseCompletion(models.Model):
         unique_together = ('student', 'course')  # Захист від дублювання випуску з курсу
         constraints = [
             CheckConstraint(
-                condition=Q(earned_discount__gte=0) & Q(earned_discount__lte=100), 
+                condition=Q(earned_discount__gte=0) & Q(earned_discount__lte=100),
                 name='check_valid_earned_discount'
             ),
             CheckConstraint(
@@ -172,6 +184,9 @@ class Package(models.Model):
         constraints = [
             CheckConstraint(condition=Q(balance__gte=0), name='check_positive_package_balance')
         ]
+
+    def __str__(self):
+        return f'Package {self.pk}: {self.student} ({self.status})'
 
 class PackagePlan(models.Model):
     name = models.CharField(max_length=100)
@@ -235,7 +250,7 @@ class Lesson(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='lessons')
     package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='lessons')
     curriculum_lesson = models.ForeignKey(CurriculumLesson, on_delete=models.SET_NULL, null=True)
-    
+
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
     meeting_link = models.CharField(max_length=255, blank=True, null=True)
 
@@ -245,6 +260,9 @@ class Lesson(models.Model):
         indexes = [
             models.Index(fields=['student', 'status']),
         ]
+
+    def __str__(self):
+        return f'Lesson {self.pk}: {self.slot}'
 
 class JournalRecord(models.Model):
     class HomeworkStatus(models.TextChoices):
@@ -290,10 +308,13 @@ class JournalRecord(models.Model):
             )
         ]
 
+    def __str__(self):
+        return f'JournalRecord {self.pk}: lesson {self.lesson_id}'
+
 class LessonMaterial(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='materials')
     uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='lesson_materials')
-    
+
     title = models.CharField(max_length=200)
     file = models.FileField(
         upload_to='lesson_materials/%Y/%m/',
@@ -346,3 +367,6 @@ class Transaction(models.Model):
             # Data Integrity: Сума не може бути від'ємною (штрафи позначаються булевим полем is_penalty)
             CheckConstraint(condition=Q(amount__gte=0), name='check_positive_transaction_amount')
         ]
+
+    def __str__(self):
+        return f'Transaction {self.pk}: {self.teacher} ₴{self.amount}'
