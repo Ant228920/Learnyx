@@ -15,6 +15,26 @@
       "key": "access_token",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "material_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "complaint_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "lesson_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "journal_id",
+      "value": "1",
+      "type": "string"
     }
   ],
   "item": [
@@ -34,8 +54,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/auth/register/",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "register", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -81,14 +107,16 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const response = pm.response.json();",
-                  "    pm.collectionVariables.set('access_token', response.access);",
-                  "    pm.test('Token saved', () => pm.expect(response.access).to.be.a('string'));",
-                  "}"
-                ],
-                "type": "text/javascript"
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has accessToken\", () => {",
+                  "    const j = pm.response.json();",
+                  "    pm.expect(j).to.have.property(\"accessToken\");",
+                  "    pm.collectionVariables.set(\"access_token\", j.accessToken);",
+                  "    console.log(\"Token saved:\", j.accessToken.substring(0, 20) + \"...\");",
+                  "});"
+                ]
               }
             }
           ],
@@ -102,8 +130,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/auth/login/",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "login", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -155,8 +189,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/auth/token/refresh/",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "token", "refresh", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                "refresh",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -188,8 +229,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/me/",
-              "host": ["{{base_url}}"],
-              "path": ["users", "me", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                ""
+              ]
             },
             "description": "Повертає профіль авторизованого користувача.\n\nExpected: 200 OK\nErrors: 401 (Токен відсутній або недійсний)"
           },
@@ -214,8 +261,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/students/",
-              "host": ["{{base_url}}"],
-              "path": ["users", "students", ""],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "students",
+                ""
+              ],
               "query": [
                 {
                   "key": "level_id",
@@ -244,8 +297,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/teachers/",
-              "host": ["{{base_url}}"],
-              "path": ["users", "teachers", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "teachers",
+                ""
+              ]
             },
             "description": "Список викладачів.\n\nExpected: 200 OK"
           }
@@ -266,8 +325,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/approve/3/",
-              "host": ["{{base_url}}"],
-              "path": ["users", "approve", "3", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "approve",
+                "3",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -299,8 +365,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/slots/",
-              "host": ["{{base_url}}"],
-              "path": ["slots", ""],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "slots",
+                ""
+              ],
               "query": [
                 {
                   "key": "teacher_id",
@@ -320,7 +391,21 @@
               ]
             },
             "description": "Список слотів з можливістю фільтрації.\n\nExpected: 200 OK"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is array\", () => {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Створити часовий слот",
@@ -338,8 +423,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/slots/",
-              "host": ["{{base_url}}"],
-              "path": ["slots", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "slots",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -379,11 +469,67 @@
             ],
             "url": {
               "raw": "{{base_url}}/slots/5/",
-              "host": ["{{base_url}}"],
-              "path": ["slots", "5", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "slots",
+                "5",
+                ""
+              ]
             },
             "description": "Видалення незабронйованого слоту.\n\nExpected: 204 No Content\nErrors: 404 (Слот не знайдено), 409 (Слот вже заброньований)"
           }
+        },
+        {
+          "name": "Update Slot (LEAR-127)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/slots/{{slot_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "slots",
+                "{{slot_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_time\": \"2026-06-01T10:00:00Z\",\n  \"end_time\": \"2026-06-01T11:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "LEAR-127: Teacher partial-updates their slot."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has id\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"id\");",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -403,8 +549,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/",
-              "host": ["{{base_url}}"],
-              "path": ["lessons", ""],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                ""
+              ],
               "query": [
                 {
                   "key": "status",
@@ -437,8 +588,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/",
-              "host": ["{{base_url}}"],
-              "path": ["lessons", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -482,8 +638,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/10/complete/",
-              "host": ["{{base_url}}"],
-              "path": ["lessons", "10", "complete", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "10",
+                "complete",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -521,8 +684,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/10/cancel/",
-              "host": ["{{base_url}}"],
-              "path": ["lessons", "10", "cancel", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "10",
+                "cancel",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -552,8 +722,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/assign/",
-              "host": ["{{base_url}}"],
-              "path": ["lessons", "assign", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "assign",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -571,14 +747,24 @@
               "name": "201 Created — Учня призначено",
               "status": "Created",
               "code": 201,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"id\": 12,\n  \"slot_id\": 3,\n  \"student_id\": 2,\n  \"package_id\": 1,\n  \"status\": \"scheduled\"\n}"
             },
             {
               "name": "409 Conflict — Учень вже зайнятий",
               "status": "Conflict",
               "code": 409,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"errorCode\": \"STUDENT_TIME_CONFLICT\",\n  \"message\": \"Учень вже має заняття в цей час\"\n}"
             }
           ]
@@ -599,8 +785,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/10/homework/",
-              "host": ["{{base_url}}"],
-              "path": ["lessons", "10", "homework", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "10",
+                "homework",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -618,14 +811,24 @@
               "name": "200 OK — ДЗ збережено",
               "status": "OK",
               "code": 200,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"lesson_id\": 10,\n  \"teacher_homework_task\": \"Розв'язати задачі 1-5 стор. 45\",\n  \"homework_answer_url\": \"https://drive.google.com/file/abc\"\n}"
             },
             {
               "name": "400 Bad Request — Урок не проведено",
               "status": "Bad Request",
               "code": 400,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"errorCode\": \"LESSON_NOT_CONDUCTED\",\n  \"message\": \"Домашнє завдання можна задати лише після проведеного уроку\"\n}"
             }
           ]
@@ -636,6 +839,48 @@
       "name": "Packages",
       "description": "Пакети занять та облік балансу",
       "item": [
+        {
+          "name": "List Package Plans (LEAR-72)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/package-plans/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "package-plans"
+              ]
+            },
+            "description": "List active PackagePlan catalog."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is array\", () => {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});",
+                  "pm.test(\"Each plan has price and total_lessons\", () => {",
+                  "    pm.response.json().forEach(p => {",
+                  "        pm.expect(p).to.have.property(\"price\");",
+                  "        pm.expect(p).to.have.property(\"total_lessons\");",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "Список пакетів",
           "request": {
@@ -648,8 +893,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/packages/",
-              "host": ["{{base_url}}"],
-              "path": ["packages", ""],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "packages",
+                ""
+              ],
               "query": [
                 {
                   "key": "student_id",
@@ -682,8 +932,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/packages/",
-              "host": ["{{base_url}}"],
-              "path": ["packages", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "packages",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -717,8 +972,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/packages/5/purchase/",
-              "host": ["{{base_url}}"],
-              "path": ["packages", "5", "purchase", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "packages",
+                "5",
+                "purchase",
+                ""
+              ]
             },
             "description": "Оплата пакету з автоматичним застосуванням бонусної знижки (Split Payment).\n\nЛогіка:\n1. Шукає активний CourseCompletion з earned_discount > 0, is_discount_used=False, вік < 180 днів\n2. Якщо є — застосовує знижку до final_price\n3. transaction.atomic: Package.status='active', Package.purchased_at=now(), CourseCompletion.is_discount_used=True\n\nAccess: IsStudent | IsManager\nExpected: 200 OK\nErrors: 400 (пакет вже активний), 404"
           },
@@ -727,21 +989,36 @@
               "name": "200 OK — Пакет оплачено (з бонусом)",
               "status": "OK",
               "code": 200,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"package_id\": 5,\n  \"final_price\": \"2160.00\",\n  \"discount_applied\": true,\n  \"discount_pct\": 10\n}"
             },
             {
               "name": "200 OK — Пакет оплачено (без бонусу)",
               "status": "OK",
               "code": 200,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"package_id\": 5,\n  \"final_price\": \"2400.00\",\n  \"discount_applied\": false,\n  \"discount_pct\": 0\n}"
             },
             {
               "name": "400 Bad Request — Пакет вже активний",
               "status": "Bad Request",
               "code": 400,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"errorCode\": \"PACKAGE_ALREADY_ACTIVE\",\n  \"message\": \"Пакет вже активний\"\n}"
             }
           ]
@@ -764,8 +1041,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/admin/lessons/archive/",
-              "host": ["{{base_url}}"],
-              "path": ["admin", "lessons", "archive", ""],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "lessons",
+                "archive",
+                ""
+              ],
               "query": [
                 {
                   "key": "date_from",
@@ -803,7 +1087,12 @@
               "name": "200 OK — Список занять (JSON)",
               "status": "OK",
               "code": 200,
-              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "[\n  {\n    \"id\": 10,\n    \"status\": \"conducted\",\n    \"start_time\": \"2026-04-10T10:00:00Z\",\n    \"student\": \"Іван Учень\",\n    \"teacher\": \"Олена Викладач\",\n    \"package_id\": 1\n  }\n]"
             },
             {
@@ -811,8 +1100,14 @@
               "status": "OK",
               "code": 200,
               "header": [
-                {"key": "Content-Type", "value": "text/csv"},
-                {"key": "Content-Disposition", "value": "attachment; filename=\"lessons_archive.csv\""}
+                {
+                  "key": "Content-Type",
+                  "value": "text/csv"
+                },
+                {
+                  "key": "Content-Disposition",
+                  "value": "attachment; filename=\"lessons_archive.csv\""
+                }
               ],
               "body": "id,status,start_time,student,teacher,package_id\n10,conducted,2026-04-10T10:00:00Z,Іван Учень,Олена Викладач,1"
             }
@@ -836,8 +1131,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/journal/",
-              "host": ["{{base_url}}"],
-              "path": ["journal", ""],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "journal",
+                ""
+              ],
               "query": [
                 {
                   "key": "student_id",
@@ -865,8 +1165,14 @@
             ],
             "url": {
               "raw": "{{base_url}}/journal/10/",
-              "host": ["{{base_url}}"],
-              "path": ["journal", "10", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "journal",
+                "10",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -912,8 +1218,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/bonus/balance/1/",
-              "host": ["{{base_url}}"],
-              "path": ["bonus", "balance", "1", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bonus",
+                "balance",
+                "1",
+                ""
+              ]
             },
             "description": "Отримати бонусний баланс учня (Learning Cashback).\n\nExpected: 200 OK\nErrors: 404"
           },
@@ -938,8 +1251,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/bonus/calculate/2/",
-              "host": ["{{base_url}}"],
-              "path": ["bonus", "calculate", "2", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bonus",
+                "calculate",
+                "2",
+                ""
+              ]
             },
             "description": "Розрахунок та нарахування Learning Cashback після завершення курсу.\n\n85-89% → 5%, 90-94% → 10%, 95-100% → 15%\n\nExpected: 200 OK\nErrors: 409 (Курс не завершено або cashback вже нараховано)"
           },
@@ -970,8 +1290,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/requests/",
-              "host": ["{{base_url}}"],
-              "path": ["requests", ""],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "requests",
+                ""
+              ],
               "query": [
                 {
                   "key": "status",
@@ -999,8 +1324,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/requests/",
-              "host": ["{{base_url}}"],
-              "path": ["requests", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "requests",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -1030,8 +1360,15 @@
             ],
             "url": {
               "raw": "{{base_url}}/requests/5/process/",
-              "host": ["{{base_url}}"],
-              "path": ["requests", "5", "process", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "requests",
+                "5",
+                "process",
+                ""
+              ]
             },
             "body": {
               "mode": "raw",
@@ -1044,6 +1381,668 @@
             },
             "description": "Менеджер бере заявку в роботу або закриває її.\n\nExpected: 200 OK\nErrors: 403, 404"
           }
+        }
+      ]
+    },
+    {
+      "name": "Homework (Stage 5)",
+      "description": "LEAR-67, LEAR-74, LEAR-75 — Домашні завдання",
+      "item": [
+        {
+          "name": "Create/Update Homework (JSON)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/homework/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "homework"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacher_homework_task\": {\n    \"description\": \"Прочитати розділ 3\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "LEAR-67: Teacher assigns homework. 201 on create, 200 on update."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 or 200\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "pm.test(\"Has teacher_homework_task\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"teacher_homework_task\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create/Update Homework (multipart + PDF)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/homework/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "homework"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "teacher_homework_task",
+                  "value": "{\"description\":\"Завдання з файлом\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "file_title",
+                  "value": "Homework PDF",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "description": "LEAR-67: Multipart with optional PDF attachment stored in Dropbox."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 or 200\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "pm.test(\"Has teacher_homework_task\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"teacher_homework_task\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Grade Homework (teacher)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/homework/grade/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "homework",
+                "grade"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homework_grade\": 8\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "LEAR-75: Teacher grades homework 1-10. Sets status to reviewed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has homework_grade\", () => {",
+                  "    const j = pm.response.json();",
+                  "    pm.expect(j).to.have.property(\"homework_grade\");",
+                  "    pm.expect(j.homework_grade).to.be.within(1, 10);",
+                  "});",
+                  "pm.test(\"Status is reviewed\", () => {",
+                  "    pm.expect(pm.response.json().homework_status).to.eql(\"reviewed\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Student tries (403)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/homework/grade/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "homework",
+                "grade"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homework_grade\": 7\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "LEAR-75: Student cannot grade homework — expects 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 403 Forbidden\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Has detail\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"detail\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Homework Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/homeworks/{{journal_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "homeworks",
+                "{{journal_id}}"
+              ]
+            },
+            "description": "LEAR-74: Get JournalRecord with homework info and Dropbox file URL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has homework_status\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"homework_status\");",
+                  "});",
+                  "pm.test(\"Has teacher_homework_task\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"teacher_homework_task\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Student Submit Homework",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/homeworks/{{journal_id}}/submit/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "homeworks",
+                "{{journal_id}}",
+                "submit"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "homework_answer_url",
+                  "value": "https://drive.google.com/file/abc",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "LEAR-74: Student submits answer. Sets homework_status to submitted."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status set to submitted\", () => {",
+                  "    pm.expect(pm.response.json().homework_status).to.eql(\"submitted\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Materials (Stage 5)",
+      "description": "LEAR-125 — Матеріали уроків у Dropbox",
+      "item": [
+        {
+          "name": "Upload Lesson Material",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/materials/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "materials"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Lecture Slides",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "description": "LEAR-125: Upload file to Dropbox. Returns file_url with dl=1."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Has file_url\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"file_url\");",
+                  "});",
+                  "pm.test(\"file_url contains dropbox.com\", () => {",
+                  "    pm.expect(pm.response.json().file_url).to.include(\"dropbox.com\");",
+                  "});",
+                  "pm.test(\"file_url has dl=1\", () => {",
+                  "    pm.expect(pm.response.json().file_url).to.include(\"dl=1\");",
+                  "});",
+                  "if (pm.response.json().id) {",
+                  "    pm.collectionVariables.set(\"material_id\", pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Lesson Materials",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/materials/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "materials"
+              ]
+            },
+            "description": "LEAR-125: List all materials for a lesson with Dropbox URLs."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is array\", () => {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Complaints (Stage 5)",
+      "description": "LEAR-266 — Скарги учнів",
+      "item": [
+        {
+          "name": "Create Complaint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/complaints/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "complaints"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lesson\": 1,\n  \"reason\": \"Викладач не з'явився на запланований урок\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "LEAR-266: Student creates complaint about teacher_missed lesson."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Has id and lesson\", () => {",
+                  "    const j = pm.response.json();",
+                  "    pm.expect(j).to.have.property(\"id\");",
+                  "    pm.expect(j).to.have.property(\"lesson\");",
+                  "});",
+                  "pm.test(\"Status is pending\", () => {",
+                  "    pm.expect(pm.response.json().status).to.eql(\"pending\");",
+                  "});",
+                  "if (pm.response.json().id) {",
+                  "    pm.collectionVariables.set(\"complaint_id\", pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Complaints",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/complaints/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "complaints"
+              ]
+            },
+            "description": "LEAR-266: Student sees own, manager sees all."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is array\", () => {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Complaint Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/complaints/{{complaint_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "complaints",
+                "{{complaint_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"reviewed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "LEAR-266: Manager marks complaint as reviewed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has status field\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"status\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Student (Stage 5)",
+      "description": "LEAR-84 — Студентський звіт",
+      "item": [
+        {
+          "name": "Student Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/student/report/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "student",
+                "report"
+              ]
+            },
+            "description": "LEAR-84: Returns lesson_grades and homework_grades arrays with optional date filters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has lesson_grades\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"lesson_grades\");",
+                  "    pm.expect(pm.response.json().lesson_grades).to.be.an(\"array\");",
+                  "});",
+                  "pm.test(\"Has homework_grades\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"homework_grades\");",
+                  "    pm.expect(pm.response.json().homework_grades).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Student Report with date filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/student/report/?start_date=2026-01-01&end_date=2026-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "student",
+                "report",
+                "?start_date=2026-01-01&end_date=2026-12-31"
+              ]
+            },
+            "description": "LEAR-84: Filtered report."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has lesson_grades\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"lesson_grades\");",
+                  "    pm.expect(pm.response.json().lesson_grades).to.be.an(\"array\");",
+                  "});",
+                  "pm.test(\"Has homework_grades\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"homework_grades\");",
+                  "    pm.expect(pm.response.json().homework_grades).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

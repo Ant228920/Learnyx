@@ -1,3 +1,4 @@
+import unittest
 from django.test import TestCase
 from django.utils import timezone
 from django.db import IntegrityError
@@ -655,6 +656,14 @@ class BonusExpiryTest(TestCase):
         self.plan = PackagePlan.objects.create(
             name='Basic', total_lessons=8, price=100,
         )
+        self.package = Package.objects.create(
+            student=self.student,
+            course=course,
+            total_lessons=self.plan.total_lessons,
+            balance=self.plan.total_lessons,
+            final_price=str(self.plan.price),
+            status='available',
+        )
 
         # Expired completion — 200 days ago
         self.expired_completion = CourseCompletion.objects.create(
@@ -666,7 +675,7 @@ class BonusExpiryTest(TestCase):
         )
 
     def _url(self):
-        return f'/api/v1/packages/{self.plan.pk}/purchase/'
+        return f'/api/v1/packages/{self.package.pk}/purchase/'
 
     def test_expired_bonus_not_applied(self):
         """Bonus older than 180 days → discount_applied=False, full price charged."""
@@ -1229,7 +1238,7 @@ class HomeworkWithFileIntegrationTest(TestCase):
         self.student = Student.objects.create(user=self.student_user)
 
         self.package = _make_package(self.student, balance=5)
-        self.lesson = _make_conducted_lesson(self.teacher, self.student, self.package)
+        self.lesson = _make_lesson_with_slot(self.teacher, self.student, self.package, hours_delta=-2, status='conducted')
 
     def _url(self):
         return f'/api/v1/lessons/{self.lesson.pk}/homework/'
@@ -1332,6 +1341,22 @@ class ConcurrentBonusUseTest(TestCase):
         self.plan = PackagePlan.objects.create(
             name='Lock test', total_lessons=5, price=50,
         )
+        self.package1 = Package.objects.create(
+            student=self.student,
+            course=course,
+            total_lessons=self.plan.total_lessons,
+            balance=self.plan.total_lessons,
+            final_price=str(self.plan.price),
+            status='available',
+        )
+        self.package2 = Package.objects.create(
+            student=self.student,
+            course=course,
+            total_lessons=self.plan.total_lessons,
+            balance=self.plan.total_lessons,
+            final_price=str(self.plan.price),
+            status='available',
+        )
         self.completion = CourseCompletion.objects.create(
             student=self.student,
             course=course,
@@ -1340,24 +1365,22 @@ class ConcurrentBonusUseTest(TestCase):
             completed_at=timezone.now() - timezone.timedelta(days=10),
         )
 
-    def _url(self):
-        return f'/api/v1/packages/{self.plan.pk}/purchase/'
-
     def test_second_purchase_does_not_apply_already_used_bonus(self):
         """First call uses the bonus; second call finds is_discount_used=True → no discount."""
         self.client.force_authenticate(user=self.student_user)
 
-        resp1 = self.client.post(self._url(), {})
+        resp1 = self.client.post(f'/api/v1/packages/{self.package1.pk}/purchase/', {})
         self.assertEqual(resp1.status_code, 201)
         self.assertTrue(resp1.data['discount_applied'])
 
         self.completion.refresh_from_db()
         self.assertTrue(self.completion.is_discount_used)
 
-        # Re-fill balance so the second purchase can proceed
+        # Complete first package and re-fill balance so the second purchase can proceed
+        Package.objects.filter(pk=self.package1.pk).update(status='completed')
         Student.objects.filter(pk=self.student.pk).update(money_balance=9999)
 
-        resp2 = self.client.post(self._url(), {})
+        resp2 = self.client.post(f'/api/v1/packages/{self.package2.pk}/purchase/', {})
         self.assertEqual(resp2.status_code, 201)
         self.assertFalse(resp2.data['discount_applied'])
         self.assertEqual(resp2.data['discount_pct'], 0.0)

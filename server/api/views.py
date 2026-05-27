@@ -648,29 +648,6 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(JournalRecordSerializer(record).data, status=http_status)
 
-    @action(detail=True, methods=['patch'], url_path='homework/grade')
-    def grade_homework(self, request, pk=None):
-        """LEAR-75: Teacher grades a student's homework (1–10) on a conducted lesson."""
-        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
-
-        teacher = get_object_or_404(Teacher, user=request.user)
-        if lesson.slot.teacher_id != teacher.pk:
-            return Response(
-                {'detail': 'You can only grade homework for your own lessons.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        serializer = HomeworkGradeSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
-        record.homework_grade = serializer.validated_data['homework_grade']
-        record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
-        record.reviewed_at = timezone.now()
-        record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
-
-        return Response(JournalRecordSerializer(record).data)
-
 
 class BonusBalanceView(APIView):
     """US14: Student's cashback balance + current-package progress scale."""
@@ -1151,12 +1128,20 @@ class PackagePurchaseView(APIView):
 
         logger.info(f'Package {pk} purchased by student {student.pk}')
 
+        package.status = 'active'
+        package.purchased_at = timezone.now()
+        package.save(update_fields=['status', 'purchased_at', 'final_price', 'discount'])
+
+        logger.info(f'Package {pk} purchased by student {student.pk}')
+
         return Response({
             'package_id': package.id,
             'total_lessons': package.total_lessons,
             'balance': package.balance,
             'final_price': float(package.final_price),
             'status': package.status,
+            'discount_applied': discount_applied,
+            'discount_pct': discount_pct,
             'message': f'Пакет на {package.total_lessons} уроків успішно придбано!',
         }, status=status.HTTP_201_CREATED)
 
