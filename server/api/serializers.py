@@ -129,8 +129,9 @@ class JournalRecordSerializer(serializers.ModelSerializer):
         return value
 
     def validate_homework_grade(self, value):
-        if value is not None and not (1 <= value <= 10):
-            raise serializers.ValidationError('homework_grade must be between 1 and 10.')
+        # Allow 0 (not done) through 12 (extended scale used by teachers)
+        if value is not None and not (0 <= value <= 12):
+            raise serializers.ValidationError('homework_grade must be between 0 and 12.')
         return value
 
 
@@ -165,6 +166,12 @@ class StudentListSerializer(serializers.ModelSerializer):
 class JournalListSerializer(serializers.ModelSerializer):
     start_time = serializers.DateTimeField(source='lesson.slot.start_time', read_only=True)
     lesson_status = serializers.CharField(source='lesson.status', read_only=True)
+    homework_status = serializers.CharField(read_only=True)
+    student_name = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj):
+        u = obj.lesson.student.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
 
     class Meta:
         model = JournalRecord
@@ -172,6 +179,7 @@ class JournalListSerializer(serializers.ModelSerializer):
             'id', 'lesson', 'start_time', 'lesson_status',
             'is_present', 'activity_grade', 'homework_grade',
             'teacher_homework_task', 'homework_answer_url', 'teacher_notes',
+            'homework_status', 'student_name',
         ]
 
 
@@ -229,7 +237,7 @@ class AssignLessonSerializer(serializers.Serializer):
 
 class HomeworkSerializer(serializers.Serializer):
     teacher_homework_task = serializers.JSONField()
-    homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
+    homework_answer_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     # LEAR-67: optional file attachment — saved as LessonMaterial on the lesson
     file = serializers.FileField(required=False)
     file_title = serializers.CharField(max_length=200, required=False, default='Homework material')
