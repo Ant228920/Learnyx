@@ -9,11 +9,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as _BaseTokenRefreshView
 
-from .models import Request, User, Role, Student
+from .models import Request, Role, Student
 from users.serializers import LoginSerializer
 
 # ДОДАНО: Імпортуємо нашу безпечну сервісну функцію
-from users.services import get_student_balance 
+from users.services import get_student_balance
 
 class TokenRefreshView(_BaseTokenRefreshView):
     """Return accessToken (camelCase) to match the login response convention."""
@@ -50,7 +50,7 @@ class RequestViewSet(viewsets.ModelViewSet):
 
         if req_obj.status == 'approved':
             return Response(
-                {"detail": "Цей запит вже був підтверджений раніше."}, 
+                {"detail": "Цей запит вже був підтверджений раніше."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -58,15 +58,15 @@ class RequestViewSet(viewsets.ModelViewSet):
 
         try:
             with transaction.atomic():
-                
+
                 # 1. Працюємо з користувачем
                 user = req_obj.user
-                
+
                 # Генерація та хешування пароля
                 generated_password = get_random_string(length=12)
                 user.set_password(generated_password)
                 user.is_approved = True
-                
+
                 # 2. Призначення ролі
                 role, created = Role.objects.get_or_create(name=role_name)
                 user.role_obj = role
@@ -90,25 +90,25 @@ class RequestViewSet(viewsets.ModelViewSet):
                     f"Пароль: {generated_password}\n\n"
                     f"Будь ласка, змініть пароль після першого входу в систему."
                 )
-                
+
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=None, 
+                    from_email=None,
                     recipient_list=[user.email],
-                    fail_silently=False, 
+                    fail_silently=False,
                 )
 
             return Response({
                 "detail": f"Користувача підтверджено. Лист успішно надіслано на {user.email}",
-                "temporary_password": generated_password, 
+                "temporary_password": generated_password,
                 "username": user.username
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
             # ВИПРАВЛЕНО: Замість 500 помилки повертаємо 400 (Backend Bug Fixing)
             return Response(
-                {"detail": f"Помилка при підтвердженні (транзакцію скасовано): {str(e)}"}, 
+                {"detail": f"Помилка при підтвердженні (транзакцію скасовано): {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -150,6 +150,6 @@ class StudentBalanceView(APIView):
     def get(self, request):
         # Передаємо ID поточного юзера у нашу захищену сервісну функцію
         balance = get_student_balance(student_id=request.user.id)
-        
+
         # Якщо помилок не було (Exception не спрацював), віддаємо баланс
         return Response({"money_balance": balance}, status=status.HTTP_200_OK)

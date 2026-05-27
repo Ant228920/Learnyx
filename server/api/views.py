@@ -945,13 +945,13 @@ class StudentDashboardView(APIView):
         )
         today_lessons = [
             {
-                'lesson_id': l.pk,
-                'start_time': l.slot.start_time,
-                'end_time': l.slot.end_time,
-                'meeting_link': l.meeting_link,
-                'teacher': f'{l.slot.teacher.user.first_name} {l.slot.teacher.user.last_name}'.strip(),
+                'lesson_id': les.pk,
+                'start_time': les.slot.start_time,
+                'end_time': les.slot.end_time,
+                'meeting_link': les.meeting_link,
+                'teacher': f'{les.slot.teacher.user.first_name} {les.slot.teacher.user.last_name}'.strip(),
             }
-            for l in today_qs
+            for les in today_qs
         ]
 
         # --- bonus progress for the active package ---
@@ -1006,8 +1006,8 @@ class TeacherDashboardView(APIView):
         )
         # One query for all lessons on those slots
         lessons_by_slot = {
-            l.slot_id: l
-            for l in Lesson.objects
+            les.slot_id: les
+            for les in Lesson.objects
             .filter(slot__in=today_slots)
             .select_related('student__user', 'curriculum_lesson')
         }
