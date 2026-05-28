@@ -6,11 +6,36 @@ from django.db.models import CheckConstraint, Q, Count
 class StudentLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
+    # [DATA HOTFIX] Прибираємо лише зайві пробіли по краях.
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
 class TeacherLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
+
+    # [DATA HOTFIX] Прибираємо лише зайві пробіли по краях.
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+class TeacherLevel(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    # [DATA HOTFIX / TRIGGER]
+    # Нормалізує рівень викладача перед збереженням, щоб уникнути логічних дублів.
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().capitalize()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -18,6 +43,12 @@ class TeacherLevel(models.Model):
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
+    # [DATA HOTFIX / TRIGGER]
+    # Гарантує, що назви ролей завжди зберігаються з великої літери без пробілів (наприклад, " manager " -> "Manager").
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().capitalize()
+        super().save(*args, **kwargs)
     def __str__(self):
         return self.name
 
@@ -49,6 +80,19 @@ class User(AbstractUser):
         verbose_name='user permissions',
     )
 
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект форматування номера телефону та email.
+    # Гарантує, що email зберігається завжди в нижньому регістрі (John@MAIL.com -> john@mail.com).
+    # Видаляє з номера телефону всі нечислові символи крім плюса (наприклад, " +38 (099) 123-45-67 " -> "+380991234567").
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
+        if self.phone:
+            # Залишаємо тільки '+' (якщо він перший) та цифри
+            cleaned_phone = ''.join(char for char in self.phone if char.isdigit() or char == '+')
+            self.phone = cleaned_phone if cleaned_phone else None
+        super().save(*args, **kwargs)
+
     class Meta:
         indexes = [
             # Оптимізація: швидкий пошук користувачів в адмінці або при авторизації
@@ -65,11 +109,11 @@ class User(AbstractUser):
 # --- COMPLEX QUERIES MANAGERS ---
 class StudentQuerySet(models.QuerySet):
     def with_details(self):
-        # Оптимізація JOIN: миттєво дістаємо і юзера, і його рівень
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('user', 'level')
 
     def with_analytics(self):
-        # Оптимізація JOIN + Aggregations: дістаємо кількість залишених відгуків та заявок
+        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
         return self.annotate(
             total_requests=Count('user__requests', distinct=True),
             total_reviews=Count('user__reviews', distinct=True)
@@ -77,12 +121,12 @@ class StudentQuerySet(models.QuerySet):
 
 class ManagerQuerySet(models.QuerySet):
     def with_analytics(self):
-        # Complex Query: SQL Aggregations для дашборду менеджера
-        # Рахує, скільки всього заявок має менеджер і скільки з них вже вирішено
+        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
         return self.annotate(
             total_assigned_requests=Count('assigned_requests'),
             resolved_requests=Count('assigned_requests', filter=Q(assigned_requests__status='resolved'))
         ).select_related('user')
+
 
 # Студент, Менеджер
 class Student(models.Model):
@@ -122,7 +166,7 @@ class Manager(models.Model):
 # --- COMPLEX QUERIES MANAGERS ---
 class RequestQuerySet(models.QuerySet):
     def with_users(self):
-        # Оптимізація JOIN: підтягуємо дані того, хто створив, і того, хто обробляє
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('user', 'manager__user')
 
 class Request(models.Model):
@@ -143,7 +187,7 @@ class Request(models.Model):
 
     class Meta:
         indexes = [
-            # Оптимізація: Менеджери часто шукають "нові" заявки або сортують за датою
+            # Оптимізація: швидкий пошук заявок за статусом та датою
             models.Index(fields=['status', 'created_at']),
             models.Index(fields=['manager', 'status']),
         ]
