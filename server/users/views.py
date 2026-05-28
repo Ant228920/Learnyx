@@ -30,16 +30,24 @@ class RequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Request
         fields = '__all__'
+        read_only_fields = ['user', 'created_at']
 
 # --- В'ЮСЕТИ ТА API VIEWS ---
 
 class RequestViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet для роботи із запитами на реєстрацію.
-    Містить логіку апруву (підтвердження) користувача.
-    """
-    queryset = Request.objects.all()
+    """Student-to-manager requests (complaints, queries). Students create; managers read/update."""
     serializer_class = RequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
+        if role in ('manager', 'admin'):
+            return Request.objects.all().order_by('-created_at')
+        return Request.objects.filter(user=user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):

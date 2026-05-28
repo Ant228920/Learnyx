@@ -352,8 +352,10 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             return [IsTeacher()]
         if self.action == 'assign':
             return [(IsTeacher | IsManager)()]
-        if self.action in ('upcoming', 'cancel', 'submit_homework'):
+        if self.action in ('upcoming', 'submit_homework'):
             return [IsStudent()]
+        if self.action == 'cancel':
+            return [(IsStudent | IsTeacher | IsManager)()]
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
@@ -385,6 +387,8 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             qs = qs.filter(slot__start_time__date__lte=p['date_to'])
         if p.get('teacher_id'):
             qs = qs.filter(slot__teacher_id=p['teacher_id'])
+        if p.get('slot_id'):
+            qs = qs.filter(slot_id=p['slot_id'])
 
         return qs.order_by('slot__start_time')
 
@@ -510,16 +514,27 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=True, methods=['patch'], url_path='cancel')
     def cancel(self, request, pk=None):
-        """US20: Student cancels their own scheduled lesson; slot freed atomically."""
+        """US20: Cancel a scheduled lesson. Students cancel their own; teachers cancel their slot's; managers cancel any."""
+        role = request.user.role_obj.name.lower() if request.user.role_obj else ''
         with transaction.atomic():
-            lesson = Lesson.objects.select_related('slot').select_for_update().get(pk=pk)
+            lesson = Lesson.objects.select_related('slot__teacher').select_for_update().get(pk=pk)
 
-            student = get_object_or_404(Student, user=request.user)
-            if lesson.student_id != student.pk:
-                return Response(
-                    {'detail': 'You can only cancel your own lessons.'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+            # Ownership check per role
+            if role == 'student':
+                student = get_object_or_404(Student, user=request.user)
+                if lesson.student_id != student.pk:
+                    return Response(
+                        {'detail': 'You can only cancel your own lessons.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+            elif role == 'teacher':
+                teacher = get_object_or_404(Teacher, user=request.user)
+                if lesson.slot.teacher_id != teacher.pk:
+                    return Response(
+                        {'detail': 'You can only cancel lessons from your own slots.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+            # manager: no ownership restriction
 
             if lesson.status != 'scheduled':
                 return Response(
@@ -540,7 +555,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             slot.status = 'available'
             slot.save(update_fields=['status'])
 
-        logger.info(f'Lesson {lesson.pk} cancelled by student {student.pk}, slot {slot.pk} freed')
+        logger.info(f'Lesson {lesson.pk} cancelled by {role} {request.user.pk}, slot {slot.pk} freed')
         return Response(LessonSerializer(lesson).data)
 
     @action(detail=True, methods=['patch'], url_path='meeting-link')
@@ -1188,12 +1203,11 @@ class PackagePlanListView(generics.ListAPIView):
         status_param = self.request.query_params.get('status')
 
         if role in ('manager', 'admin') and status_param:
-            return (
-                Package.objects
-                .select_related('student__user')
-                .filter(status=status_param)
-                .order_by('-purchased_at')
-            )
+            qs = Package.objects.select_related('student__user').filter(status=status_param)
+            student_id = self.request.query_params.get('student_id')
+            if student_id:
+                qs = qs.filter(student_id=student_id)
+            return qs.order_by('-purchased_at')
 
         if role == 'student' and status_param:
             student = Student.objects.filter(user=user).first()
