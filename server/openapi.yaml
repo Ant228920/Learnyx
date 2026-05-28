@@ -32,6 +32,7 @@ tags:
     description: Адміністративні ендпоінти для менеджера
   - name: Requests
     description: Заявки до менеджера
+<<<<<<< HEAD
   - name: Homework
     description: Домашні завдання (призначення, здача, оцінювання)
   - name: Materials
@@ -40,6 +41,8 @@ tags:
     description: Скарги учнів на пропущені заняття
   - name: Student
     description: Студентські ендпоінти (дашборд, звіт)
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 paths:
 
@@ -312,6 +315,7 @@ paths:
             type: string
             format: date
           example: "2026-04-10"
+<<<<<<< HEAD
         - name: start_date
           in: query
           schema:
@@ -324,6 +328,8 @@ paths:
             type: string
             format: date
           description: "LEAR-126: Filter slots until this date (inclusive)"
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       responses:
         '200':
           description: Список слотів
@@ -381,6 +387,7 @@ paths:
                 path: "/api/v1/slots/"
 
   /slots/{id}/:
+<<<<<<< HEAD
     patch:
       tags: [Slots]
       summary: "LEAR-127: Partial update a slot (teacher only)"
@@ -403,6 +410,8 @@ paths:
         '200': {description: Slot updated}
         '403': {description: Forbidden}
         '404': {description: Not found}
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     delete:
       tags: [Slots]
       summary: Видалити слот (тільки незаброньований)
@@ -556,6 +565,7 @@ paths:
 
   /lessons/{id}/homework/:
     post:
+<<<<<<< HEAD
       tags: [Homework]
       summary: "LEAR-67: Create or update homework task for lesson (teacher, supports file upload)"
       description: |
@@ -563,6 +573,14 @@ paths:
         Перший виклик → 201 (JournalRecord створено). Повторний виклик → 200 (оновлено).
         Підтримує multipart/form-data для прикріплення файлу (PDF/DOCX/PNG/JPG, до 10 МБ).
         Файл зберігається у Dropbox, URL повертається в `attached_material`.
+=======
+      tags: [Lessons]
+      summary: Задати домашнє завдання (викладач)
+      description: |
+        Викладач задає ДЗ після проведеного уроку. Зберігається в `JournalRecord`.
+        Поля: `teacher_homework_task` (текст, обов'язково), `homework_answer_url` (URL, опціонально).
+        Урок має бути у статусі `conducted`.
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       security:
         - BearerAuth: []
       parameters:
@@ -575,6 +593,7 @@ paths:
       requestBody:
         required: true
         content:
+<<<<<<< HEAD
           multipart/form-data:
             schema:
               type: object
@@ -593,10 +612,13 @@ paths:
                 file_title:
                   type: string
                   description: Назва файлу (за замовчуванням — "Homework material")
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
           application/json:
             schema:
               $ref: '#/components/schemas/HomeworkRequest'
             example:
+<<<<<<< HEAD
               teacher_homework_task: {description: "Розв'язати задачі 1-5 стор. 45"}
               homework_answer_url: "https://drive.google.com/file/abc"
       responses:
@@ -616,6 +638,26 @@ paths:
           description: Домашнє завдання оновлено (існуючий JournalRecord)
         '400':
           description: Невалідні дані або файл перевищує ліміт / неприпустимий формат
+=======
+              teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+              homework_answer_url: "https://drive.google.com/file/abc"
+      responses:
+        '200':
+          description: Домашнє завдання збережено
+          content:
+            application/json:
+              example:
+                lesson_id: 10
+                teacher_homework_task: "Розв'язати задачі 1-5 стор. 45"
+                homework_answer_url: "https://drive.google.com/file/abc"
+        '400':
+          description: Урок не у статусі conducted або невалідні дані
+          content:
+            application/json:
+              example:
+                errorCode: "LESSON_NOT_CONDUCTED"
+                message: "Домашнє завдання можна задати лише після проведеного уроку"
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -833,7 +875,11 @@ paths:
             type: integer
           example: 5
       responses:
+<<<<<<< HEAD
         '201':
+=======
+        '200':
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
           description: Пакет активовано (знижка застосована або ні)
           content:
             application/json:
@@ -841,6 +887,7 @@ paths:
                 $ref: '#/components/schemas/PurchaseResponse'
               examples:
                 with_discount:
+<<<<<<< HEAD
                   summary: З бонусною знижкою (180-day cashback)
                   value:
                     package_id: 5
@@ -851,10 +898,19 @@ paths:
                     discount_applied: true
                     discount_pct: 10.0
                     message: "Пакет на 12 уроків успішно придбано!"
+=======
+                  summary: З бонусною знижкою
+                  value:
+                    package_id: 5
+                    final_price: "2160.00"
+                    discount_applied: true
+                    discount_pct: 10
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                 no_discount:
                   summary: Без знижки
                   value:
                     package_id: 5
+<<<<<<< HEAD
                     total_lessons: 12
                     balance: 12
                     final_price: 2400.0
@@ -862,6 +918,11 @@ paths:
                     discount_applied: false
                     discount_pct: 0.0
                     message: "Пакет на 12 уроків успішно придбано!"
+=======
+                    final_price: "2400.00"
+                    discount_applied: false
+                    discount_pct: 0
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         '400':
           description: Пакет вже активний або інша помилка валідації
           content:
@@ -1175,6 +1236,7 @@ paths:
           $ref: '#/components/responses/NotFound'
 
 # ───────────────────────────────────────────
+<<<<<<< HEAD
   # PACKAGE PLANS (LEAR-72)
   # ───────────────────────────────────────────
 
@@ -1478,6 +1540,8 @@ paths:
         '404': {description: Not found}
 
 # ───────────────────────────────────────────
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 # COMPONENTS
 # ───────────────────────────────────────────
 
@@ -1619,6 +1683,7 @@ components:
     PurchaseResponse:
       type: object
       properties:
+<<<<<<< HEAD
         package_id: {type: integer}
         total_lessons: {type: integer}
         balance: {type: integer}
@@ -1712,6 +1777,19 @@ components:
         price: {type: number}
         description: {type: string}
         is_active: {type: boolean}
+=======
+        package_id:
+          type: integer
+        final_price:
+          type: string
+          description: Фінальна ціна після знижки (або оригінальна)
+        discount_applied:
+          type: boolean
+          description: Чи було застосовано бонусну знижку
+        discount_pct:
+          type: integer
+          description: Відсоток знижки (0 якщо не застосовано)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
     ErrorResponse:
       type: object

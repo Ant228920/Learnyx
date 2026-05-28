@@ -9,7 +9,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as _BaseTokenRefreshView
 
-from .models import Request, Role, Student
+from .models import Request, User, Role, Student
 from users.serializers import LoginSerializer
 
 # ДОДАНО: Імпортуємо нашу безпечну сервісну функцію
@@ -31,6 +31,7 @@ class RequestSerializer(serializers.ModelSerializer):
         model = Request
         fields = '__all__'
         read_only_fields = ['user', 'created_at']
+
 
 # --- В'ЮСЕТИ ТА API VIEWS ---
 

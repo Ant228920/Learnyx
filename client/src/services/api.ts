@@ -121,8 +121,11 @@ export interface JournalRecord {
   teacher_notes: string | null;
   start_time?: string;
   lesson_status?: string;
+<<<<<<< HEAD
   homework_status?: string;   // 'assigned' | 'submitted' | 'reviewed'
   student_name?: string;      // returned by JournalListSerializer
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 }
 
 export interface StudentDashboard {
@@ -192,6 +195,7 @@ export interface ApiError {
 // ── Error helper ────────────────────────────────────────────────────────────
 export function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+<<<<<<< HEAD
     const status = error.response?.status;
     const data = error.response?.data as Record<string, unknown> | undefined;
 
@@ -264,6 +268,16 @@ export function extractErrorMessage(error: unknown): string {
   }
 
   if (error instanceof Error) return error.message;
+=======
+    const data = error.response?.data as Record<string, unknown> | undefined;
+    if (data?.message) return data.message as string;
+    if (data?.detail) return data.detail as string;
+    if (data?.non_field_errors) return (data.non_field_errors as string[])[0];
+    const firstField = data ? Object.values(data)[0] : undefined;
+    if (Array.isArray(firstField)) return firstField[0] as string;
+    if (typeof firstField === 'string') return firstField;
+  }
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   return 'Щось пішло не так. Спробуйте ще раз.';
 }
 
@@ -368,6 +382,7 @@ export const studentApi = {
     return data;
   },
 
+<<<<<<< HEAD
   // POST /homeworks/{journalId}/submit/ — student uploads homework file (multipart)
   submitHomework: async (journalId: number, file: File): Promise<JournalRecord> => {
     const formData = new FormData();
@@ -386,6 +401,8 @@ export const studentApi = {
     return data as JournalRecord;
   },
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   getLearningRequests: async () => {
     const { data } = await apiClient.get('/students/me/learning-requests/');
     return data as LearningRequestItem[];
@@ -452,7 +469,10 @@ export const teacherApi = {
     is_present: boolean;
     activity_grade?: number;
     teacher_homework_task?: string;
+<<<<<<< HEAD
     teacher_notes?: string;
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     homework_grade?: number;
   }): Promise<JournalRecord> => {
     const { data } = await apiClient.post(`/lessons/${lessonId}/evaluate/`, payload);

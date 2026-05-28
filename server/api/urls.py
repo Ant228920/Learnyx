@@ -1,6 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+<<<<<<< HEAD
 from users.views import LoginView, TokenRefreshView, RequestViewSet
+=======
+from users.views import LoginView, TokenRefreshView
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
@@ -19,7 +23,10 @@ from api.views import (
     AvailableStudentListView,
     LessonArchiveView,
     PackagePurchaseView,
+<<<<<<< HEAD
     PackageCancelView,
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     ProfileView,
     TeacherFinancesView,
     ManagerSubscriptionsView,
@@ -28,8 +35,11 @@ from api.views import (
     StudentLearningRequestView,
     ManagerLearningRequestsView,
     ReviewView,
+<<<<<<< HEAD
     PackagePlanCatalogView,
     PackagePlanPurchaseView,
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     StudentReportView,
     ComplaintListCreateView,
     ComplaintDetailView,
@@ -40,7 +50,10 @@ from api.views import (
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
 router.register(r'v1/lessons', LessonViewSet, basename='lesson')
+<<<<<<< HEAD
 router.register(r'v1/requests', RequestViewSet, basename='request')
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 urlpatterns = [
     # ── Auth (canonical)
@@ -55,9 +68,12 @@ urlpatterns = [
     path('v1/packages/', PackagePlanListView.as_view(), name='package-plans'),
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
     path('v1/packages/<int:pk>/purchase/', PackagePurchaseView.as_view(), name='package-purchase'),
+<<<<<<< HEAD
     path('v1/packages/<int:pk>/cancel/', PackageCancelView.as_view(), name='package-cancel'),
     path('v1/package-plans/', PackagePlanCatalogView.as_view(), name='package-plan-catalog'),
     path('v1/package-plans/<int:pk>/purchase/', PackagePlanPurchaseView.as_view(), name='package-plan-purchase'),
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     path('v1/students/available/', AvailableStudentListView.as_view(), name='student-available'),
     path('v1/students/', StudentListView.as_view(), name='student-list'),
     path('v1/students/me/balance/', StudentBalanceView.as_view(), name='student-balance'),
@@ -109,9 +125,12 @@ urlpatterns = [
     path('v1/homeworks/<int:pk>/', HomeworkDetailView.as_view(), name='homework-detail'),
     path('v1/homeworks/<int:pk>/submit/', HomeworkSubmitView.as_view(), name='homework-submit'),
 
+<<<<<<< HEAD
     # ── User requests alias (student POST, manager GET — same resource, frontend uses two paths)
     path('v1/user-requests/', RequestViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-requests'),
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     # ── ViewSets
     path('', include(router.urls)),
 ]

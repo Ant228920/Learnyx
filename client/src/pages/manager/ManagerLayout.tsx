@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import { type ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+=======
+import { type ReactNode } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 import { useAuth } from '../../app/providers';
 
 const NAV_ITEMS = [
@@ -18,6 +23,7 @@ const IconLogo = () => (
   </svg>
 );
 
+<<<<<<< HEAD
 function roleLabel(role: string | undefined): string {
   switch ((role ?? '').toLowerCase()) {
     case 'student': return 'Учень';
@@ -28,13 +34,18 @@ function roleLabel(role: string | undefined): string {
   }
 }
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 export default function ManagerLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const isSettings = location.pathname === '/manager/settings';
+<<<<<<< HEAD
   const [showProfile, setShowProfile] = useState(false);
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
   return (
     <div className="flex w-full min-h-screen bg-[#f8f9fb]">
@@ -44,12 +55,20 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
         aria-label="Навігація адміністратора"
         className="fixed top-0 left-0 flex h-full w-64 flex-col border-r border-[#dee1e6] bg-white z-30"
       >
+<<<<<<< HEAD
         <button type="button" onClick={() => void navigate('/')} className="flex w-full items-center gap-3 p-6 hover:bg-gray-50 transition-colors">
+=======
+        <Link to="/" className="flex w-full items-center gap-3 p-6">
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
           <div className="w-8 h-8 bg-[#1f8cf9] rounded-md flex items-center justify-center">
             <IconLogo />
           </div>
           <span className="font-poppins font-bold text-[#1f8cf9] text-xl">LearNYX</span>
+<<<<<<< HEAD
         </button>
+=======
+        </Link>
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
         <div className="flex flex-1 flex-col w-full pt-4">
           <nav aria-label="Розділи" className="flex flex-1 flex-col gap-2 px-4">
@@ -101,13 +120,21 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
 
         {/* Header */}
         <header className="h-16 flex items-center justify-end px-10 bg-white border-b border-[#dee1e6] sticky top-0 z-20">
+<<<<<<< HEAD
           <div className="flex items-center gap-4 cursor-pointer" onClick={() => setShowProfile(true)}>
+=======
+          <div className="flex items-center gap-4">
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             <div className="flex flex-col items-end">
               <span className="font-inter font-bold text-slate-900 text-sm">{user?.firstName} {user?.lastName}</span>
               <span className="font-inter font-bold text-[#1f8cf9] text-[10px] tracking-[0.50px] uppercase">Адміністратор</span>
             </div>
             <div className="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-[#f4f4f6]">
+<<<<<<< HEAD
               <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+=======
+              <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}</span>
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               <div className="absolute right-0 bottom-0 w-2.5 h-2.5 bg-[#26d962] rounded-full border-2 border-white" />
             </div>
           </div>
@@ -132,6 +159,7 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
           </div>
         </footer>
       </div>
+<<<<<<< HEAD
 
       {/* Profile Modal */}
       {showProfile && (
@@ -170,6 +198,8 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     </div>
   );
 }

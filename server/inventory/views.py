@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -58,3 +59,8 @@ class PackagePurchaseView(APIView):
                 {"detail": f"Сталася помилка при оформленні покупки: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+=======
+from django.shortcuts import render
+
+# Create your views here.
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621

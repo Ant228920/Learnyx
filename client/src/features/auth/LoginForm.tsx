@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconEye, IconEyeOff, IconMail } from '../../components/layout/icons';
+<<<<<<< HEAD
 import { authApi, profileApi, extractErrorMessage } from '../../services/api';
+=======
+import { authApi, extractErrorMessage } from '../../services/api';
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 import { useAuth } from '../../app/providers';
 
 interface Props {
@@ -9,11 +13,19 @@ interface Props {
 }
 
 function getRedirectPath(role: string): string {
+<<<<<<< HEAD
   switch (role.toLowerCase()) {
     case 'student':  return '/dashboard';
     case 'teacher':  return '/teacher';
     case 'manager':  return '/manager';
     case 'admin':    return '/manager';
+=======
+  switch (role) {
+    case 'Student':  return '/dashboard';
+    case 'Teacher':  return '/teacher';
+    case 'Manager':  return '/manager';
+    case 'Admin':    return '/manager';
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     default:         return '/';
   }
 }
@@ -39,6 +51,7 @@ export default function LoginForm({ onSuccess }: Props) {
     try {
       const data = await authApi.login({ email, password });
 
+<<<<<<< HEAD
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('token', data.accessToken);
 
@@ -60,6 +73,24 @@ export default function LoginForm({ onSuccess }: Props) {
 
       setTimeout(() => {
         void navigate(getRedirectPath(baseUser.role));
+=======
+      // Зберігаємо refresh токен
+      localStorage.setItem('refreshToken', data.refreshToken);
+
+      const raw = data.user.role ?? '';
+      const role = (raw.charAt(0).toUpperCase() + raw.slice(1)) as 'Student' | 'Teacher' | 'Manager' | 'Admin';
+
+      const normalizedUser = {
+        ...data.user,
+        role,
+      };
+
+      login(data.accessToken, normalizedUser);
+      onSuccess?.();
+
+      setTimeout(() => {
+        void navigate(getRedirectPath(role));
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       }, 0);
     } catch (err) {
       setError(extractErrorMessage(err));

@@ -15,6 +15,7 @@
       "key": "access_token",
       "value": "",
       "type": "string"
+<<<<<<< HEAD
     },
     {
       "key": "material_id",
@@ -35,6 +36,8 @@
       "key": "journal_id",
       "value": "1",
       "type": "string"
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     }
   ],
   "item": [
@@ -54,6 +57,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/auth/register/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -62,6 +66,10 @@
                 "register",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -107,6 +115,7 @@
             {
               "listen": "test",
               "script": {
+<<<<<<< HEAD
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
@@ -117,6 +126,16 @@
                   "    console.log(\"Token saved:\", j.accessToken.substring(0, 20) + \"...\");",
                   "});"
                 ]
+=======
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', response.access);",
+                  "    pm.test('Token saved', () => pm.expect(response.access).to.be.a('string'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               }
             }
           ],
@@ -130,6 +149,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/auth/login/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -138,6 +158,10 @@
                 "login",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -189,6 +213,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/auth/token/refresh/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -198,6 +223,10 @@
                 "refresh",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["auth", "token", "refresh", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -229,6 +258,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/me/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -237,6 +267,10 @@
                 "me",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["users", "me", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "description": "Повертає профіль авторизованого користувача.\n\nExpected: 200 OK\nErrors: 401 (Токен відсутній або недійсний)"
           },
@@ -261,6 +295,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/students/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -269,6 +304,10 @@
                 "students",
                 ""
               ],
+=======
+              "host": ["{{base_url}}"],
+              "path": ["users", "students", ""],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "query": [
                 {
                   "key": "level_id",
@@ -297,6 +336,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/teachers/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -305,6 +345,10 @@
                 "teachers",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["users", "teachers", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "description": "Список викладачів.\n\nExpected: 200 OK"
           }
@@ -325,6 +369,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/users/approve/3/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -334,6 +379,10 @@
                 "3",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["users", "approve", "3", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -365,6 +414,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/slots/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -372,6 +422,10 @@
                 "slots",
                 ""
               ],
+=======
+              "host": ["{{base_url}}"],
+              "path": ["slots", ""],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "query": [
                 {
                   "key": "teacher_id",
@@ -391,6 +445,7 @@
               ]
             },
             "description": "Список слотів з можливістю фільтрації.\n\nExpected: 200 OK"
+<<<<<<< HEAD
           },
           "event": [
             {
@@ -406,6 +461,9 @@
               }
             }
           ]
+=======
+          }
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         },
         {
           "name": "Створити часовий слот",
@@ -423,6 +481,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/slots/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -430,6 +489,10 @@
                 "slots",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["slots", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -469,6 +532,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/slots/5/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -530,6 +594,13 @@
               }
             }
           ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["slots", "5", ""]
+            },
+            "description": "Видалення незабронйованого слоту.\n\nExpected: 204 No Content\nErrors: 404 (Слот не знайдено), 409 (Слот вже заброньований)"
+          }
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         }
       ]
     },
@@ -549,6 +620,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -556,6 +628,10 @@
                 "lessons",
                 ""
               ],
+=======
+              "host": ["{{base_url}}"],
+              "path": ["lessons", ""],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "query": [
                 {
                   "key": "status",
@@ -588,6 +664,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -595,6 +672,10 @@
                 "lessons",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["lessons", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -638,6 +719,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/10/complete/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -647,6 +729,10 @@
                 "complete",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "10", "complete", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -684,6 +770,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/10/cancel/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -693,6 +780,10 @@
                 "cancel",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "10", "cancel", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -722,6 +813,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/assign/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -730,6 +822,10 @@
                 "assign",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "assign", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -747,24 +843,32 @@
               "name": "201 Created — Учня призначено",
               "status": "Created",
               "code": 201,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "{\n  \"id\": 12,\n  \"slot_id\": 3,\n  \"student_id\": 2,\n  \"package_id\": 1,\n  \"status\": \"scheduled\"\n}"
             },
             {
               "name": "409 Conflict — Учень вже зайнятий",
               "status": "Conflict",
               "code": 409,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "{\n  \"errorCode\": \"STUDENT_TIME_CONFLICT\",\n  \"message\": \"Учень вже має заняття в цей час\"\n}"
             }
           ]
@@ -785,6 +889,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/lessons/10/homework/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -794,6 +899,10 @@
                 "homework",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["lessons", "10", "homework", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -811,24 +920,32 @@
               "name": "200 OK — ДЗ збережено",
               "status": "OK",
               "code": 200,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "{\n  \"lesson_id\": 10,\n  \"teacher_homework_task\": \"Розв'язати задачі 1-5 стор. 45\",\n  \"homework_answer_url\": \"https://drive.google.com/file/abc\"\n}"
             },
             {
               "name": "400 Bad Request — Урок не проведено",
               "status": "Bad Request",
               "code": 400,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "{\n  \"errorCode\": \"LESSON_NOT_CONDUCTED\",\n  \"message\": \"Домашнє завдання можна задати лише після проведеного уроку\"\n}"
             }
           ]
@@ -840,6 +957,7 @@
       "description": "Пакети занять та облік балансу",
       "item": [
         {
+<<<<<<< HEAD
           "name": "List Package Plans (LEAR-72)",
           "request": {
             "method": "GET",
@@ -882,6 +1000,8 @@
           ]
         },
         {
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
           "name": "Список пакетів",
           "request": {
             "method": "GET",
@@ -893,6 +1013,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/packages/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -900,6 +1021,10 @@
                 "packages",
                 ""
               ],
+=======
+              "host": ["{{base_url}}"],
+              "path": ["packages", ""],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "query": [
                 {
                   "key": "student_id",
@@ -932,6 +1057,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/packages/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -939,6 +1065,10 @@
                 "packages",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["packages", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -972,6 +1102,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/packages/5/purchase/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -981,6 +1112,10 @@
                 "purchase",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["packages", "5", "purchase", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "description": "Оплата пакету з автоматичним застосуванням бонусної знижки (Split Payment).\n\nЛогіка:\n1. Шукає активний CourseCompletion з earned_discount > 0, is_discount_used=False, вік < 180 днів\n2. Якщо є — застосовує знижку до final_price\n3. transaction.atomic: Package.status='active', Package.purchased_at=now(), CourseCompletion.is_discount_used=True\n\nAccess: IsStudent | IsManager\nExpected: 200 OK\nErrors: 400 (пакет вже активний), 404"
           },
@@ -989,36 +1124,48 @@
               "name": "200 OK — Пакет оплачено (з бонусом)",
               "status": "OK",
               "code": 200,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "{\n  \"package_id\": 5,\n  \"final_price\": \"2160.00\",\n  \"discount_applied\": true,\n  \"discount_pct\": 10\n}"
             },
             {
               "name": "200 OK — Пакет оплачено (без бонусу)",
               "status": "OK",
               "code": 200,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "{\n  \"package_id\": 5,\n  \"final_price\": \"2400.00\",\n  \"discount_applied\": false,\n  \"discount_pct\": 0\n}"
             },
             {
               "name": "400 Bad Request — Пакет вже активний",
               "status": "Bad Request",
               "code": 400,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "{\n  \"errorCode\": \"PACKAGE_ALREADY_ACTIVE\",\n  \"message\": \"Пакет вже активний\"\n}"
             }
           ]
@@ -1041,6 +1188,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/admin/lessons/archive/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1050,6 +1198,10 @@
                 "archive",
                 ""
               ],
+=======
+              "host": ["{{base_url}}"],
+              "path": ["admin", "lessons", "archive", ""],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "query": [
                 {
                   "key": "date_from",
@@ -1087,12 +1239,16 @@
               "name": "200 OK — Список занять (JSON)",
               "status": "OK",
               "code": 200,
+<<<<<<< HEAD
               "header": [
                 {
                   "key": "Content-Type",
                   "value": "application/json"
                 }
               ],
+=======
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "body": "[\n  {\n    \"id\": 10,\n    \"status\": \"conducted\",\n    \"start_time\": \"2026-04-10T10:00:00Z\",\n    \"student\": \"Іван Учень\",\n    \"teacher\": \"Олена Викладач\",\n    \"package_id\": 1\n  }\n]"
             },
             {
@@ -1100,6 +1256,7 @@
               "status": "OK",
               "code": 200,
               "header": [
+<<<<<<< HEAD
                 {
                   "key": "Content-Type",
                   "value": "text/csv"
@@ -1108,6 +1265,10 @@
                   "key": "Content-Disposition",
                   "value": "attachment; filename=\"lessons_archive.csv\""
                 }
+=======
+                {"key": "Content-Type", "value": "text/csv"},
+                {"key": "Content-Disposition", "value": "attachment; filename=\"lessons_archive.csv\""}
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               ],
               "body": "id,status,start_time,student,teacher,package_id\n10,conducted,2026-04-10T10:00:00Z,Іван Учень,Олена Викладач,1"
             }
@@ -1131,6 +1292,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/journal/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1138,6 +1300,10 @@
                 "journal",
                 ""
               ],
+=======
+              "host": ["{{base_url}}"],
+              "path": ["journal", ""],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "query": [
                 {
                   "key": "student_id",
@@ -1165,6 +1331,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/journal/10/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1173,6 +1340,10 @@
                 "10",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["journal", "10", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -1218,6 +1389,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/bonus/balance/1/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1227,6 +1399,10 @@
                 "1",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["bonus", "balance", "1", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "description": "Отримати бонусний баланс учня (Learning Cashback).\n\nExpected: 200 OK\nErrors: 404"
           },
@@ -1251,6 +1427,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/bonus/calculate/2/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1260,6 +1437,10 @@
                 "2",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["bonus", "calculate", "2", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "description": "Розрахунок та нарахування Learning Cashback після завершення курсу.\n\n85-89% → 5%, 90-94% → 10%, 95-100% → 15%\n\nExpected: 200 OK\nErrors: 409 (Курс не завершено або cashback вже нараховано)"
           },
@@ -1290,6 +1471,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/requests/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1297,6 +1479,10 @@
                 "requests",
                 ""
               ],
+=======
+              "host": ["{{base_url}}"],
+              "path": ["requests", ""],
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               "query": [
                 {
                   "key": "status",
@@ -1324,6 +1510,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/requests/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1331,6 +1518,10 @@
                 "requests",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["requests", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -1360,6 +1551,7 @@
             ],
             "url": {
               "raw": "{{base_url}}/requests/5/process/",
+<<<<<<< HEAD
               "host": [
                 "{{base_url}}"
               ],
@@ -1369,6 +1561,10 @@
                 "process",
                 ""
               ]
+=======
+              "host": ["{{base_url}}"],
+              "path": ["requests", "5", "process", ""]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             },
             "body": {
               "mode": "raw",
@@ -1383,6 +1579,7 @@
           }
         }
       ]
+<<<<<<< HEAD
     },
     {
       "name": "Homework (Stage 5)",
@@ -2048,3 +2245,8 @@
     }
   ]
 }
+=======
+    }
+  ]
+}
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621

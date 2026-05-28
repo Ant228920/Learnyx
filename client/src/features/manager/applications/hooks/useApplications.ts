@@ -10,7 +10,11 @@ function avatarBg(id: number): string {
 }
 
 function formatDate(raw?: string): string {
+<<<<<<< HEAD
   if (!raw) return '';
+=======
+  if (!raw) return '—';
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   return new Date(raw).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
@@ -18,6 +22,7 @@ function formatDate(raw?: string): string {
 function mapRequest(r: any): Application {
   return {
     id: r.id,
+<<<<<<< HEAD
     name: r.full_name ?? '',
     role: r.role === 'student' ? 'Учень' : 'Вчитель',
     subject: r.subject ?? '',
@@ -25,6 +30,15 @@ function mapRequest(r: any): Application {
     email: r.email ?? '',
     phone: r.phone ?? '',
     telegram_nickname: r.telegram_nickname ?? '',
+=======
+    name: r.full_name ?? '—',
+    role: r.role === 'student' ? 'Учень' : 'Вчитель',
+    subject: r.subject ?? '—',
+    level: r.level ?? '—',
+    email: r.email ?? '—',
+    phone: r.phone ?? '—',
+    telegram: r.telegram_nickname ?? '—',
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     date: formatDate(r.created_at),
     avatarBg: avatarBg(r.id),
   };

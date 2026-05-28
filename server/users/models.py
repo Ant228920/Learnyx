@@ -6,17 +6,40 @@ from django.db.models import CheckConstraint, Q, Count
 class StudentLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект: випадкові пробіли або інший регістр від користувачів/адмінів.
+    # Нормалізує дані перед збереженням (наприклад, "  Advanced  " -> "Advanced").
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().capitalize()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
 class TeacherLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
+    # [DATA HOTFIX / TRIGGER]
+    # Нормалізує рівень викладача перед збереженням, щоб уникнути логічних дублів.
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().capitalize()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)
+
+    # [DATA HOTFIX / TRIGGER]
+    # Гарантує, що назви ролей завжди зберігаються в нижньому регістрі без пробілів (наприклад, "Manager " -> "manager").
+    # Запобігає багам у перевірках прав доступу (if user.role_obj.name == 'manager').
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().lower()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -48,6 +71,19 @@ class User(AbstractUser):
         help_text='Specific permissions for this user.',
         verbose_name='user permissions',
     )
+
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект форматування номера телефону та email.
+    # Гарантує, що email зберігається завжди в нижньому регістрі (John@MAIL.com -> john@mail.com).
+    # Видаляє з номера телефону всі нечислові символи крім плюса (наприклад, " +38 (099) 123-45-67 " -> "+380991234567").
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
+        if self.phone:
+            # Залишаємо тільки '+' (якщо він перший) та цифри
+            cleaned_phone = ''.join(char for char in self.phone if char.isdigit() or char == '+')
+            self.phone = cleaned_phone if cleaned_phone else None
+        super().save(*args, **kwargs)
 
     class Meta:
         indexes = [
@@ -172,3 +208,4 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Відгук від {self.user.first_name} ({self.created_at.strftime('%Y-%m-%d')})"
+    

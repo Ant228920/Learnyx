@@ -18,7 +18,11 @@ const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
 export default function RegisterTeacherForm({ onSuccess }: Props) {
   const [form, setForm] = useState({
     lastName: '', firstName: '', middleName: '',
+<<<<<<< HEAD
     phone: '', email: '', telegram_nickname: '',
+=======
+    phone: '', email: '', telegram: '',
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     subject: '', level: '',
   });
   const [loading, setLoading] = useState(false);
@@ -43,7 +47,11 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
     if (
       !form.lastName.trim() || !form.firstName.trim() ||
       !form.phone.trim() || !form.email.trim() ||
+<<<<<<< HEAD
       !form.telegram_nickname.trim() || !form.subject || !form.level
+=======
+      !form.telegram.trim() || !form.subject || !form.level
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     ) {
       setError('Заповніть всі обов\'язкові поля');
       return;
@@ -55,7 +63,11 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
         full_name: fullName,
         email: form.email,
         phone: form.phone,
+<<<<<<< HEAD
         telegram_nickname: form.telegram_nickname,
+=======
+        telegram_nickname: form.telegram,
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         role: 'teacher',
         subject: form.subject,
         level: form.level,
@@ -129,8 +141,13 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9095a1]"><IconAtSign /></span>
+<<<<<<< HEAD
           <input id="t-telegram" value={form.telegram_nickname} onChange={set('telegram_nickname')}
             placeholder="@nickname" className="form-input-icon" />
+=======
+          <input id="t-telegram" value={form.telegram} onChange={set('telegram')}
+            placeholder="nickname" className="form-input-icon" />
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         </div>
       </div>
 

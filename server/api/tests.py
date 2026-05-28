@@ -625,7 +625,11 @@ class StudentReportIntegrationTest(TestCase):
     def test_empty_report_returns_empty_arrays(self):
         """Student with no journal records gets 200 + both arrays empty."""
         new_student_user = _make_user('sr_empty@test.test', 'Student')
+<<<<<<< HEAD
         Student.objects.create(user=new_student_user)
+=======
+        new_student = Student.objects.create(user=new_student_user)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         self.client.force_authenticate(user=new_student_user)
         resp = self.client.get(self.URL)
         self.assertEqual(resp.status_code, 200)
@@ -655,6 +659,7 @@ class BonusExpiryTest(TestCase):
         self.plan = PackagePlan.objects.create(
             name='Basic', total_lessons=8, price=100,
         )
+<<<<<<< HEAD
         self.package = Package.objects.create(
             student=self.student,
             course=course,
@@ -663,6 +668,8 @@ class BonusExpiryTest(TestCase):
             final_price=str(self.plan.price),
             status='available',
         )
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
         # Expired completion — 200 days ago
         self.expired_completion = CourseCompletion.objects.create(
@@ -674,7 +681,11 @@ class BonusExpiryTest(TestCase):
         )
 
     def _url(self):
+<<<<<<< HEAD
         return f'/api/v1/packages/{self.package.pk}/purchase/'
+=======
+        return f'/api/v1/packages/{self.plan.pk}/purchase/'
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
     def test_expired_bonus_not_applied(self):
         """Bonus older than 180 days → discount_applied=False, full price charged."""
@@ -1237,7 +1248,11 @@ class HomeworkWithFileIntegrationTest(TestCase):
         self.student = Student.objects.create(user=self.student_user)
 
         self.package = _make_package(self.student, balance=5)
+<<<<<<< HEAD
         self.lesson = _make_lesson_with_slot(self.teacher, self.student, self.package, hours_delta=-2, status='conducted')
+=======
+        self.lesson = _make_conducted_lesson(self.teacher, self.student, self.package)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
     def _url(self):
         return f'/api/v1/lessons/{self.lesson.pk}/homework/'
@@ -1314,6 +1329,7 @@ class HomeworkWithFileIntegrationTest(TestCase):
             'teacher_homework_task': {'description': 'Hijack'},
         }, format='json')
         self.assertEqual(resp.status_code, 403)
+<<<<<<< HEAD
 
 
 # ---------------------------------------------------------------------------
@@ -1383,3 +1399,5 @@ class ConcurrentBonusUseTest(TestCase):
         self.assertEqual(resp2.status_code, 201)
         self.assertFalse(resp2.data['discount_applied'])
         self.assertEqual(resp2.data['discount_pct'], 0.0)
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621

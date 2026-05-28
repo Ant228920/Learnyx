@@ -38,10 +38,17 @@ from api.serializers import (
     AssignLessonSerializer,
     HomeworkSerializer,
     HomeworkGradeSerializer,
+<<<<<<< HEAD
     LessonArchiveSerializer,
     PackagePlanSerializer,
     StudentAvailablePackageSerializer,
     ManagerPackageSerializer,
+=======
+    GradeEntrySerializer,
+    LessonArchiveSerializer,
+    PackagePlanSerializer,
+    TeacherListSerializer,
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
     ReviewSerializer,
@@ -54,8 +61,13 @@ from api.serializers import (
     HomeworkSubmitSerializer,
 )
 from users.models import User, Role, Student, Manager, Review
+<<<<<<< HEAD
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
 from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
+=======
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
+from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS, notify_manager_low_balance
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 logger = logging.getLogger(__name__)
 
@@ -105,25 +117,44 @@ class ApplicantRejectView(APIView):
     permission_classes = [IsManager]
 
     def post(self, request, pk):
+<<<<<<< HEAD
         req = get_object_or_404(RegistrationRequest, pk=pk)
         req.status = 'rejected'
         req.save()
         return Response({'message': 'Заявку відхилено.'})
+=======
+        try:
+            req = RegistrationRequest.objects.get(pk=pk)
+            req.status = 'rejected'
+            req.save()
+            return Response({'message': 'Заявку відхилено.'})
+        except RegistrationRequest.DoesNotExist:
+            return Response({'error': 'Not found'}, status=404)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 
 class ApproveRegistrationRequestView(APIView):
     """Сценарій 2: Апрув заявки менеджером та створення акаунту."""
+<<<<<<< HEAD
     permission_classes = [IsManager]
+=======
+    permission_classes = [IsAuthenticated]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
     def post(self, request, pk):
         reg_request = get_object_or_404(RegistrationRequest, pk=pk)
 
+<<<<<<< HEAD
         # Idempotent — return 200 if already approved (not 400)
         if reg_request.status == 'approved':
             return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_200_OK)
 
         if User.objects.filter(phone=reg_request.phone).exists():
             return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
+=======
+        if reg_request.status == 'approved':
+            return Response({'message': 'Заявку вже оброблено.'}, status=status.HTTP_400_BAD_REQUEST)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
         if User.objects.filter(phone=reg_request.phone).exists():
             return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
@@ -132,6 +163,10 @@ class ApproveRegistrationRequestView(APIView):
 
         try:
             with transaction.atomic():
+<<<<<<< HEAD
+=======
+                # Розбиваємо ім'я більш надійно
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                 name_parts = reg_request.full_name.strip().split(maxsplit=1)
                 first_name = name_parts[0] if name_parts else "User"
                 last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -139,8 +174,14 @@ class ApproveRegistrationRequestView(APIView):
                 role_name = reg_request.role.strip().capitalize()
                 role_obj, _ = Role.objects.get_or_create(name=role_name)
 
+<<<<<<< HEAD
                 user = User.objects.create_user(
                     username=reg_request.email,
+=======
+                # Створення користувача
+                user = User.objects.create_user(
+                    username=reg_request.email, # email як унікальний логін
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                     email=reg_request.email,
                     password=password,
                     first_name=first_name,
@@ -151,6 +192,7 @@ class ApproveRegistrationRequestView(APIView):
                     is_approved=True,
                 )
 
+<<<<<<< HEAD
                 if reg_request.role.lower() == 'student':
                     student_obj = Student.objects.create(user=user)
                     # Create 3 available package options for this student
@@ -162,14 +204,27 @@ class ApproveRegistrationRequestView(APIView):
                             {'total_lessons': 12, 'balance': 12, 'final_price': '3400.00', 'discount': '0.00', 'status': 'available'},
                         ]:
                             Package.objects.create(student=student_obj, course=course, **pkg_data)
+=======
+                # Створення профілю залежно від ролі
+                if reg_request.role.lower() == 'student':
+                    Student.objects.create(user=user)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                 elif reg_request.role.lower() == 'teacher':
                     Teacher.objects.get_or_create(user=user)
                 elif reg_request.role.lower() == 'manager':
                     Manager.objects.create(user=user)
 
+<<<<<<< HEAD
                 reg_request.status = 'approved'
                 reg_request.save()
 
+=======
+                # Оновлення статусу заявки
+                reg_request.status = 'approved'
+                reg_request.save()
+
+            # Відправка пароля користувачу (після завершення транзакції)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             send_mail(
                 subject='Ваш акаунт на Learnyx створено!',
                 message=f'Вітаємо, {first_name}!\n\nВаш акаунт активовано.\nЛогін: {reg_request.email}\nПароль: {password}',
@@ -180,9 +235,13 @@ class ApproveRegistrationRequestView(APIView):
 
             return Response({
                 'message': f'Акаунт для {reg_request.email} успішно створено.',
+<<<<<<< HEAD
                 'user_id': user.id,
                 'email': reg_request.email,
                 'temporary_password': password,
+=======
+                'user_id': user.id
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -302,6 +361,7 @@ class SlotViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         slot = self.get_object()
+<<<<<<< HEAD
 
         if slot.status == 'booked':
             lesson = Lesson.objects.filter(slot=slot).select_related('package').first()
@@ -327,6 +387,15 @@ class SlotViewSet(viewsets.ModelViewSet):
 
         slot.delete()
         return Response({'message': 'Слот видалено.'}, status=status.HTTP_200_OK)
+=======
+        if slot.status == 'booked':
+            return Response(
+                {'message': 'Неможливо видалити заброньований слот.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        slot.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
     @action(detail=False, methods=['get'], url_path='available')
     def available(self, request):
@@ -347,6 +416,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
     def get_permissions(self):
         if self.action == 'create':
             return [(IsManager | IsStudent)()]
+<<<<<<< HEAD
         if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework',
                            'grade_homework', 'reset_homework_grade'):
             return [IsTeacher()]
@@ -356,6 +426,12 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             return [IsStudent()]
         if self.action == 'cancel':
             return [(IsStudent | IsTeacher | IsManager)()]
+=======
+        if self.action in ('set_status', 'evaluate', 'set_meeting_link', 'homework', 'assign', 'grade_homework'):
+            return [IsTeacher()]
+        if self.action in ('upcoming', 'cancel'):
+            return [IsStudent()]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
@@ -387,8 +463,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             qs = qs.filter(slot__start_time__date__lte=p['date_to'])
         if p.get('teacher_id'):
             qs = qs.filter(slot__teacher_id=p['teacher_id'])
+<<<<<<< HEAD
         if p.get('slot_id'):
             qs = qs.filter(slot_id=p['slot_id'])
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
         return qs.order_by('slot__start_time')
 
@@ -442,9 +521,12 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         with transaction.atomic():
             lesson = Lesson.objects.select_for_update().get(pk=pk)
 
+<<<<<<< HEAD
             if lesson.status == new_status:
                 return Response(LessonSerializer(lesson).data, status=status.HTTP_200_OK)
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             if lesson.status in terminal:
                 return Response(
                     {'status': f'Lesson already has a terminal status "{lesson.status}".'},
@@ -517,6 +599,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=True, methods=['patch'], url_path='cancel')
     def cancel(self, request, pk=None):
+<<<<<<< HEAD
         """US20: Cancel a scheduled lesson. Students cancel their own; teachers cancel their slot's; managers cancel any."""
         role = request.user.role_obj.name.lower() if request.user.role_obj else ''
         with transaction.atomic():
@@ -538,6 +621,18 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                         status=status.HTTP_403_FORBIDDEN,
                     )
             # manager: no ownership restriction
+=======
+        """US20: Student cancels their own scheduled lesson; slot freed atomically."""
+        with transaction.atomic():
+            lesson = Lesson.objects.select_related('slot').select_for_update().get(pk=pk)
+
+            student = get_object_or_404(Student, user=request.user)
+            if lesson.student_id != student.pk:
+                return Response(
+                    {'detail': 'You can only cancel your own lessons.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
             if lesson.status != 'scheduled':
                 return Response(
@@ -558,7 +653,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             slot.status = 'available'
             slot.save(update_fields=['status'])
 
+<<<<<<< HEAD
         logger.info(f'Lesson {lesson.pk} cancelled by {role} {request.user.pk}, slot {slot.pk} freed')
+=======
+        logger.info(f'Lesson {lesson.pk} cancelled by student {student.pk}, slot {slot.pk} freed')
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         return Response(LessonSerializer(lesson).data)
 
     @action(detail=True, methods=['patch'], url_path='meeting-link')
@@ -586,7 +685,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=False, methods=['post'], url_path='assign')
     def assign(self, request):
+<<<<<<< HEAD
         """LEAR-182: Teacher or Manager assigns a student to a slot (atomic)."""
+=======
+        """LEAR-182: Teacher assigns a free student to their own slot (atomic)."""
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         serializer = AssignLessonSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -594,6 +697,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         student = serializer.validated_data['student']
         curriculum_lesson = serializer.validated_data.get('curriculum_lesson')
 
+<<<<<<< HEAD
         # Teachers must own the slot; managers can assign any slot
         role = getattr(getattr(request.user, 'role_obj', None), 'name', '').lower()
         if role == 'teacher':
@@ -603,6 +707,14 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     {'detail': 'You can only assign students to your own slots.'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
+=======
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only assign students to your own slots.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
         # Resolve package: use supplied or pick student's active package
         package = serializer.validated_data.get('package')
@@ -648,7 +760,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 curriculum_lesson=curriculum_lesson,
             )
 
+<<<<<<< HEAD
         logger.info(f'Lesson {lesson.id} assigned by user {request.user.id}: student {student.pk}, slot {slot.pk}')
+=======
+        logger.info(f'Lesson {lesson.id} assigned by teacher {teacher.pk}: student {student.pk}, slot {slot.pk}')
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='homework', parser_classes=[JSONParser, MultiPartParser])
@@ -668,9 +784,15 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+<<<<<<< HEAD
         if lesson.status == 'canceled_advance':
             return Response(
                 {'detail': 'Cannot assign homework to a cancelled lesson.'},
+=======
+        if lesson.status not in ('conducted', 'scheduled'):
+            return Response(
+                {'detail': 'Homework can only be added for conducted or scheduled lessons.'},
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -728,6 +850,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         return Response(JournalRecordSerializer(record).data)
 
+<<<<<<< HEAD
     @action(detail=True, methods=['post'], url_path='homework/grade/reset')
     def reset_homework_grade(self, request, pk=None):
         """LEAR-rollback: Teacher resets homework grade back to submitted state."""
@@ -789,6 +912,8 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         return Response(JournalRecordSerializer(record).data, status=status.HTTP_200_OK)
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 class BonusBalanceView(APIView):
     """US14: Student's cashback balance + current-package progress scale."""
@@ -796,9 +921,12 @@ class BonusBalanceView(APIView):
 
     def get(self, request, student_id):
         student = get_object_or_404(Student, pk=student_id)
+<<<<<<< HEAD
         role = request.user.role_obj.name.lower() if request.user.role_obj else ''
         if role != 'manager' and student.user_id != request.user.pk:
             return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         return Response({'student_id': student_id, **get_bonus_balance(student)})
 
 
@@ -875,10 +1003,13 @@ class StudentListView(generics.ListAPIView):
                 0,
             )
         )
+<<<<<<< HEAD
         is_approved = self.request.query_params.get('is_approved')
         if is_approved is not None:
             base_qs = base_qs.filter(user__is_approved=is_approved.lower() == 'true')
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         if role == 'teacher':
             teacher = Teacher.objects.filter(user=user).first()
             if not teacher:
@@ -892,7 +1023,11 @@ class TeacherListView(APIView):
     permission_classes = [IsManager]
 
     def get(self, request):
+<<<<<<< HEAD
         teachers = Teacher.objects.select_related('user', 'user__role_obj', 'discipline', 'level').filter(
+=======
+        teachers = Teacher.objects.select_related('user', 'user__role_obj', 'discipline').filter(
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             user__is_approved=True
         )
         data = [
@@ -902,9 +1037,13 @@ class TeacherListView(APIView):
                 'first_name': t.user.first_name,
                 'last_name': t.user.last_name,
                 'phone': t.user.phone or None,
+<<<<<<< HEAD
                 'telegram_nickname': t.user.nickname or None,
                 'discipline': t.discipline.name if t.discipline else None,
                 'level': t.level.name if t.level else None,
+=======
+                'discipline': t.discipline.name if t.discipline else None,
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             }
             for t in teachers
         ]
@@ -967,6 +1106,7 @@ class StudentDashboardView(APIView):
         )
         today_lessons = [
             {
+<<<<<<< HEAD
                 'lesson_id': les.pk,
                 'start_time': les.slot.start_time,
                 'end_time': les.slot.end_time,
@@ -974,6 +1114,15 @@ class StudentDashboardView(APIView):
                 'teacher': f'{les.slot.teacher.user.first_name} {les.slot.teacher.user.last_name}'.strip(),
             }
             for les in today_qs
+=======
+                'lesson_id': l.pk,
+                'start_time': l.slot.start_time,
+                'end_time': l.slot.end_time,
+                'meeting_link': l.meeting_link,
+                'teacher': f'{l.slot.teacher.user.first_name} {l.slot.teacher.user.last_name}'.strip(),
+            }
+            for l in today_qs
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         ]
 
         # --- bonus progress for the active package ---
@@ -1028,8 +1177,13 @@ class TeacherDashboardView(APIView):
         )
         # One query for all lessons on those slots
         lessons_by_slot = {
+<<<<<<< HEAD
             les.slot_id: les
             for les in Lesson.objects
+=======
+            l.slot_id: l
+            for l in Lesson.objects
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             .filter(slot__in=today_slots)
             .select_related('student__user', 'curriculum_lesson')
         }
@@ -1188,6 +1342,7 @@ class LessonArchiveView(generics.ListAPIView):
 
 
 class PackagePlanListView(generics.ListAPIView):
+<<<<<<< HEAD
     """
     GET /packages/                  → all active PackagePlans (plans to buy)
     GET /packages/?status=available → student's own available Package records
@@ -1368,6 +1523,81 @@ class PackageCancelView(APIView):
             'status': package.status,
             'message': 'Пакет успішно скасовано',
         }, status=status.HTTP_200_OK)
+=======
+    """Returns all active package plans available for purchase."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = PackagePlanSerializer
+    queryset = PackagePlan.objects.filter(is_active=True)
+
+
+class PackagePurchaseView(APIView):
+    """Purchase a PackagePlan — creates a new Package for the student."""
+    permission_classes = [(IsStudent | IsManager)]
+
+    def post(self, request, pk):
+        plan = get_object_or_404(PackagePlan, pk=pk)
+
+        role = request.user.role_obj.name.lower() if request.user.role_obj else ''
+        if role == 'student':
+            student = get_object_or_404(Student, user=request.user)
+        else:
+            student_id = request.data.get('student_id')
+            if not student_id:
+                return Response({'detail': 'student_id required for manager.'}, status=status.HTTP_400_BAD_REQUEST)
+            student = get_object_or_404(Student, pk=student_id)
+
+        course = Course.objects.first()
+        if not course:
+            return Response({'detail': 'No course configured.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from decimal import Decimal
+        final_price = plan.price
+        discount_pct = Decimal('0')
+        discount_applied = False
+
+        cutoff = timezone.now() - timezone.timedelta(days=180)
+        completion = CourseCompletion.objects.filter(
+            student=student, is_discount_used=False, earned_discount__gt=0,
+            completed_at__gte=cutoff,
+        ).order_by('-earned_discount').first()
+
+        if completion:
+            discount_pct = completion.earned_discount
+            final_price = plan.price * (Decimal('1') - discount_pct / Decimal('100'))
+            discount_applied = True
+
+        if role == 'student' and student.money_balance < final_price:
+            return Response({
+                'error': 'Недостатньо коштів на балансі',
+                'required': float(final_price),
+                'available': float(student.money_balance),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            student_locked = Student.objects.select_for_update().get(pk=student.pk)
+            student_locked.money_balance -= final_price
+            student_locked.save(update_fields=['money_balance'])
+            Package.objects.filter(student=student, status='active').update(status='completed')
+            package = Package.objects.create(
+                student=student,
+                course=course,
+                total_lessons=plan.total_lessons,
+                balance=plan.total_lessons,
+                final_price=round(final_price, 2),
+                status='active',
+            )
+            if completion:
+                completion.is_discount_used = True
+                completion.save(update_fields=['is_discount_used'])
+
+        return Response({
+            'package_id': package.id,
+            'final_price': float(package.final_price),
+            'discount_applied': discount_applied,
+            'discount_pct': float(discount_pct),
+            'money_balance': float(student_locked.money_balance),
+        }, status=status.HTTP_201_CREATED)
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 
 class StudentWalletView(APIView):
@@ -1408,6 +1638,7 @@ class StudentBalanceTopUpView(APIView):
         })
 
 
+<<<<<<< HEAD
 class PackagePlanCatalogView(APIView):
     """GET /package-plans/ — list active PackagePlan templates for students."""
     permission_classes = [IsAuthenticated]
@@ -1481,6 +1712,8 @@ class PackagePlanPurchaseView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 class TeacherFinancesView(APIView):
     """Teacher's conducted-lesson transaction history."""
     permission_classes = [IsTeacher]
@@ -1521,6 +1754,7 @@ class TeacherFinancesView(APIView):
 
 
 class ManagerSubscriptionsView(APIView):
+<<<<<<< HEAD
     """Manager view of purchased student packages (active + completed only, not available)."""
     permission_classes = [IsManager]
 
@@ -1528,6 +1762,13 @@ class ManagerSubscriptionsView(APIView):
         packages = Package.objects.select_related('student__user').filter(
             status__in=['active', 'completed']
         ).order_by('-purchased_at', '-id')
+=======
+    """Manager view of all student packages (active + completed)."""
+    permission_classes = [IsManager]
+
+    def get(self, request):
+        packages = Package.objects.select_related('student__user').order_by('-id')
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
         data = []
         for pkg in packages:

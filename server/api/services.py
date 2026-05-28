@@ -184,9 +184,15 @@ class PackageService:
 
 # Ordered highest → lowest so the first match gives the best tier.
 CASHBACK_TIERS = [
+<<<<<<< HEAD
     (Decimal('95'), Decimal('15')),  # 95-100% → 15%
     (Decimal('90'), Decimal('10')),  # 90-94%  → 10%
     (Decimal('85'), Decimal('5')),   # 85-89%  → 5%
+=======
+    (Decimal('95'), Decimal('15')),
+    (Decimal('90'), Decimal('10')),
+    (Decimal('85'), Decimal('5')),
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 ]
 
 

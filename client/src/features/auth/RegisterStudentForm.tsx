@@ -6,7 +6,11 @@ interface Props { onSuccess: () => void; }
 
 export default function RegisterStudentForm({ onSuccess }: Props) {
   const [form, setForm] = useState({
+<<<<<<< HEAD
     lastName: '', firstName: '', middleName: '', phone: '', email: '', telegram_nickname: '',
+=======
+    lastName: '', firstName: '', middleName: '', phone: '', email: '', telegram: '',
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -17,7 +21,11 @@ export default function RegisterStudentForm({ onSuccess }: Props) {
   };
 
   const handleSubmit = async () => {
+<<<<<<< HEAD
     if (!form.lastName.trim() || !form.firstName.trim() || !form.phone.trim() || !form.email.trim() || !form.telegram_nickname.trim()) {
+=======
+    if (!form.lastName.trim() || !form.firstName.trim() || !form.phone.trim() || !form.email.trim() || !form.telegram.trim()) {
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       setError('Заповніть всі обов\'язкові поля');
       return;
     }
@@ -28,7 +36,11 @@ export default function RegisterStudentForm({ onSuccess }: Props) {
         full_name: fullName,
         email: form.email,
         phone: form.phone,
+<<<<<<< HEAD
         telegram_nickname: form.telegram_nickname,
+=======
+        telegram_nickname: form.telegram,
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         role: 'student',
       });
       onSuccess();
@@ -100,8 +112,13 @@ export default function RegisterStudentForm({ onSuccess }: Props) {
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9095a1]"><IconAtSign /></span>
+<<<<<<< HEAD
           <input id="s-telegram" value={form.telegram_nickname} onChange={set('telegram_nickname')}
             placeholder="@username" className="form-input-icon" />
+=======
+          <input id="s-telegram" value={form.telegram} onChange={set('telegram')}
+            placeholder="username" className="form-input-icon" />
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         </div>
       </div>
 

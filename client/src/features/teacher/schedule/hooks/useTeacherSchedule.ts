@@ -4,11 +4,19 @@ import { showError } from '../../../../utils/toast';
 import type { SlotsByDay, SlotItem } from '../types';
 
 function formatTime(iso: string): string {
+<<<<<<< HEAD
   return iso.slice(11, 16);
 }
 
 function dayOf(iso: string): number {
   return parseInt(iso.slice(8, 10), 10);
+=======
+  return new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+}
+
+function dayOf(iso: string): number {
+  return new Date(iso).getDate();
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 }
 
 export function useTeacherSchedule() {

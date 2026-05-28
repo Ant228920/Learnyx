@@ -6,8 +6,13 @@
 # Ruff — лінтер
 # ───────────────────────────────────────────
 [tool.ruff]
+<<<<<<< HEAD
 target-version = "py312"
 line-length = 130
+=======
+target-version = "py311"
+line-length = 100
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 exclude = [
     ".git",
@@ -19,6 +24,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
+<<<<<<< HEAD
 select = ["E", "F", "W", "B"]
 
 ignore = [
@@ -31,6 +37,19 @@ ignore = [
 "**/tests.py" = ["E501", "F841"]
 "**/settings.py" = ["E402", "F811", "E501"]
 "**/test_settings.py" = ["E402"]
+=======
+select = [
+    "E",   # pycodestyle — помилки стилю
+    "F",   # pyflakes — невикористані імпорти, змінні
+    "I",   # isort — порядок імпортів
+    "N",   # pep8-naming — правила іменування
+    "UP",  # pyupgrade — застарілий синтаксис Python
+]
+
+ignore = [
+    "E501",  # довжина рядка контролюється Black
+]
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 # ───────────────────────────────────────────
 # Black — форматер

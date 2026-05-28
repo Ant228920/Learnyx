@@ -7,10 +7,15 @@ services:
     image: postgres:16-alpine
     container_name: learnyx_db
     restart: unless-stopped
+<<<<<<< HEAD
     # ДОДАНО: Увімкнення моніторингу повільних запитів (Slow Queries) > 500ms
     command: ["postgres", "-c", "log_min_duration_statement=500"]
     environment:
       POSTGRES_DB:     ${DB_NAME}
+=======
+    environment:
+      POSTGRES_DB:       ${DB_NAME}
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       POSTGRES_USER:     ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
     volumes:
@@ -24,7 +29,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   # ── 2. Django Backend ──────────────────────────────────────
   app:
     build:
@@ -52,7 +60,10 @@ services:
              python manage.py migrate --noinput &&
              python manage.py seed &&
              gunicorn core.wsgi:application --bind 0.0.0.0:8000"
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   # ── 3. pgAdmin ─────────────────────────────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -67,7 +78,10 @@ services:
       - learnyx_network
     depends_on:
       - db
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   # ── 4. Nginx (Reverse Proxy) ───────────────────────────────
   nginx:
     image: nginx:1.25-alpine

@@ -5,8 +5,12 @@ db.sqlite3
 .env
 /.env
 .idea/
+<<<<<<< HEAD
 US_AUDIT.md
 server/media/
+=======
+
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 # Node / Frontend
 node_modules/
 dist/

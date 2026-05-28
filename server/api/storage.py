@@ -71,7 +71,11 @@ class DropboxStorage(Storage):
             else:
                 shared = self.client.sharing_create_shared_link_with_settings(full)
                 link = shared.url
+<<<<<<< HEAD
             return link.replace("&dl=0", "&dl=1").replace("?dl=0", "?dl=1")
+=======
+            return link.replace("?dl=0", "?raw=1")
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
         except ApiError:
             return ""
 

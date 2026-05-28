@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { profileApi, extractErrorMessage } from '../../../services/api';
+<<<<<<< HEAD
 import { useAuth } from '../../../app/providers';
 import type { ProfileData } from '../types';
 
 export function useProfile() {
   const { user, token, login } = useAuth();
+=======
+import type { ProfileData } from '../types';
+
+export function useProfile() {
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +41,7 @@ export function useProfile() {
     setSaving(true);
     setError(null);
     try {
+<<<<<<< HEAD
       const updated = await profileApi.update(data);
       setProfile(prev => prev ? { ...prev, ...data } : prev);
       if (user && token) {
@@ -46,6 +53,10 @@ export function useProfile() {
           nickname: (updated as ProfileData).telegram_nickname ?? user.nickname,
         });
       }
+=======
+      await profileApi.update(data);
+      setProfile(prev => prev ? { ...prev, ...data } : prev);
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {

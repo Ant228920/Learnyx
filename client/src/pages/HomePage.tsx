@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useState } from 'react';
 
 const subjects = [
@@ -6,15 +7,43 @@ const subjects = [
   { icon: '📐', name: 'Математика', description: 'Шкільна програма 1–11 клас, алгебра, геометрія, підготовка до НМТ та олімпіад різного рівня.' },
   { icon: '🕐', name: 'Історія України', description: 'Шкільна програма з давніх часів до сучасності, підготовка до НМТ, поглиблене вивчення ключових подій.' },
   { icon: '💻', name: 'Інформатика', description: 'Програмування (Python, JavaScript, C++), алгоритми, структури даних, підготовка до олімпіад та профільних ЗНО.' },
+=======
+const subjects = [
+  { icon: '🔤', name: 'Англійська мова' },
+  { icon: '📖', name: 'Українська мова' },
+  { icon: '📐', name: 'Математика' },
+  { icon: '🕐', name: 'Історія України' },
+  { icon: '💻', name: 'Інформатика' },
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 ];
 
 const stats = ['500+ ВИКЛАДАЧІВ', '10,000+ УЧНІВ', '15+ МОВ НАВЧАННЯ'];
 
+<<<<<<< HEAD
+=======
+const testimonials = [
+  {
+    title: 'Відгуки учнів',
+    name: 'Олександр Коваль',
+    role: 'Студент КПІ',
+    avatar: 'https://i.pravatar.cc/56?img=11',
+    quote: '"Знайшов чудового викладача з математики. Пояснює складні теми простими словами. Завдяки платформі підтягнув успішність за семестр!"',
+  },
+  {
+    title: 'Відгуки викладачів',
+    name: 'Віктор Іванович',
+    role: 'Викладач англійської, 15 років досвіду',
+    avatar: 'https://i.pravatar.cc/56?img=3',
+    quote: '"Платформа надає чудові інструменти для організації навчального процесу. Прозорість виплат та постійний потік мотивованих студентів."',
+  },
+];
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 const footerLinks = ['Конфіденційність', 'Умови використання', 'Допомога'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+<<<<<<< HEAD
 type ReviewItem = { name: string; role: string; text: string; avatar: string };
 
 const INITIAL_STUDENT_REVIEWS: ReviewItem[] = [
@@ -59,6 +88,9 @@ export default function HomePage() {
     setReviewForm({ firstName: '', lastName: '', text: '', role: '' });
   };
 
+=======
+export default function HomePage() {
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   return (
     <div className="flex w-full flex-col bg-white">
 
@@ -109,12 +141,20 @@ export default function HomePage() {
           </p>
           <div className="grid grid-cols-3 gap-6 pt-12 w-full">
             {subjects.slice(0, 3).map((s) => (
+<<<<<<< HEAD
               <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedSubject(s)}>
+=======
+              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow">
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">{s.icon}</div>
                 <div className="flex flex-col pt-7">
                   <h3 className="font-bold text-slate-900 text-2xl leading-8" style={{ fontFamily: "'Poppins', sans-serif" }}>{s.name}</h3>
                 </div>
+<<<<<<< HEAD
                 <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedSubject(s); }} className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+=======
+                <button type="button" className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                   ПЕРЕГЛЯНУТИ ІНФОРМАЦІЮ
                 </button>
               </article>
@@ -122,12 +162,20 @@ export default function HomePage() {
           </div>
           <div className="grid grid-cols-2 gap-6 pt-8 max-w-4xl w-full">
             {subjects.slice(3).map((s) => (
+<<<<<<< HEAD
               <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedSubject(s)}>
+=======
+              <article key={s.name} className="flex flex-col items-start gap-5 pt-8 pb-9 px-8 bg-white rounded-2xl border border-[#dee1e6] hover:shadow-md transition-shadow">
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl" aria-hidden="true">{s.icon}</div>
                 <div className="flex flex-col pt-7">
                   <h3 className="font-bold text-slate-900 text-2xl leading-8" style={{ fontFamily: "'Poppins', sans-serif" }}>{s.name}</h3>
                 </div>
+<<<<<<< HEAD
                 <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedSubject(s); }} className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+=======
+                <button type="button" className="font-bold text-[#1f8cf9] text-sm tracking-[0.70px] leading-5 hover:underline" style={{ fontFamily: "'Inter', sans-serif" }} aria-label={`Переглянути інформацію про ${s.name}`}>
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                   ПЕРЕГЛЯНУТИ ІНФОРМАЦІЮ
                 </button>
               </article>
@@ -138,6 +186,7 @@ export default function HomePage() {
 
       {/* ── Testimonials ── */}
       <section aria-label="Відгуки" className="w-full px-80 py-24 border-t border-[#dee1e6]">
+<<<<<<< HEAD
         <div className="max-w-[1440px] mx-auto flex flex-col gap-8">
           <div className="grid grid-cols-2 gap-8">
             {/* Student reviews */}
@@ -264,6 +313,27 @@ export default function HomePage() {
         </div>
       )}
 
+=======
+        <div className="grid grid-cols-2 gap-16 max-w-[1440px] mx-auto">
+          {testimonials.map((t) => (
+            <article key={t.title} className="flex flex-col items-start gap-12">
+              <h2 className="font-bold text-slate-900 text-4xl leading-10" style={{ fontFamily: "'Poppins', sans-serif" }}>{t.title}</h2>
+              <div className="flex flex-col gap-6 p-8 bg-gray-50 rounded-2xl w-full">
+                <div className="flex items-center gap-4">
+                  <img src={t.avatar} alt={t.name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
+                  <div>
+                    <p className="font-bold text-slate-900 text-lg leading-7" style={{ fontFamily: "'Poppins', sans-serif" }}>{t.name}</p>
+                    <p className="text-[#565d6d] text-sm leading-5" style={{ fontFamily: "'Inter', sans-serif" }}>{t.role}</p>
+                  </div>
+                </div>
+                <blockquote className="italic text-[#565d6d] text-base leading-[26px]" style={{ fontFamily: "'Inter', sans-serif" }}>{t.quote}</blockquote>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       {/* ── Feedback ── */}
       <section className="w-full bg-blue-50 px-60 py-24">
         <div className="grid grid-cols-2 gap-16 max-w-[1440px] mx-auto px-20 items-center min-h-[481px]">
@@ -281,8 +351,11 @@ export default function HomePage() {
               <div className="h-32 bg-gray-50/50 rounded-2xl overflow-hidden border border-[#dee1e6]">
                 <textarea
                   id="feedback-text"
+<<<<<<< HEAD
                   value={feedbackText}
                   onChange={e => setFeedbackText(e.target.value)}
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                   placeholder="Напишіть ваші враження тут..."
                   className="w-full h-full resize-none bg-transparent p-4 text-[#565d6d] text-base leading-6 placeholder:text-gray-400 outline-none"
                   style={{ fontFamily: "'Inter', sans-serif" }}
@@ -291,7 +364,10 @@ export default function HomePage() {
             </div>
             <button
               type="button"
+<<<<<<< HEAD
               onClick={() => { setReviewForm(p => ({ ...p, text: feedbackText })); setShowReviewModal(true); }}
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               className="flex items-center justify-center gap-3 py-4 w-full bg-white rounded-xl border border-[#1f8cf9]/20 shadow-[0px_4px_7px_#1f8cf933] hover:bg-blue-50 transition-colors"
             >
               <span className="font-semibold text-[#1f8cf9] text-lg leading-7" style={{ fontFamily: "'Inter', sans-serif" }}>Надіслати відгук</span>
@@ -325,6 +401,7 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
+<<<<<<< HEAD
 
       {/* ── Subject Info Modal ── */}
       {selectedSubject && (
@@ -368,6 +445,8 @@ export default function HomePage() {
           </div>
         </div>
       )}
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
     </div>
   );
 }

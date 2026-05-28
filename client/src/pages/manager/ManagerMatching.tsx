@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useManagerMatching, useManagerLearningRequests } from '../../features/manager/matching';
 import ManagerLayout from './ManagerLayout';
+<<<<<<< HEAD
 import { apiClient, extractErrorMessage } from '../../services/api';
 import type { LearningRequestItem } from '../../services/api';
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 interface Slot {
   id: number;
@@ -32,10 +35,13 @@ const LEVELS_ENGLISH = ['A1 - Початковий', 'A2 - Елементарн�
 const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
 const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
 const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
+<<<<<<< HEAD
 const MANAGER_TIME_OPTIONS = Array.from({ length: 27 }, (_, i) => {
   const total = 8 * 60 + i * 30;
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 });
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 function getLevels(subject: string): string[] {
   return subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER;
@@ -80,6 +86,7 @@ export default function ManagerMatching() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [searched, setSearched] = useState(false);
   const [successTeacher, setSuccessTeacher] = useState<string | null>(null);
+<<<<<<< HEAD
   const [assignError, setAssignError] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -88,6 +95,8 @@ export default function ManagerMatching() {
   const [managerTimeFrom, setManagerTimeFrom] = useState('08:00');
   const [managerTimeTo, setManagerTimeTo] = useState('12:00');
   const [successCount, setSuccessCount] = useState(0);
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
   useEffect(() => {
     if (!student && rawStudents.length > 0) {
@@ -113,6 +122,7 @@ export default function ManagerMatching() {
     setSlots((prev) => prev.map((s) => s.id === id ? { ...s, [field]: value } : s));
   };
 
+<<<<<<< HEAD
   const handleSearch = async () => {
     setSearching(true);
     setAssignError('');
@@ -288,6 +298,22 @@ export default function ManagerMatching() {
     } finally {
       setAssignLoading(false);
     }
+=======
+  const handleSearch = () => {
+    setTeachers(allTeacherCards);
+    setSearched(true);
+  };
+
+  const handleAssign = (name: string) => {
+    setSuccessTeacher(name);
+    setTeachers([]);
+    setSearched(false);
+    setSlots([]);
+    const next = studentOptions.filter((s) => s !== student)[0] ?? studentOptions[0] ?? '';
+    setStudent(next);
+    setSubject(SUBJECTS[0]);
+    setLevel(getLevels(SUBJECTS[0])[0]);
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   };
 
   const selectClass = 'border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-full';
@@ -312,6 +338,7 @@ export default function ManagerMatching() {
             <h2 className="font-poppins font-bold text-slate-900 text-xl">Запити від студентів</h2>
             <div className="flex flex-col gap-3">
               {requests.map((req) => (
+<<<<<<< HEAD
                 <div key={req.id}
                   className={`flex items-center gap-4 p-4 bg-white rounded-2xl border cursor-pointer transition-colors ${
                     selectedRequest?.id === req.id ? 'border-[#1f8cf9] bg-blue-50/50' : 'border-[#dee1e6] hover:border-[#1f8cf9]/50'
@@ -326,6 +353,9 @@ export default function ManagerMatching() {
                     }
                   }}
                 >
+=======
+                <div key={req.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6]">
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                   <div className="flex flex-col gap-0.5 flex-1">
                     <span className="font-inter font-bold text-slate-900 text-sm">{req.student_name || req.student_email}</span>
                     <span className="font-inter text-[#565d6d] text-xs">
@@ -412,6 +442,7 @@ export default function ManagerMatching() {
                   </div>
                 </div>
               </div>
+<<<<<<< HEAD
 
               <div className="flex flex-col gap-2">
                 <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Дні тижня</label>
@@ -466,6 +497,8 @@ export default function ManagerMatching() {
                   </div>
                 </div>
               </div>
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             </div>
 
             {/* Slots */}
@@ -504,6 +537,7 @@ export default function ManagerMatching() {
                 </div>
               ))}
 
+<<<<<<< HEAD
               <button type="button" onClick={() => void handleSearch()} disabled={searching}
                 className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2 disabled:opacity-50">
                 {searching ? (
@@ -516,6 +550,12 @@ export default function ManagerMatching() {
                 ) : (
                   <><IconSearch />Знайти викладачів</>
                 )}
+=======
+              <button type="button" onClick={handleSearch}
+                className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2">
+                <IconSearch />
+                Знайти викладачів
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               </button>
             </div>
           </div>
@@ -527,6 +567,7 @@ export default function ManagerMatching() {
                 ЗНАЙДЕНО: {teachers.length} ВИКЛАДАЧІВ
               </p>
 
+<<<<<<< HEAD
               {assignError && (
                 <div className="flex items-center gap-2 p-4 bg-red-50 rounded-2xl border border-red-100">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
@@ -536,6 +577,8 @@ export default function ManagerMatching() {
                 </div>
               )}
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
               {teachers.length === 0 && (
                 <p className="font-inter text-[#9095a1] text-sm">Викладачів не знайдено</p>
               )}
@@ -558,12 +601,19 @@ export default function ManagerMatching() {
                       </div>
                     )}
                   </div>
+<<<<<<< HEAD
                   <button type="button"
                     onClick={() => void handleAssign(t)}
                     disabled={assignLoading}
                     aria-label={`Призначити викладача ${t.name}`}
                     className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed">
                     {assignLoading ? 'Призначення...' : 'Призначити'}
+=======
+                  <button type="button" onClick={() => handleAssign(t.name)}
+                    aria-label={`Призначити викладача ${t.name}`}
+                    className="px-5 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex-shrink-0">
+                    Призначити
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
                   </button>
                 </div>
               ))}
@@ -578,6 +628,7 @@ export default function ManagerMatching() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Assign error modal */}
       {assignError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -598,6 +649,8 @@ export default function ManagerMatching() {
         </div>
       )}
 
+=======
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
       {/* Success Modal */}
       {successTeacher && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -610,7 +663,11 @@ export default function ManagerMatching() {
             </div>
             <h2 className="font-poppins font-bold text-xl text-slate-900 text-center">Готово!</h2>
             <p className="font-inter text-sm text-[#565d6d] text-center">
+<<<<<<< HEAD
               Призначено <strong>{successCount}</strong> занять з викладачем <strong>{successTeacher}</strong>.
+=======
+              Викладача <strong>{successTeacher}</strong> успішно призначено студенту.
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
             </p>
             <button onClick={() => setSuccessTeacher(null)}
               className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">

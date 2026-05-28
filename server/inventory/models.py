@@ -22,6 +22,15 @@ class Discipline(models.Model):
     
     objects = DisciplineQuerySet.as_manager()
 
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект: випадкові пробіли або інший регістр від користувачів могли 
+    # призвести до дублювання (наприклад "Math" та "math "). Цей тригер 
+    # нормалізує дані (прибирає пробіли, робить першу букву великою) перед збереженням.
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().capitalize()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
@@ -73,6 +82,7 @@ class Slot(models.Model):
         ]
         unique_together = ('teacher', 'start_time')
         constraints = [
+            # DATA INTEGRITY: Час закінчення слоту фізично не може бути меншим або дорівнювати часу початку
             CheckConstraint(
                 condition=Q(end_time__gt=F('start_time')),
                 name='check_valid_slot_time_range'
@@ -212,6 +222,15 @@ class Package(models.Model):
     purchased_at = models.DateTimeField(auto_now_add=True)
     
     objects = PackageQuerySet.as_manager()
+
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект математичної точності. Гарантує, що перед збереженням
+    # фінальна ціна завжди буде мати рівно 2 знаки після коми. Запобігає 
+    # багам у фінансових звітах через довгі числа з рухомою комою (напр. 150.500000001).
+    def save(self, *args, **kwargs):
+        if self.final_price is not None:
+            self.final_price = round(float(self.final_price), 2)
+        super().save(*args, **kwargs)
 
     class Meta:
         indexes = [

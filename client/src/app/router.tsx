@@ -29,10 +29,29 @@ import ManagerMatching from '../pages/manager/ManagerMatching';
 import ManagerSettings from '../pages/manager/ManagerSettings';
 
 function roleDashboard(role: string): string {
+<<<<<<< HEAD
   const r = role.toLowerCase();
   if (r === 'student') return '/dashboard';
   if (r === 'teacher') return '/teacher';
   if (r === 'manager' || r === 'admin') return '/manager';
+=======
+  if (role === 'Student') return '/dashboard';
+  if (role === 'Teacher') return '/teacher';
+  if (role === 'Manager' || role === 'Admin') return '/manager';
+  return '/';
+}
+
+function RoleRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/" replace />;
+  return <Navigate to={roleDashboard(user.role)} replace />;
+}
+
+function roleDashboard(role: string): string {
+  if (role === 'Student') return '/dashboard';
+  if (role === 'Teacher') return '/teacher';
+  if (role === 'Manager' || role === 'Admin') return '/manager';
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   return '/';
 }
 
@@ -45,14 +64,24 @@ function RoleRedirect() {
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/" replace />;
+<<<<<<< HEAD
   if (!allowedRoles.includes(user.role.toLowerCase())) return <Navigate to={roleDashboard(user.role)} replace />;
+=======
+  if (!allowedRoles.includes(user.role)) return <Navigate to={roleDashboard(user.role)} replace />;
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
   return <>{children}</>;
 }
 
 
+<<<<<<< HEAD
 const S = ['student'];
 const T = ['teacher'];
 const M = ['manager', 'admin'];
+=======
+const S = ['Student'];
+const T = ['Teacher'];
+const M = ['Manager', 'Admin'];
+>>>>>>> 9eb61c56c0ee2f61c17f17c3b112086ca969d621
 
 export default function AppRouter() {
   return (
