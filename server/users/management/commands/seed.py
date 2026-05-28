@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from users.models import Role, StudentLevel, TeacherLevel, User, Manager
+from users.models import Role, StudentLevel, TeacherLevel, User
 from inventory.models import Discipline, Course, PackagePlan
 
 

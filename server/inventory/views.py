@@ -5,12 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ValidationError
 
 # Імпортуємо нашу транзакційну функцію
-from inventory.services import purchase_package_for_student 
+from inventory.services import purchase_package_for_student
 
 class PackagePurchaseView(APIView):
     """
     Ендпоінт: POST /api/inventory/purchase/
-    Відповідає за купівлю пакета студентом. 
+    Відповідає за купівлю пакета студентом.
     Демонструє Transaction Supervision та безпечну обробку помилок.
     """
     permission_classes = [IsAuthenticated]
@@ -24,7 +24,7 @@ class PackagePurchaseView(APIView):
         # Базова валідація вхідних даних
         if not plan_id or not course_id:
             return Response(
-                {"detail": "Необхідно передати plan_id та course_id."}, 
+                {"detail": "Необхідно передати plan_id та course_id."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -35,7 +35,7 @@ class PackagePurchaseView(APIView):
                 plan_id=plan_id,
                 course_id=course_id
             )
-            
+
             # Якщо все добре, повертаємо 201 Created
             return Response({
                 "detail": "Пакет успішно придбано!",
@@ -43,18 +43,18 @@ class PackagePurchaseView(APIView):
             }, status=status.HTTP_201_CREATED)
 
         except ValidationError as e:
-            # 3. BACKEND BUG FIXING: Перехоплюємо помилки бізнес-логіки 
+            # 3. BACKEND BUG FIXING: Перехоплюємо помилки бізнес-логіки
             # (наприклад, якщо "Недостатньо коштів" або "Курс не знайдено")
             # Віддаємо 400 Bad Request замість 500 Internal Server Error
             error_message = e.message if hasattr(e, 'message') else str(e)
             return Response(
-                {"detail": error_message}, 
+                {"detail": error_message},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         except Exception as e:
             # Перехоплюємо будь-які інші непередбачувані баги бази даних
             return Response(
-                {"detail": f"Сталася помилка при оформленні покупки: {str(e)}"}, 
+                {"detail": f"Сталася помилка при оформленні покупки: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )

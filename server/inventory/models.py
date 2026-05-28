@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg
 from django.db.models.functions import Coalesce
-from users.models import User, TeacherLevel, Student, Manager
+from users.models import User, TeacherLevel, Student
 from django.core.validators import MaxValueValidator, MinValueValidator
 from api.validators import validate_file_size, validate_file_extension
 

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from users.views import LoginView, TokenRefreshView
+from users.views import LoginView, TokenRefreshView, RequestViewSet
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
@@ -40,6 +40,7 @@ from api.views import (
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
 router.register(r'v1/lessons', LessonViewSet, basename='lesson')
+router.register(r'v1/requests', RequestViewSet, basename='request')
 
 urlpatterns = [
     # ── Auth (canonical)
@@ -107,6 +108,9 @@ urlpatterns = [
     # ── Homework (LEAR-74)
     path('v1/homeworks/<int:pk>/', HomeworkDetailView.as_view(), name='homework-detail'),
     path('v1/homeworks/<int:pk>/submit/', HomeworkSubmitView.as_view(), name='homework-submit'),
+
+    # ── User requests alias (student POST, manager GET — same resource, frontend uses two paths)
+    path('v1/user-requests/', RequestViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-requests'),
 
     # ── ViewSets
     path('', include(router.urls)),

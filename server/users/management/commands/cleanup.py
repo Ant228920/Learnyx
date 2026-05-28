@@ -22,7 +22,7 @@ class Command(BaseCommand):
 
         # 2. Видаляємо старі заявки, які "зависли" в статусі pending більше 30 днів
         requests_deleted_count, _ = LearningRequest.objects.filter(
-            status='pending', 
+            status='pending',
             created_at__lt=thirty_days_ago
         ).delete()
         self.stdout.write(self.style.SUCCESS(f"✅ Видалено старих заявок: {requests_deleted_count}"))
