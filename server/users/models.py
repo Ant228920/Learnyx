@@ -65,11 +65,11 @@ class User(AbstractUser):
 # --- COMPLEX QUERIES MANAGERS ---
 class StudentQuerySet(models.QuerySet):
     def with_details(self):
-        # Оптимізація JOIN: миттєво дістаємо і юзера, і його рівень
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('user', 'level')
 
     def with_analytics(self):
-        # Оптимізація JOIN + Aggregations: дістаємо кількість залишених відгуків та заявок
+        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
         return self.annotate(
             total_requests=Count('user__requests', distinct=True),
             total_reviews=Count('user__reviews', distinct=True)
@@ -77,12 +77,12 @@ class StudentQuerySet(models.QuerySet):
 
 class ManagerQuerySet(models.QuerySet):
     def with_analytics(self):
-        # Complex Query: SQL Aggregations для дашборду менеджера
-        # Рахує, скільки всього заявок має менеджер і скільки з них вже вирішено
+        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
         return self.annotate(
             total_assigned_requests=Count('assigned_requests'),
             resolved_requests=Count('assigned_requests', filter=Q(assigned_requests__status='resolved'))
         ).select_related('user')
+
 
 # Студент, Менеджер
 class Student(models.Model):
@@ -122,7 +122,7 @@ class Manager(models.Model):
 # --- COMPLEX QUERIES MANAGERS ---
 class RequestQuerySet(models.QuerySet):
     def with_users(self):
-        # Оптимізація JOIN: підтягуємо дані того, хто створив, і того, хто обробляє
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('user', 'manager__user')
 
 class Request(models.Model):
@@ -143,7 +143,7 @@ class Request(models.Model):
 
     class Meta:
         indexes = [
-            # Оптимізація: Менеджери часто шукають "нові" заявки або сортують за датою
+            # Оптимізація: швидкий пошук заявок за статусом та датою
             models.Index(fields=['status', 'created_at']),
             models.Index(fields=['manager', 'status']),
         ]
