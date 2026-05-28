@@ -442,6 +442,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         with transaction.atomic():
             lesson = Lesson.objects.select_for_update().get(pk=pk)
 
+            if lesson.status == new_status:
+                return Response(LessonSerializer(lesson).data, status=status.HTTP_200_OK)
+
             if lesson.status in terminal:
                 return Response(
                     {'status': f'Lesson already has a terminal status "{lesson.status}".'},
