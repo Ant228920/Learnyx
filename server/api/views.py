@@ -895,6 +895,12 @@ class TeacherListView(APIView):
         teachers = Teacher.objects.select_related('user', 'user__role_obj', 'discipline', 'level').filter(
             user__is_approved=True
         )
+        subject = request.query_params.get('subject') or request.query_params.get('discipline')
+        if subject:
+            teachers = teachers.filter(discipline__name__icontains=subject)
+        level = request.query_params.get('level')
+        if level:
+            teachers = teachers.filter(level__name__icontains=level)
         data = [
             {
                 'user_id': t.user.id,
