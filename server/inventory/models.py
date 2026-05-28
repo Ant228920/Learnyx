@@ -1,22 +1,42 @@
 from django.db import models
-from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg
+from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg, Prefetch
 from django.db.models.functions import Coalesce
 from users.models import User, TeacherLevel, Student
 from django.core.validators import MaxValueValidator, MinValueValidator
 from api.validators import validate_file_size, validate_file_extension
 
+
+class DisciplineQuerySet(models.QuerySet):
+    def with_popularity(self):
+        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
+        return self.annotate(
+            total_active_students=Count(
+                'courses__packages__student', 
+                filter=Q(courses__packages__status='active'), 
+                distinct=True
+            )
+        )
+
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    
+    objects = DisciplineQuerySet.as_manager()
+
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект: випадкові пробіли або інший регістр від користувачів могли 
+    # призвести до дублювання (наприклад "Math" та "math "). Цей тригер 
+    # нормалізує дані (прибирає пробіли, робить першу букву великою) перед збереженням.
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().capitalize()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
 
 class TeacherQuerySet(models.QuerySet):
     def with_analytics(self):
-        """
-        Складний аналітичний SQL-запит (Joins + Aggregations).
-        Рахує статистику ефективності вчителів на рівні бази даних.
-        """
+        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
         return self.annotate(
             total_conducted_lessons=Count('slots__lesson', filter=Q(slots__lesson__status='conducted')),
             total_earned=Coalesce(Sum('transactions__amount', filter=Q(transactions__is_penalty=False)), 0.0),
@@ -60,7 +80,7 @@ class Slot(models.Model):
             # Оптимізація: швидкий пошук вільних слотів конкретного вчителя
             models.Index(fields=['teacher', 'start_time', 'status']),
         ]
-        unique_together = ('teacher', 'start_time')  # Захист від овербукінгу на рівні БД
+        unique_together = ('teacher', 'start_time')
         constraints = [
             # DATA INTEGRITY: Час закінчення слоту фізично не може бути меншим або дорівнювати часу початку
             CheckConstraint(
@@ -71,6 +91,15 @@ class Slot(models.Model):
 
     def __str__(self):
         return f'Slot {self.pk}: {self.teacher} {self.start_time:%Y-%m-%d %H:%M}'
+
+
+class CourseQuerySet(models.QuerySet):
+    def with_curriculum(self):
+        # [COMPLEX QUERY: JOINS (PREFETCH RELATED)]
+        return self.prefetch_related(
+            Prefetch('topics', queryset=Topic.objects.order_by('order_index')),
+            Prefetch('topics__curriculum_lessons', queryset=CurriculumLesson.objects.order_by('order_index'))
+        )
 
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name='courses')
@@ -83,6 +112,8 @@ class Course(models.Model):
         blank=True, null=True, default=dict,
         help_text='Логіка: {"85": 5, "91": 10, "96": 15}. Ключ — мінімальний бал для отримання відсотка знижки.'
     )
+
+    objects = CourseQuerySet.as_manager()
 
     class Meta:
         indexes = [
@@ -118,11 +149,11 @@ class CurriculumLesson(models.Model):
 # Реалізація вимоги "Складні запити (Join, Aggregation)" на рівні моделей
 class CourseCompletionQuerySet(models.QuerySet):
     def with_student_details(self):
-        # Оптимізація JOIN: підтягує дані студента та курсу одним SQL-запитом
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('student', 'course')
 
     def aggregate_points(self):
-        # Агрегація: розрахунок загальної кількості набраних балів усіма учнями
+        # [COMPLEX QUERY: AGGREGATIONS]
         return self.aggregate(total_system_points=Sum('total_points'))
 
 class CourseCompletion(models.Model):
@@ -148,7 +179,7 @@ class CourseCompletion(models.Model):
         indexes = [
             models.Index(fields=['student', 'is_discount_used']),
         ]
-        unique_together = ('student', 'course')  # Захист від дублювання випуску з курсу
+        unique_together = ('student', 'course') 
         constraints = [
             CheckConstraint(
                 condition=Q(earned_discount__gte=0) & Q(earned_discount__lte=100),
@@ -165,6 +196,19 @@ class CourseCompletion(models.Model):
         return f"{self.student} - {self.course}: {self.earned_discount}% ({status})"
 
 
+class PackageQuerySet(models.QuerySet):
+    def financial_analytics(self):
+        # [COMPLEX QUERY: AGGREGATIONS]
+        return self.aggregate(
+            total_revenue=Coalesce(Sum('final_price'), 0.0, output_field=models.DecimalField()),
+            total_unused_lessons=Coalesce(Sum('balance', filter=Q(status='active')), 0)
+        )
+
+    def with_full_details(self):
+        # [COMPLEX QUERY: JOINS]
+        return self.select_related('student__user', 'course', 'discipline')
+
+
 class Package(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='packages')
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
@@ -176,6 +220,17 @@ class Package(models.Model):
     balance = models.IntegerField()
     status = models.CharField(max_length=50, default='active')
     purchased_at = models.DateTimeField(auto_now_add=True)
+    
+    objects = PackageQuerySet.as_manager()
+
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект математичної точності. Гарантує, що перед збереженням
+    # фінальна ціна завжди буде мати рівно 2 знаки після коми. Запобігає 
+    # багам у фінансових звітах через довгі числа з рухомою комою (напр. 150.500000001).
+    def save(self, *args, **kwargs):
+        if self.final_price is not None:
+            self.final_price = round(float(self.final_price), 2)
+        super().save(*args, **kwargs)
 
     class Meta:
         indexes = [
@@ -235,7 +290,7 @@ class LearningRequest(models.Model):
 
 class LessonQuerySet(models.QuerySet):
     def with_full_relations(self):
-        # Complex Join: глибока оптимізація запиту до БД для відображення уроку
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('student', 'slot__teacher', 'package', 'curriculum_lesson')
 
 class Lesson(models.Model):
