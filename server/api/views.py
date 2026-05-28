@@ -665,9 +665,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if lesson.status not in ('conducted', 'scheduled'):
+        if lesson.status == 'canceled_advance':
             return Response(
-                {'detail': 'Homework can only be added for conducted or scheduled lessons.'},
+                {'detail': 'Cannot assign homework to a cancelled lesson.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -872,6 +872,10 @@ class StudentListView(generics.ListAPIView):
                 0,
             )
         )
+        is_approved = self.request.query_params.get('is_approved')
+        if is_approved is not None:
+            base_qs = base_qs.filter(user__is_approved=is_approved.lower() == 'true')
+
         if role == 'teacher':
             teacher = Teacher.objects.filter(user=user).first()
             if not teacher:
