@@ -67,7 +67,7 @@ class StudentQuerySet(models.QuerySet):
     def with_details(self):
         # Оптимізація JOIN: миттєво дістаємо і юзера, і його рівень
         return self.select_related('user', 'level')
-        
+
     def with_analytics(self):
         # Оптимізація JOIN + Aggregations: дістаємо кількість залишених відгуків та заявок
         return self.annotate(
