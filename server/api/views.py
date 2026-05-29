@@ -53,7 +53,7 @@ from api.serializers import (
     HomeworkDetailSerializer,
     HomeworkSubmitSerializer,
 )
-from users.models import User, Role, Student, Manager, Review
+from users.models import User, Role, Student, Manager, Review, StudentLevel
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
 from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
@@ -152,7 +152,10 @@ class ApproveRegistrationRequestView(APIView):
                 )
 
                 if reg_request.role.lower() == 'student':
-                    student_obj = Student.objects.create(user=user)
+                    student_level = None
+                    if reg_request.level:
+                        student_level, _ = StudentLevel.objects.get_or_create(name=reg_request.level)
+                    student_obj = Student.objects.create(user=user, level=student_level)
                     # Create 3 available package options for this student
                     course = Course.objects.first()
                     if course:
@@ -170,13 +173,16 @@ class ApproveRegistrationRequestView(APIView):
                 reg_request.status = 'approved'
                 reg_request.save()
 
-            send_mail(
-                subject='Ваш акаунт на Learnyx створено!',
-                message=f'Вітаємо, {first_name}!\n\nВаш акаунт активовано.\nЛогін: {reg_request.email}\nПароль: {password}',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[reg_request.email],
-                fail_silently=True,
-            )
+            try:
+                send_mail(
+                    subject='Ваш акаунт на Learnyx створено!',
+                    message=f'Вітаємо, {first_name}!\n\nВаш акаунт активовано.\nЛогін: {reg_request.email}\nПароль: {password}',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[reg_request.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                logger.error(f'Failed to send welcome email to {reg_request.email}: {e}')
 
             return Response({
                 'message': f'Акаунт для {reg_request.email} успішно створено.',

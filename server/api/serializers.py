@@ -24,6 +24,15 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'level': 'Поле level обов\'язкове для викладача.'}
                 )
+        if data.get('role') == 'student':
+            if not data.get('subject'):
+                raise serializers.ValidationError(
+                    {'subject': 'Поле subject обов\'язкове для учня.'}
+                )
+            if not data.get('level'):
+                raise serializers.ValidationError(
+                    {'level': 'Поле level обов\'язкове для учня.'}
+                )
         return data
 
 
