@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from users.views import LoginView, TokenRefreshView
+from users.views import LoginView, TokenRefreshView, RequestViewSet
 from api.views import (
     RegistrationRequestView,
     ApproveRegistrationRequestView,
@@ -19,6 +19,7 @@ from api.views import (
     AvailableStudentListView,
     LessonArchiveView,
     PackagePurchaseView,
+    PackageCancelView,
     ProfileView,
     TeacherFinancesView,
     ManagerSubscriptionsView,
@@ -39,6 +40,7 @@ from api.views import (
 router = DefaultRouter()
 router.register(r'v1/slots', SlotViewSet, basename='slot')
 router.register(r'v1/lessons', LessonViewSet, basename='lesson')
+router.register(r'v1/requests', RequestViewSet, basename='request')
 
 urlpatterns = [
     # ── Auth (canonical)
@@ -53,6 +55,7 @@ urlpatterns = [
     path('v1/packages/', PackagePlanListView.as_view(), name='package-plans'),
     path('v1/packages/<int:pk>/activate/', ActivatePackageView.as_view(), name='activate-package'),
     path('v1/packages/<int:pk>/purchase/', PackagePurchaseView.as_view(), name='package-purchase'),
+    path('v1/packages/<int:pk>/cancel/', PackageCancelView.as_view(), name='package-cancel'),
     path('v1/package-plans/', PackagePlanCatalogView.as_view(), name='package-plan-catalog'),
     path('v1/package-plans/<int:pk>/purchase/', PackagePlanPurchaseView.as_view(), name='package-plan-purchase'),
     path('v1/students/available/', AvailableStudentListView.as_view(), name='student-available'),
@@ -105,6 +108,9 @@ urlpatterns = [
     # ── Homework (LEAR-74)
     path('v1/homeworks/<int:pk>/', HomeworkDetailView.as_view(), name='homework-detail'),
     path('v1/homeworks/<int:pk>/submit/', HomeworkSubmitView.as_view(), name='homework-submit'),
+
+    # ── User requests alias (student POST, manager GET — same resource, frontend uses two paths)
+    path('v1/user-requests/', RequestViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-requests'),
 
     # ── ViewSets
     path('', include(router.urls)),

@@ -1,4 +1,3 @@
-import unittest
 from django.test import TestCase
 from django.utils import timezone
 from django.db import IntegrityError
@@ -626,7 +625,7 @@ class StudentReportIntegrationTest(TestCase):
     def test_empty_report_returns_empty_arrays(self):
         """Student with no journal records gets 200 + both arrays empty."""
         new_student_user = _make_user('sr_empty@test.test', 'Student')
-        new_student = Student.objects.create(user=new_student_user)
+        Student.objects.create(user=new_student_user)
         self.client.force_authenticate(user=new_student_user)
         resp = self.client.get(self.URL)
         self.assertEqual(resp.status_code, 200)
