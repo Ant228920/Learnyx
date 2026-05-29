@@ -692,12 +692,14 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         material = None
         uploaded_file = serializer.validated_data.get('file')
         if uploaded_file:
+            from api.dropbox_storage import upload_lesson_material
             title = serializer.validated_data.get('file_title') or 'Homework material'
+            dropbox_url = upload_lesson_material(lesson.pk, uploaded_file)
             material = LessonMaterial.objects.create(
                 lesson=lesson,
                 uploaded_by=teacher,
                 title=title,
-                file=uploaded_file,
+                file_url=dropbox_url,
             )
             logger.info(
                 f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
@@ -1673,7 +1675,14 @@ class LessonMaterialView(APIView):
             )
         serializer = LessonMaterialUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        material = serializer.save(lesson=lesson, uploaded_by=teacher)
+        from api.dropbox_storage import upload_lesson_material
+        dropbox_url = upload_lesson_material(lesson.pk, serializer.validated_data['file'])
+        material = LessonMaterial.objects.create(
+            lesson=lesson,
+            uploaded_by=teacher,
+            title=serializer.validated_data['title'],
+            file_url=dropbox_url,
+        )
         return Response(
             LessonMaterialListSerializer(material, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
@@ -1791,9 +1800,11 @@ class HomeworkSubmitView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        record.homework_file = serializer.validated_data['file']
+        from api.dropbox_storage import upload_homework_file
+        dropbox_url = upload_homework_file(record.lesson.pk, student.pk, serializer.validated_data['file'])
+        record.homework_file_url = dropbox_url
         record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
         record.homework_submitted_at = timezone.now()
-        record.save(update_fields=['homework_file', 'homework_status', 'homework_submitted_at'])
+        record.save(update_fields=['homework_file_url', 'homework_status', 'homework_submitted_at'])
 
         return Response(HomeworkDetailSerializer(record, context={'request': request}).data)
