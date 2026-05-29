@@ -4,18 +4,6 @@ from django.db.models.functions import Coalesce
 from users.models import User, TeacherLevel, Student
 from django.core.validators import MaxValueValidator, MinValueValidator
 
-
-class DisciplineQuerySet(models.QuerySet):
-    def with_popularity(self):
-        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
-        return self.annotate(
-            total_active_students=Count(
-                'courses__packages__student', 
-                filter=Q(courses__packages__status='active'), 
-                distinct=True
-            )
-        )
-
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
     
