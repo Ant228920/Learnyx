@@ -99,9 +99,8 @@ class User(AbstractUser):
 # --- COMPLEX QUERIES MANAGERS ---
 class StudentQuerySet(models.QuerySet):
     def with_details(self):
-        # [COMPLEX QUERY: JOINS]
-        # Тепер підтягуємо всі рівні по дисциплінах
-        return self.select_related('user').prefetch_related('discipline_levels__discipline', 'discipline_levels__level')
+        # Оптимізація JOIN: миттєво дістаємо і юзера, і його рівень
+        return self.select_related('user', 'level')
 
     def with_analytics(self):
         # [COMPLEX QUERY: JOINS + AGGREGATIONS]
@@ -224,4 +223,3 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Відгук від {self.user.first_name} ({self.created_at.strftime('%Y-%m-%d')})"
-    

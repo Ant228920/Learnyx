@@ -442,10 +442,9 @@ class ComplaintStatusSerializer(serializers.Serializer):
 
 # ── LEAR-125 ──────────────────────────────────────────────────────────────────
 
-class LessonMaterialUploadSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LessonMaterial
-        fields = ['title', 'file']
+class LessonMaterialUploadSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=200)
+    file = serializers.FileField()
 
     def validate_file(self, value):
         from api.validators import validate_file_size, validate_file_extension
@@ -459,7 +458,7 @@ class LessonMaterialListSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.SerializerMethodField()
 
     def get_file_url(self, obj):
-        return obj.file.url if obj.file else None
+        return obj.file_url or None
 
     def get_uploaded_by_name(self, obj):
         u = obj.uploaded_by.user
@@ -500,7 +499,7 @@ class HomeworkDetailSerializer(serializers.ModelSerializer):
         return LessonMaterialListSerializer(qs, many=True, context={'request': request}).data
 
     def get_homework_file_url(self, obj):
-        return obj.homework_file.url if obj.homework_file else None
+        return obj.homework_file_url or None
 
     class Meta:
         model = JournalRecord
