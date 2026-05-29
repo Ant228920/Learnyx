@@ -125,8 +125,9 @@ class ApproveRegistrationRequestView(APIView):
         if User.objects.filter(phone=reg_request.phone).exists():
             return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(phone=reg_request.phone).exists():
-            return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
+        if reg_request.role.lower() == 'student':
+            reg_request.subject = request.data.get('subject', reg_request.subject)
+            reg_request.level = request.data.get('level', reg_request.level)
 
         password = generate_password()
 
@@ -694,7 +695,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         if uploaded_file:
             from api.dropbox_storage import upload_lesson_material
             title = serializer.validated_data.get('file_title') or 'Homework material'
-            dropbox_url = upload_lesson_material(lesson.pk, uploaded_file)
+            dropbox_url = upload_lesson_material(lesson.pk, uploaded_file, notify_email=request.user.email)
             material = LessonMaterial.objects.create(
                 lesson=lesson,
                 uploaded_by=teacher,
@@ -1676,7 +1677,7 @@ class LessonMaterialView(APIView):
         serializer = LessonMaterialUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         from api.dropbox_storage import upload_lesson_material
-        dropbox_url = upload_lesson_material(lesson.pk, serializer.validated_data['file'])
+        dropbox_url = upload_lesson_material(lesson.pk, serializer.validated_data['file'], notify_email=request.user.email)
         material = LessonMaterial.objects.create(
             lesson=lesson,
             uploaded_by=teacher,
@@ -1801,7 +1802,7 @@ class HomeworkSubmitView(APIView):
         serializer.is_valid(raise_exception=True)
 
         from api.dropbox_storage import upload_homework_file
-        dropbox_url = upload_homework_file(record.lesson.pk, student.pk, serializer.validated_data['file'])
+        dropbox_url = upload_homework_file(record.lesson.pk, student.pk, serializer.validated_data['file'], notify_email=request.user.email)
         record.homework_file_url = dropbox_url
         record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
         record.homework_submitted_at = timezone.now()
