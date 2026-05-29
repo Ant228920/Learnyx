@@ -33,8 +33,16 @@ class Command(BaseCommand):
         for name in ['Student', 'Teacher', 'Manager']:
             Role.objects.get_or_create(name=name)
 
-        for name in ['Beginner', 'Elementary', 'Pre-Intermediate',
-                     'Intermediate', 'Upper-Intermediate', 'Advanced']:
+        # ОНОВЛЕНО: Нова структура рівнів знань
+        general_levels = [
+            'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 
+            '1-4 клас', '5-11 клас', 'Дошкільнята', 
+            'Підготовка до НМТ/ЗНО', 'Дорослі (Business)'
+        ]
+        english_levels = ['A1-B1', 'B1-B2', 'B2-C1', 'С1-С2']
+        
+        all_levels = list(set(general_levels + english_levels))
+        for name in all_levels:
             StudentLevel.objects.get_or_create(name=name)
 
         for name in ['Junior', 'Middle', 'Senior']:
@@ -74,13 +82,19 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------ users
     def _create_users(self):
         from inventory.models import Teacher
-        from users.models import Manager, Role, Student, StudentLevel, TeacherLevel, User
+        from users.models import Manager, Role, Student, StudentLevel, TeacherLevel, User, StudentDisciplineLevel
 
         sr = Role.objects.get(name='Student')
         tr = Role.objects.get(name='Teacher')
         mr = Role.objects.get(name='Manager')
-        lv_mid = StudentLevel.objects.get(name='Intermediate')
-        lv_beg = StudentLevel.objects.get(name='Beginner')
+        
+        # ОНОВЛЕНО: Отримуємо нові рівні для прив'язки
+        lv_math = StudentLevel.objects.get(name='Підготовка до НМТ/ЗНО')
+        lv_math_basic = StudentLevel.objects.get(name='5-11 клас')
+        lv_eng_mid = StudentLevel.objects.get(name='B1-B2')
+        lv_eng_beg = StudentLevel.objects.get(name='A1-B1')
+        lv_prog = StudentLevel.objects.get(name='A1')
+        
         tlv = TeacherLevel.objects.get(name='Senior')
 
         # Manager
@@ -116,15 +130,16 @@ class Command(BaseCommand):
             self.teachers.append(t)
 
         # Students
+        # ОНОВЛЕНО: Тепер передаємо дисципліну та конкретний рівень для створення StudentDisciplineLevel
         students_spec = [
-            ('student1@learnyx.com', 'student1', 'Андрій',   'Мельник',   lv_mid, Decimal('5000')),
-            ('student2@learnyx.com', 'student2', 'Катерина', 'Іванова',   lv_mid, Decimal('8000')),
-            ('student3@learnyx.com', 'student3', 'Дмитро',   'Сидоренко', lv_beg, Decimal('3000')),
-            ('student4@learnyx.com', 'student4', 'Оксана',   'Ткаченко',  lv_beg, Decimal('6000')),
-            ('student5@learnyx.com', 'student5', 'Максим',   'Лисенко',   lv_mid, Decimal('2000')),
+            ('student1@learnyx.com', 'student1', 'Андрій',   'Мельник',   Decimal('5000'), self.discs[0], lv_math),
+            ('student2@learnyx.com', 'student2', 'Катерина', 'Іванова',   Decimal('8000'), self.discs[1], lv_eng_mid),
+            ('student3@learnyx.com', 'student3', 'Дмитро',   'Сидоренко', Decimal('3000'), self.discs[2], lv_prog),
+            ('student4@learnyx.com', 'student4', 'Оксана',   'Ткаченко',  Decimal('6000'), self.discs[0], lv_math_basic),
+            ('student5@learnyx.com', 'student5', 'Максим',   'Лисенко',   Decimal('2000'), self.discs[1], lv_eng_beg),
         ]
         self.students = []
-        for email, uname, fn, ln, level, balance in students_spec:
+        for email, uname, fn, ln, balance, disc, level_obj in students_spec:
             u, _ = User.objects.get_or_create(
                 email=email,
                 defaults={'username': uname, 'first_name': fn, 'last_name': ln,
@@ -132,10 +147,20 @@ class Command(BaseCommand):
             )
             u.set_password('Student1234!')
             u.save()
+            
+            # ОНОВЛЕНО: Видалено поле level з моделі Student
             s, _ = Student.objects.get_or_create(
                 user=u,
-                defaults={'level': level, 'money_balance': balance},
+                defaults={'money_balance': balance},
             )
+            
+            # ОНОВЛЕНО: Прив'язка рівня до предмета через нову таблицю
+            StudentDisciplineLevel.objects.get_or_create(
+                student=s, 
+                discipline=disc, 
+                defaults={'level': level_obj}
+            )
+            
             self.students.append(s)
 
         self.stdout.write('  Users: 1 manager, 3 teachers, 5 students')
@@ -350,7 +375,7 @@ class Command(BaseCommand):
             student=self.students[3], subject='math',
             defaults={
                 'package': self.packages[3],
-                'level': 'Intermediate',
+                'level': 'Підготовка до НМТ/ЗНО', # ОНОВЛЕНО на нову назву
                 'notes': 'Хочу підтягнути алгебру перед іспитами',
                 'status': 'pending',
             },
@@ -359,7 +384,7 @@ class Command(BaseCommand):
             student=self.students[4], subject='english',
             defaults={
                 'package': self.packages[4],
-                'level': 'Beginner',
+                'level': 'A1-B1', # ОНОВЛЕНО на нову назву
                 'notes': 'Починаю вивчення англійської з нуля',
                 'status': 'pending',
             },
@@ -382,3 +407,4 @@ class Command(BaseCommand):
         self.stdout.write('          student4@learnyx.com / Student1234!')
         self.stdout.write('          student5@learnyx.com / Student1234!')
         self.stdout.write(sep)
+        
