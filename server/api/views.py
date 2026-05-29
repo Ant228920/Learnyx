@@ -128,6 +128,11 @@ class ApproveRegistrationRequestView(APIView):
         if reg_request.role.lower() == 'student':
             reg_request.subject = request.data.get('subject', reg_request.subject)
             reg_request.level = request.data.get('level', reg_request.level)
+            if not reg_request.subject or not reg_request.level:
+                return Response(
+                    {'error': 'Для учня обов\'язково вкажіть subject і level при апруві.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         password = generate_password()
 
