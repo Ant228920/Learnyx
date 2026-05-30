@@ -254,10 +254,11 @@ paths:
                     level: "Експерт"
                     salary: 500.00
 
-  /users/approve/{id}/:
-    patch:
+  /applicants/{id}/approve/:
+    post:
       tags: [Users]
-      summary: Підтвердження реєстрації користувача менеджером
+      summary: Апрув заявки менеджером — створення акаунту
+      description: Менеджер підтверджує заявку. Для учнів можна передати subject і level, які призначаються при апруві.
       security:
         - BearerAuth: []
       parameters:
@@ -267,21 +268,33 @@ paths:
           schema:
             type: integer
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
+            schema:
+              type: object
+              properties:
+                subject:
+                  type: string
+                  description: Менеджер призначає предмет і рівень для учня при апруві
+                level:
+                  type: string
+                  description: Менеджер призначає предмет і рівень для учня при апруві
             example:
-              is_approved: true
+              subject: "Математика"
+              level: "11 клас (НМТ)"
       responses:
-        '200':
-          description: Акаунт підтверджено
+        '201':
+          description: Акаунт створено успішно
           content:
             application/json:
               example:
-                id: 3
-                email: "teacher@example.com"
-                is_approved: true
-                message: "Акаунт успішно підтверджено"
+                message: "Акаунт для student@example.com успішно створено."
+                user_id: 3
+                email: "student@example.com"
+                temporary_password: "Abc123xyz"
+        '200':
+          description: Заявку вже оброблено раніше (idempotent)
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':

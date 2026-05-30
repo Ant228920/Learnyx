@@ -3,33 +3,11 @@ from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg, Prefetch
 from django.db.models.functions import Coalesce
 from users.models import User, TeacherLevel, Student
 from django.core.validators import MaxValueValidator, MinValueValidator
-from api.validators import validate_file_size, validate_file_extension
-
-
-class DisciplineQuerySet(models.QuerySet):
-    def with_popularity(self):
-        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
-        return self.annotate(
-            total_active_students=Count(
-                'courses__packages__student', 
-                filter=Q(courses__packages__status='active'), 
-                distinct=True
-            )
-        )
 
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
     
     objects = DisciplineQuerySet.as_manager()
-
-    # [DATA HOTFIX / TRIGGER]
-    # Виправляє дефект: випадкові пробіли або інший регістр від користувачів могли 
-    # призвести до дублювання (наприклад "Math" та "math "). Цей тригер 
-    # нормалізує дані (прибирає пробіли, робить першу букву великою) перед збереженням.
-    def save(self, *args, **kwargs):
-        if self.name:
-            self.name = self.name.strip().capitalize()
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -91,15 +69,6 @@ class Slot(models.Model):
 
     def __str__(self):
         return f'Slot {self.pk}: {self.teacher} {self.start_time:%Y-%m-%d %H:%M}'
-
-
-class CourseQuerySet(models.QuerySet):
-    def with_curriculum(self):
-        # [COMPLEX QUERY: JOINS (PREFETCH RELATED)]
-        return self.prefetch_related(
-            Prefetch('topics', queryset=Topic.objects.order_by('order_index')),
-            Prefetch('topics__curriculum_lessons', queryset=CurriculumLesson.objects.order_by('order_index'))
-        )
 
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name='courses')
@@ -330,11 +299,7 @@ class JournalRecord(models.Model):
 
     teacher_homework_task = models.JSONField(blank=True, null=True, default=dict)
     homework_answer_url = models.TextField(blank=True, null=True)
-    homework_file = models.FileField(
-        upload_to='homework_answers/%Y/%m/',
-        null=True, blank=True,
-        validators=[validate_file_size, validate_file_extension],
-    )
+    homework_file_url = models.URLField(max_length=500, blank=True, null=True)
     homework_status = models.CharField(
         max_length=20,
         choices=HomeworkStatus.choices,
@@ -371,10 +336,7 @@ class LessonMaterial(models.Model):
     uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='lesson_materials')
 
     title = models.CharField(max_length=200)
-    file = models.FileField(
-        upload_to='lesson_materials/%Y/%m/',
-        validators=[validate_file_size, validate_file_extension],
-    )
+    file_url = models.URLField(max_length=500, blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

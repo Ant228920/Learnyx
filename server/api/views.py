@@ -55,9 +55,9 @@ from api.serializers import (
     HomeworkDetailSerializer,
     HomeworkSubmitSerializer,
 )
-from users.models import User, Role, Student, Manager, Review
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, CurriculumLesson, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
-from api.services import calculate_cashback, get_bonus_balance, purchase_package, CASHBACK_TIERS, notify_manager_low_balance
+from users.models import User, Role, Student, Manager, Review, StudentLevel
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
+from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +130,14 @@ class ApproveRegistrationRequestView(APIView):
         if User.objects.filter(phone=reg_request.phone).exists():
             return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(phone=reg_request.phone).exists():
-            return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
+        if reg_request.role.lower() == 'student':
+            reg_request.subject = request.data.get('subject', reg_request.subject)
+            reg_request.level = request.data.get('level', reg_request.level)
+            if not reg_request.subject or not reg_request.level:
+                return Response(
+                    {'error': 'Для учня обов\'язково вкажіть subject і level при апруві.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         password = generate_password()
 
@@ -157,7 +163,10 @@ class ApproveRegistrationRequestView(APIView):
                 )
 
                 if reg_request.role.lower() == 'student':
-                    student_obj = Student.objects.create(user=user)
+                    student_level = None
+                    if reg_request.level:
+                        student_level, _ = StudentLevel.objects.get_or_create(name=reg_request.level)
+                    student_obj = Student.objects.create(user=user, level=student_level)
                     # Create 3 available package options for this student
                     course = Course.objects.first()
                     if course:
@@ -175,13 +184,16 @@ class ApproveRegistrationRequestView(APIView):
                 reg_request.status = 'approved'
                 reg_request.save()
 
-            send_mail(
-                subject='Ваш акаунт на Learnyx створено!',
-                message=f'Вітаємо, {first_name}!\n\nВаш акаунт активовано.\nЛогін: {reg_request.email}\nПароль: {password}',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[reg_request.email],
-                fail_silently=True,
-            )
+            try:
+                send_mail(
+                    subject='Ваш акаунт на Learnyx створено!',
+                    message=f'Вітаємо, {first_name}!\n\nВаш акаунт активовано.\nЛогін: {reg_request.email}\nПароль: {password}',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[reg_request.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                logger.error(f'Failed to send welcome email to {reg_request.email}: {e}')
 
             return Response({
                 'message': f'Акаунт для {reg_request.email} успішно створено.',
@@ -645,8 +657,21 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
         record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
 
-        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
-        return Response(JournalRecordSerializer(record).data, status=http_status)
+        material = None
+        uploaded_file = serializer.validated_data.get('file')
+        if uploaded_file:
+            from api.dropbox_storage import upload_lesson_material
+            title = serializer.validated_data.get('file_title') or 'Homework material'
+            dropbox_url = upload_lesson_material(lesson.pk, uploaded_file, notify_email=request.user.email)
+            material = LessonMaterial.objects.create(
+                lesson=lesson,
+                uploaded_by=teacher,
+                title=title,
+                file_url=dropbox_url,
+            )
+            logger.info(
+                f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
+            )
 
 
     @action(detail=True, methods=['post'], url_path='submit-homework')
@@ -1464,7 +1489,14 @@ class LessonMaterialView(APIView):
             )
         serializer = LessonMaterialUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        material = serializer.save(lesson=lesson, uploaded_by=teacher)
+        from api.dropbox_storage import upload_lesson_material
+        dropbox_url = upload_lesson_material(lesson.pk, serializer.validated_data['file'], notify_email=request.user.email)
+        material = LessonMaterial.objects.create(
+            lesson=lesson,
+            uploaded_by=teacher,
+            title=serializer.validated_data['title'],
+            file_url=dropbox_url,
+        )
         return Response(
             LessonMaterialListSerializer(material, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
@@ -1582,9 +1614,11 @@ class HomeworkSubmitView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        record.homework_file = serializer.validated_data['file']
+        from api.dropbox_storage import upload_homework_file
+        dropbox_url = upload_homework_file(record.lesson.pk, student.pk, serializer.validated_data['file'], notify_email=request.user.email)
+        record.homework_file_url = dropbox_url
         record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
         record.homework_submitted_at = timezone.now()
-        record.save(update_fields=['homework_file', 'homework_status', 'homework_submitted_at'])
+        record.save(update_fields=['homework_file_url', 'homework_status', 'homework_submitted_at'])
 
         return Response(HomeworkDetailSerializer(record, context={'request': request}).data)

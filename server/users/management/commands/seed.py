@@ -9,43 +9,14 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.WARNING("Починаємо завантаження Seed-даних..."))
 
-        # 1. Базові ролі (додано Admin)
+        # 1. Базові ролі (додано збереження об'єктів у словник для швидкого доступу)
+        roles_objs = {}
         for role_name in ['Student', 'Teacher', 'Manager', 'Admin']:
-            Role.objects.get_or_create(name=role_name)
+            role, _ = Role.objects.get_or_create(name=role_name)
+            roles_objs[role_name] = role
         self.stdout.write(self.style.SUCCESS('Ролі створені'))
 
-        # 2. Рівні навчання (додано дошкільнят та специфічні напрямки)
-        levels = [
-            'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 
-            '1-4 клас', '5-11 клас', 'Дошкільнята', 
-            'Підготовка до НМТ/ЗНО', 'Дорослі (Business)'
-        ]
-        
-        # Використовуємо update_or_create з __iexact для ігнорування регістру при пошуку,
-        # але примусово встановлюємо правильний регістр (defaults).
-        for level in levels:
-            StudentLevel.objects.update_or_create(
-                name__iexact=level, 
-                defaults={'name': level}
-            )
-            TeacherLevel.objects.update_or_create(
-                name__iexact=level, 
-                defaults={'name': level}
-            )
-        self.stdout.write(self.style.SUCCESS('Рівні створені та оновлені'))
-
-        # 3. Адмін-менеджер
-        manager_role = Role.objects.get(name='Manager')
-        if not User.objects.filter(username='admin').exists():
-            User.objects.create_superuser(
-                'admin', 'admin@learnyx.com', 'adminpassword123',
-                role_obj=manager_role,
-            )
-            self.stdout.write(self.style.SUCCESS('Адмін створений'))
-        else:
-             self.stdout.write(self.style.SUCCESS('Адмін вже існує (пропущено)'))
-
-        # 4. Дисципліни
+        # 2. Дисципліни 
         disciplines_data = ['Загальні курси', 'Англійська мова', 'Математика', 'Українська мова', 'Програмування']
         disciplines_objs = {}
         for d_name in disciplines_data:
@@ -53,16 +24,98 @@ class Command(BaseCommand):
             disciplines_objs[d_name] = obj
         self.stdout.write(self.style.SUCCESS('Дисципліни створені'))
 
-        # 5. Курси (розширено специфічними програмами)
+        # 3. Рівні навчання 
+        general_levels = [
+            'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 
+            '1-4 клас', '5-11 клас', 'Дошкільнята', 
+            'Підготовка до НМТ/ЗНО', 'Дорослі (Business)'
+        ]
+        english_levels = ['A1-B1', 'B1-B2', 'B2-C1', 'С1-С2']
+        all_levels = list(set(general_levels + english_levels))
+
+        level_objs = {}
+        for level in all_levels:
+            sl_obj, _ = StudentLevel.objects.update_or_create(
+                name__iexact=level, defaults={'name': level}
+            )
+            TeacherLevel.objects.update_or_create(
+                name__iexact=level, defaults={'name': level}
+            )
+            level_objs[level] = sl_obj
+            
+        self.stdout.write(self.style.SUCCESS('Рівні-довідники створені та оновлені'))
+
+        # 4. Користувачі системи (Адмін, Менеджер, Викладач)
+        if not User.objects.filter(username='admin').exists():
+            User.objects.create_superuser('admin', 'admin@learnyx.com', 'adminpassword123', role_obj=roles_objs['Admin'])
+            self.stdout.write(self.style.SUCCESS('Адмін створений'))
+        else:
+             self.stdout.write(self.style.SUCCESS('Адмін вже існує (пропущено)'))
+
+        # Створення Менеджера
+        User.objects.get_or_create(
+            email='manager@learnyx.com',
+            defaults={'username': 'manager', 'first_name': 'Анна', 'last_name': 'Менеджер', 'role_obj': roles_objs['Manager'], 'is_approved': True}
+        )[0].set_password('manager123')
+
+        # Створення Викладача
+        User.objects.get_or_create(
+            email='teacher@learnyx.com',
+            defaults={'username': 'teacher', 'first_name': 'Іван', 'last_name': 'Викладач', 'role_obj': roles_objs['Teacher'], 'is_approved': True}
+        )[0].set_password('teacher123')
+
+        self.stdout.write(self.style.SUCCESS('Персонал (Менеджер, Викладач) створений'))
+
+        # 5. Тестові Студенти та прив'язка різних рівнів до різних дисциплін
+        # --- Студент 1 (Влад) ---
+        test_user1, _ = User.objects.get_or_create(
+            email='student@learnyx.com',
+            defaults={'username': 'student', 'first_name': 'Влад', 'last_name': 'Студент', 'role_obj': roles_objs['Student'], 'is_approved': True}
+        )
+        test_user1.set_password('studentpassword123')
+        test_user1.save()
+        test_student1, _ = Student.objects.get_or_create(user=test_user1)
+
+        StudentDisciplineLevel.objects.get_or_create(student=test_student1, discipline=disciplines_objs['Англійська мова'], defaults={'level': level_objs['B1-B2']})
+        StudentDisciplineLevel.objects.get_or_create(student=test_student1, discipline=disciplines_objs['Математика'], defaults={'level': level_objs['Підготовка до НМТ/ЗНО']})
+        StudentDisciplineLevel.objects.get_or_create(student=test_student1, discipline=disciplines_objs['Програмування'], defaults={'level': level_objs['A1']})
+
+        # --- Студент 2 (Олена) ---
+        test_user2, _ = User.objects.get_or_create(
+            email='olena@learnyx.com',
+            defaults={'username': 'olena_st', 'first_name': 'Олена', 'last_name': 'Студентка', 'role_obj': roles_objs['Student'], 'is_approved': True}
+        )
+        test_user2.set_password('studentpassword123')
+        test_user2.save()
+        test_student2, _ = Student.objects.get_or_create(user=test_user2)
+
+        StudentDisciplineLevel.objects.get_or_create(student=test_student2, discipline=disciplines_objs['Англійська мова'], defaults={'level': level_objs['A1-B1']})
+        StudentDisciplineLevel.objects.get_or_create(student=test_student2, discipline=disciplines_objs['Українська мова'], defaults={'level': level_objs['Підготовка до НМТ/ЗНО']})
+
+        # --- Студент 3 (Максим) ---
+        test_user3, _ = User.objects.get_or_create(
+            email='maksym@learnyx.com',
+            defaults={'username': 'maksym_st', 'first_name': 'Максим', 'last_name': 'Студент', 'role_obj': roles_objs['Student'], 'is_approved': True}
+        )
+        test_user3.set_password('studentpassword123')
+        test_user3.save()
+        test_student3, _ = Student.objects.get_or_create(user=test_user3)
+
+        StudentDisciplineLevel.objects.get_or_create(student=test_student3, discipline=disciplines_objs['Математика'], defaults={'level': level_objs['5-11 клас']})
+        StudentDisciplineLevel.objects.get_or_create(student=test_student3, discipline=disciplines_objs['Програмування'], defaults={'level': level_objs['B1']})
+
+        self.stdout.write(self.style.SUCCESS('Тестові студенти (3 особи) та їх розділені рівні створені'))
+
+        # 6. Курси (Без змін)
         courses_data = [
             {
-                'title': 'Основний курс',
+                'title': 'Українська мова для НМТ',
                 'discipline': disciplines_objs['Загальні курси'],
-                'description': 'Базовий навчальний курс LearNYX',
+                'description': 'Інтенсивна підготовка до складання НМТ на 200 балів',
                 'total_lessons_course': 100,
             },
             {
-                'title': 'Англійська для IT',
+                'title': 'Англійська мова',
                 'discipline': disciplines_objs['Англійська мова'],
                 'description': 'Спеціалізований курс для розробників та QA',
                 'total_lessons_course': 50,
@@ -93,7 +146,7 @@ class Command(BaseCommand):
             )
         self.stdout.write(self.style.SUCCESS('Курси створені'))
 
-        # 6. Пакетні плани (додано пробний та великий інтенсив)
+        # 7. Пакетні плани (Без змін)
         plans_data = [
             {'name': 'Пробний', 'total_lessons': 1, 'price': '300.00', 'description': 'Одне заняття для знайомства з платформою', 'is_active': True},
             {'name': 'Стартовий', 'total_lessons': 8, 'price': '2400.00', 'description': 'Базовий пакет для початку навчання', 'is_active': True},

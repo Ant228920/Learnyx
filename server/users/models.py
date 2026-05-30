@@ -14,19 +14,8 @@ class StudentLevel(models.Model):
 
     def __str__(self):
         return self.name
-
-class TeacherLevel(models.Model):
-    name = models.CharField(max_length=50, unique=True)
-
-    # [DATA HOTFIX] Прибираємо лише зайві пробіли по краях.
-    def save(self, *args, **kwargs):
-        if self.name:
-            self.name = self.name.strip()
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.name
-
+    
+   # [DATA HOTFIX] Прибираємо лише зайві пробіли по краях.
 class TeacherLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
@@ -49,6 +38,7 @@ class Role(models.Model):
         if self.name:
             self.name = self.name.strip().capitalize()
         super().save(*args, **kwargs)
+        
     def __str__(self):
         return self.name
 
@@ -98,7 +88,7 @@ class User(AbstractUser):
             # Оптимізація: швидкий пошук користувачів в адмінці або при авторизації
             models.Index(fields=['email']),
             models.Index(fields=['phone']),
-            # Оптимізація: швидка фільтрація непідтверджених акаунтів (is_approved=False)
+            # Оптимізація: швидка фільтрація непідтверджених акаунтів
             models.Index(fields=['is_approved']),
         ]
 
@@ -109,7 +99,7 @@ class User(AbstractUser):
 # --- COMPLEX QUERIES MANAGERS ---
 class StudentQuerySet(models.QuerySet):
     def with_details(self):
-        # [COMPLEX QUERY: JOINS]
+        # Оптимізація JOIN: миттєво дістаємо і юзера, і його рівень
         return self.select_related('user', 'level')
 
     def with_analytics(self):
@@ -131,7 +121,7 @@ class ManagerQuerySet(models.QuerySet):
 # Студент, Менеджер
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='student_profile')
-    level = models.ForeignKey(StudentLevel, on_delete=models.SET_NULL, null=True, related_name='students')
+    # Поле level видалено, тепер використовується StudentDisciplineLevel
     money_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     objects = StudentQuerySet.as_manager()
@@ -147,6 +137,23 @@ class Student(models.Model):
 
     def __str__(self):
         return f"Студент: {self.user.first_name} {self.user.last_name}"
+
+
+# НОВА МОДЕЛЬ: Рівень студента з конкретної дисципліни
+class StudentDisciplineLevel(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='discipline_levels')
+    discipline = models.ForeignKey('inventory.Discipline', on_delete=models.CASCADE, related_name='student_levels')
+    level = models.ForeignKey(StudentLevel, on_delete=models.PROTECT)
+
+    class Meta:
+        # Data Integrity: Студент може мати лише один рівень з конкретної дисципліни
+        unique_together = ('student', 'discipline')
+        verbose_name = "Рівень студента з дисципліни"
+        verbose_name_plural = "Рівні студентів з дисциплін"
+
+    def __str__(self):
+        return f"{self.student.user.first_name} - {self.discipline.name}: {self.level.name}"
+
 
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='manager_profile')
@@ -191,7 +198,7 @@ class Request(models.Model):
             models.Index(fields=['status', 'created_at']),
             models.Index(fields=['manager', 'status']),
         ]
-
+        
     def __str__(self):
         return f"Заявка #{self.id} від {self.user.email} ({self.get_status_display()})"
 
