@@ -4,6 +4,13 @@ from django.db.models.functions import Coalesce
 from users.models import User, TeacherLevel, Student
 from django.core.validators import MaxValueValidator, MinValueValidator
 
+class DisciplineQuerySet(models.QuerySet):
+    pass
+
+class CourseQuerySet(models.QuerySet):
+    pass
+# -----------------------------------------------------------------
+
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
     
@@ -243,7 +250,7 @@ class LearningRequest(models.Model):
     student = models.ForeignKey('users.Student', on_delete=models.CASCADE, related_name='learning_requests')
     package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True, related_name='learning_requests')
     subject = models.CharField(max_length=50, choices=SUBJECT_CHOICES)
-    level = models.CharField(max_length=20)
+    level = models.CharField(max_length=50)
     preferred_days = models.CharField(max_length=200, blank=True, default='')
     preferred_time = models.CharField(max_length=100, blank=True, default='')
     notes = models.TextField(blank=True, default='')
