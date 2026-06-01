@@ -5,34 +5,22 @@ import type { TeacherStudent } from '../../features/teacher/students';
 
 const PAGE_SIZE = 5;
 
-function formatSlotTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }) + ' ' +
-    d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
-}
-
 export default function TeacherStudents() {
-  const { students, slots, selectedSlotId, availableStudents, loading, error, selectSlot, assignStudent } = useTeacherStudents();
+  const { students, loading, error } = useTeacherStudents();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [profileStudent, setProfileStudent] = useState<TeacherStudent | null>(null);
-  const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   const visible = students.slice(0, visibleCount);
 
-  const handleLoadMore = () => {
-    setVisibleCount(prev => prev + PAGE_SIZE);
-  };
-
-
   return (
     <TeacherLayout>
-      <div className="max-w-[1200px] mx-auto flex flex-col gap-8">
+      <div className="max-w-[900px] mx-auto flex flex-col gap-8">
         <div>
           <h1 className="font-poppins font-bold text-slate-900 text-4xl leading-10">Керування учнями</h1>
-          <p className="font-inter text-[#565d6d] text-lg mt-2">Ваш персональний список активних студентів та доступних запитів на навчання.</p>
+          <p className="font-inter text-[#565d6d] text-lg mt-2">Ваш персональний список активних студентів.</p>
         </div>
 
         <article className="flex items-center gap-5 p-6 bg-white rounded-2xl border border-[#dee1e6] shadow-[0px_1px_2.5px_#171a1f12] w-fit">
@@ -45,96 +33,46 @@ export default function TeacherStudents() {
           </div>
         </article>
 
-        <div className="flex items-start gap-8">
-          {/* Students */}
-          <div className="flex-1 flex flex-col gap-5">
-            <h2 className="font-poppins font-bold text-slate-900 text-xl">Ваші учні</h2>
-            <div className="flex flex-col gap-3">
-              {visible.map(s => (
-                <div key={s.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-[#dee1e6]">
-                  <div className={`w-11 h-11 rounded-full ${s.avatarBg} flex items-center justify-center flex-shrink-0`}>
-                    <span className="font-inter font-bold text-[#1f8cf9] text-base">{s.name[0]}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-poppins font-bold text-slate-900 text-base">{s.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                      <span className="font-inter text-[#565d6d] text-xs">{s.subject}</span>
-                      <span className="px-2 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-bold text-[#565d6d] text-[10px]">{s.level}</span>
-                      <div className={`w-1.5 h-1.5 rounded-full ${s.status === 'Активний' ? 'bg-[#26d962]' : 'bg-[#9095a1]'}`} />
-                      <span className="font-inter text-[#565d6d] text-xs">{s.status}</span>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => setProfileStudent(s)}
-                    className="px-4 py-2 border border-[#dee1e6] rounded-xl font-inter font-medium text-[#565d6d] text-sm hover:bg-gray-50 transition-colors flex-shrink-0">
-                    Перегляд профілю
-                  </button>
+        <div className="flex flex-col gap-5">
+          <h2 className="font-poppins font-bold text-slate-900 text-xl">Ваші учні</h2>
+          <div className="flex flex-col gap-3">
+            {visible.map(s => (
+              <div key={s.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-[#dee1e6]">
+                <div className={`w-11 h-11 rounded-full ${s.avatarBg} flex items-center justify-center flex-shrink-0`}>
+                  <span className="font-inter font-bold text-[#1f8cf9] text-base">{s.name[0]}</span>
                 </div>
-              ))}
-              {students.length === 0 && (
-                <p className="font-inter text-[#9095a1] text-sm">Немає учнів</p>
-              )}
-            </div>
-            {visibleCount < students.length && (
-              <button type="button" onClick={handleLoadMore}
-                className="w-full py-4 bg-white border border-[#dee1e6] rounded-2xl font-inter font-medium text-[#565d6d] text-sm hover:bg-gray-50 transition-colors">
-                Завантажити ще ({students.length - visibleCount} залишилось)
-              </button>
+                <div className="flex-1">
+                  <p className="font-poppins font-bold text-slate-900 text-base">{s.name}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {s.subject !== '—' && (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                        <span className="font-inter text-[#565d6d] text-xs">{s.subject}</span>
+                      </>
+                    )}
+                    {s.level !== '—' && (
+                      <span className="px-2 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-bold text-[#565d6d] text-[10px]">{s.level}</span>
+                    )}
+                    <div className={`w-1.5 h-1.5 rounded-full ${s.status === 'Активний' ? 'bg-[#26d962]' : 'bg-[#9095a1]'}`} />
+                    <span className="font-inter text-[#565d6d] text-xs">{s.status}</span>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setProfileStudent(s)}
+                  className="px-4 py-2 border border-[#dee1e6] rounded-xl font-inter font-medium text-[#565d6d] text-sm hover:bg-gray-50 transition-colors flex-shrink-0">
+                  Перегляд профілю
+                </button>
+              </div>
+            ))}
+            {students.length === 0 && (
+              <p className="font-inter text-[#9095a1] text-sm">Немає учнів</p>
             )}
           </div>
-
-          {/* Available students panel */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4 sticky top-24">
-            <h2 className="font-poppins font-bold text-slate-900 text-sm tracking-[0.60px] uppercase">Доступні учні</h2>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="slot-select" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оберіть слот</label>
-              <div className="relative">
-                <select
-                  id="slot-select"
-                  value={selectedSlotId ?? ''}
-                  onChange={e => { const v = Number(e.target.value); if (v) void selectSlot(v); }}
-                  className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] pr-8"
-                >
-                  <option value="">— Оберіть слот —</option>
-                  {slots.map(s => (
-                    <option key={s.id} value={s.id}>{formatSlotTime(s.start_time)}</option>
-                  ))}
-                </select>
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </div>
-            </div>
-            {selectedSlotId && (
-              <div className="flex flex-col gap-2">
-                {availableStudents.length === 0 ? (
-                  <p className="font-inter text-[#9095a1] text-sm">Немає доступних учнів</p>
-                ) : (
-                  availableStudents.map(s => (
-                    <div key={s.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-[#dee1e6]">
-                      <div className={`w-9 h-9 rounded-full ${s.avatarBg} flex items-center justify-center flex-shrink-0`}>
-                        <span className="font-inter font-bold text-[#1f8cf9] text-sm">{s.name[0]}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-inter font-semibold text-slate-800 text-xs truncate">{s.name}</p>
-                        <p className="font-inter text-[#9095a1] text-[10px]">{s.lessons_balance} занять</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void assignStudent(selectedSlotId, s.id).then(() => setConfirmedMsg(`${s.name} призначено на урок`))}
-                        className="px-3 py-1.5 bg-[#1f8cf9] rounded-lg font-inter font-medium text-white text-xs hover:bg-blue-600 transition-colors flex-shrink-0"
-                      >
-                        Призначити
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-            {!selectedSlotId && slots.length === 0 && (
-              <p className="font-inter text-[#9095a1] text-sm">Немає доступних слотів</p>
-            )}
-          </div>
+          {visibleCount < students.length && (
+            <button type="button" onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+              className="w-full py-4 bg-white border border-[#dee1e6] rounded-2xl font-inter font-medium text-[#565d6d] text-sm hover:bg-gray-50 transition-colors">
+              Завантажити ще ({students.length - visibleCount} залишилось)
+            </button>
+          )}
         </div>
       </div>
 
@@ -177,21 +115,6 @@ export default function TeacherStudents() {
                 Закрити
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmed message */}
-      {confirmedMsg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setConfirmedMsg(null)} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-sm mx-4 flex flex-col items-center gap-4 shadow-2xl animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-[#1f8cf9]">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-            </div>
-            <h2 className="font-poppins font-bold text-xl text-slate-900">Готово!</h2>
-            <p className="font-inter text-sm text-[#565d6d] text-center">{confirmedMsg}</p>
-            <button onClick={() => setConfirmedMsg(null)} className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600">OK</button>
           </div>
         </div>
       )}

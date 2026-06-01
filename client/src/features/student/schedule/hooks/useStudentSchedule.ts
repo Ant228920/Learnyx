@@ -4,7 +4,8 @@ import { showError } from '../../../../utils/toast';
 import type { LessonsByDay, UpcomingLesson } from '../types';
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(iso);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
 function dayOf(iso: string): number {
@@ -13,6 +14,7 @@ function dayOf(iso: string): number {
 
 export function useStudentSchedule() {
   const [lessonsByDay, setLessonsByDay] = useState<LessonsByDay>({});
+  const [allLessons, setAllLessons] = useState<UpcomingLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +24,7 @@ export function useStudentSchedule() {
     try {
       const raw = await studentApi.getUpcomingLessons();
       const map: LessonsByDay = {};
+      const flat: UpcomingLesson[] = [];
       for (const l of raw) {
         const day = dayOf(l.slot.start_time);
         const item: UpcomingLesson = {
@@ -32,9 +35,11 @@ export function useStudentSchedule() {
           meeting_link: l.meeting_link,
           timeLabel: `${formatTime(l.slot.start_time)} - ${formatTime(l.slot.end_time)}`,
         };
+        flat.push(item);
         if (!map[day]) map[day] = [];
         map[day].push(item);
       }
+      setAllLessons(flat);
       setLessonsByDay(map);
     } catch (e) {
       setError(extractErrorMessage(e));
@@ -48,6 +53,7 @@ export function useStudentSchedule() {
   const cancelLesson = useCallback(async (lessonId: number) => {
     try {
       await studentApi.cancelLesson(lessonId);
+      setAllLessons(prev => prev.filter(l => l.id !== lessonId));
       setLessonsByDay(prev => {
         const next = { ...prev };
         for (const day of Object.keys(next)) {
@@ -68,5 +74,5 @@ export function useStudentSchedule() {
     }
   }, []);
 
-  return { lessonsByDay, loading, error, refetch: fetch, cancelLesson };
+  return { lessonsByDay, allLessons, loading, error, refetch: fetch, cancelLesson };
 }

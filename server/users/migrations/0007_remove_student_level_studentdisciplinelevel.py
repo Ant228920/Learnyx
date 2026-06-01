@@ -7,7 +7,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('inventory', '0015_alter_lessonmaterial_options_and_more'),
         ('users', '0006_student_check_positive_money_balance'),
     ]
 

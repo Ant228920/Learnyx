@@ -90,6 +90,8 @@ class SlotSerializer(serializers.ModelSerializer):
 
 class LessonSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
+    start_time = serializers.SerializerMethodField()
+    end_time = serializers.SerializerMethodField()
 
     def get_student_name(self, obj):
         try:
@@ -98,9 +100,15 @@ class LessonSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_start_time(self, obj):
+        return obj.slot.start_time.isoformat() if obj.slot else None
+
+    def get_end_time(self, obj):
+        return obj.slot.end_time.isoformat() if obj.slot else None
+
     class Meta:
         model = Lesson
-        fields = ['id', 'slot', 'student', 'student_name', 'package', 'curriculum_lesson', 'status', 'meeting_link']
+        fields = ['id', 'slot', 'student', 'student_name', 'package', 'curriculum_lesson', 'status', 'meeting_link', 'start_time', 'end_time']
 
 
 class LessonCreateSerializer(serializers.ModelSerializer):
@@ -138,12 +146,52 @@ class MeetingLinkSerializer(serializers.Serializer):
 
 
 class JournalRecordSerializer(serializers.ModelSerializer):
+    lesson_date = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    next_lesson_date = serializers.SerializerMethodField()
+
+    def get_lesson_date(self, obj):
+        try:
+            return obj.lesson.slot.start_time.isoformat()
+        except Exception:
+            return None
+
+    def get_subject_name(self, obj):
+        try:
+            pkg = obj.lesson.package
+            if pkg:
+                if pkg.discipline:
+                    return pkg.discipline.name
+                if pkg.course and pkg.course.discipline:
+                    return pkg.course.discipline.name
+            teacher = obj.lesson.slot.teacher
+            if teacher and teacher.discipline:
+                return teacher.discipline.name
+        except Exception:
+            pass
+        return None
+
+    def get_next_lesson_date(self, obj):
+        try:
+            from inventory.models import Lesson as _Lesson
+            next_l = _Lesson.objects.filter(
+                student=obj.lesson.student,
+                slot__start_time__gt=obj.lesson.slot.start_time,
+                status='scheduled',
+            ).order_by('slot__start_time').first()
+            if next_l and next_l.slot:
+                return next_l.slot.start_time.isoformat()
+        except Exception:
+            pass
+        return None
+
     class Meta:
         model = JournalRecord
         fields = [
             'id', 'lesson', 'is_present', 'activity_grade',
-            'teacher_homework_task', 'homework_answer_url',
-            'homework_grade', 'teacher_notes',
+            'teacher_homework_task', 'homework_answer_url', 'homework_file_url',
+            'homework_grade', 'teacher_notes', 'homework_status', 'lesson_topic',
+            'lesson_date', 'subject_name', 'next_lesson_date',
         ]
         read_only_fields = ['id', 'lesson']
 
@@ -211,18 +259,50 @@ class JournalListSerializer(serializers.ModelSerializer):
     lesson_status = serializers.CharField(source='lesson.status', read_only=True)
     homework_status = serializers.CharField(read_only=True)
     student_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    next_lesson_date = serializers.SerializerMethodField()
 
     def get_student_name(self, obj):
         u = obj.lesson.student.user
         return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    def get_subject_name(self, obj):
+        try:
+            pkg = obj.lesson.package
+            if pkg:
+                if pkg.discipline:
+                    return pkg.discipline.name
+                if pkg.course and pkg.course.discipline:
+                    return pkg.course.discipline.name
+            teacher = obj.lesson.slot.teacher
+            if teacher and teacher.discipline:
+                return teacher.discipline.name
+        except Exception:
+            pass
+        return None
+
+    def get_next_lesson_date(self, obj):
+        try:
+            from inventory.models import Lesson as _Lesson
+            next_l = _Lesson.objects.filter(
+                student=obj.lesson.student,
+                slot__start_time__gt=obj.lesson.slot.start_time,
+                status='scheduled',
+            ).order_by('slot__start_time').first()
+            if next_l and next_l.slot:
+                return next_l.slot.start_time.isoformat()
+        except Exception:
+            pass
+        return None
 
     class Meta:
         model = JournalRecord
         fields = [
             'id', 'lesson', 'start_time', 'lesson_status',
             'is_present', 'activity_grade', 'homework_grade',
-            'teacher_homework_task', 'homework_answer_url', 'teacher_notes',
-            'homework_status', 'student_name',
+            'teacher_homework_task', 'homework_answer_url', 'homework_file_url',
+            'teacher_notes', 'homework_status', 'student_name',
+            'lesson_topic', 'subject_name', 'next_lesson_date',
         ]
 
 
@@ -238,13 +318,21 @@ class TeacherInlineSerializer(serializers.ModelSerializer):
 
 
 class TeacherListSerializer(serializers.ModelSerializer):
-    first_name = serializers.CharField(source='user.first_name')
-    last_name = serializers.CharField(source='user.last_name')
-    email = serializers.EmailField(source='user.email')
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    discipline_name = serializers.SerializerMethodField()
+    level_name = serializers.SerializerMethodField()
+
+    def get_discipline_name(self, obj):
+        return obj.discipline.name if obj.discipline else None
+
+    def get_level_name(self, obj):
+        return obj.level.name if obj.level else None
 
     class Meta:
         model = Teacher
-        fields = ['user_id', 'first_name', 'last_name', 'email']
+        fields = ['user_id', 'first_name', 'last_name', 'email', 'discipline_name', 'level_name']
 
 
 class SlotAvailableSerializer(serializers.ModelSerializer):
@@ -326,9 +414,19 @@ class LessonArchiveSerializer(serializers.ModelSerializer):
 
     def get_subject(self, obj):
         try:
-            return obj.package.discipline.name
+            if obj.package:
+                if obj.package.discipline:
+                    return obj.package.discipline.name
+                if obj.package.course and obj.package.course.discipline:
+                    return obj.package.course.discipline.name
         except Exception:
-            return '—'
+            pass
+        try:
+            if obj.slot and obj.slot.teacher and obj.slot.teacher.discipline:
+                return obj.slot.teacher.discipline.name
+        except Exception:
+            pass
+        return None
 
     class Meta:
         model = Lesson

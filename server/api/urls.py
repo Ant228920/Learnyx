@@ -44,8 +44,9 @@ urlpatterns = [
     # ── Profile
     path('v1/profile/', api.views.ProfileView.as_view(), name='profile'),
 
-    # ── Teacher finances & Manager subscriptions
+    # ── Teacher finances, materials & Manager subscriptions
     path('v1/teacher/finances/', api.views.TeacherFinancesView.as_view(), name='teacher-finances'),
+    path('v1/teacher/materials/', api.views.TeacherMaterialView.as_view(), name='teacher-materials'),
     path('v1/manager/subscriptions/', api.views.ManagerSubscriptionsView.as_view(), name='manager-subscriptions'),
 
     # ── Student wallet

@@ -7,7 +7,7 @@ export interface StudentHomeworkTask {
   deadline: string;    // formatted "До DD Місяць, HH:MM"
   deadlineDate: Date;
   urgent: boolean;     // true if deadline is today or tomorrow
-  answerUrl?: string;  // student's submitted answer URL
-  fileUrl?: string;    // teacher's reference file URL (homework_answer_url)
+  answerUrl?: string;  // student's submitted answer URL (homework_answer_url)
+  fileUrl?: string;    // teacher's reference file URL (homework_file_url)
   homeworkStatus: string; // 'assigned' | 'submitted' | 'reviewed'
 }

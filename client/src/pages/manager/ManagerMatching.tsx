@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useManagerLearningRequests, useManagerMatching } from '../../features/manager/matching';
 import ManagerLayout from './ManagerLayout';
 import { apiClient, extractErrorMessage } from '../../services/api';
@@ -13,9 +13,8 @@ interface Slot {
 interface Teacher {
   id: number;
   name: string;
-  experience: string;
+  discipline: string;
   level: string;
-  subjects: string[];
   avatarBg: string;
 }
 
@@ -37,8 +36,34 @@ const MANAGER_TIME_OPTIONS = Array.from({ length: 27 }, (_, i) => {
 });
 
 function getLevels(subject: string): string[] {
-  return subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER;
+  if (subject === 'Англійська мова') return LEVELS_ENGLISH;
+  if (!subject) return [...LEVELS_ENGLISH, ...LEVELS_OTHER];
+  return LEVELS_OTHER;
 }
+
+// ── Kyiv timezone helpers ─────────────────────────────────────────────────────
+
+const DAY_MAP: Record<string, number> = {
+  'Понеділок': 1, 'Вівторок': 2, 'Середа': 3,
+  'Четвер': 4, "П'ятниця": 5, 'Субота': 6, 'Неділя': 0,
+};
+
+// Slots are stored with naive ISO times that Django treats as UTC.
+// UTC value = wall-clock value. Use UTC methods directly — no timezone conversion needed.
+function getKyivComponents(isoString: string): { dayOfWeek: number; hours: number; minutes: number } {
+  const d = new Date(isoString);
+  return { dayOfWeek: d.getUTCDay(), hours: d.getUTCHours(), minutes: d.getUTCMinutes() };
+}
+
+function getTeacherSubject(t: Record<string, unknown>): string {
+  return ((t.discipline_name ?? t.discipline ?? t.subject ?? '') as string).toLowerCase().trim();
+}
+
+function getTeacherLevel(t: Record<string, unknown>): string {
+  return ((t.level_name ?? t.level ?? '') as string).toLowerCase().trim();
+}
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
 const IconSearch = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" aria-hidden="true">
@@ -63,19 +88,22 @@ export default function ManagerMatching() {
   const { requests, loading: reqLoading, updateStatus } = useManagerLearningRequests();
 
   const studentOptions = rawStudents.map(s => `${s.first_name} ${s.last_name}`.trim() || s.email);
-  const allTeacherCards: Teacher[] = rawTeachers.map((t, i) => ({
-    id: t.id,
-    name: `${t.first_name} ${t.last_name}`.trim() || t.email,
-    experience: '—',
-    level: '—',
-    
-    subjects: [],
-    avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
-  }));
+  const allTeacherCards: Teacher[] = rawTeachers.map((t, i) => {
+    const r = t as Record<string, unknown>;
+    const disc = (r.discipline as string | null) ?? (r.discipline_name as string | null) ?? '';
+    const lvl = (r.level as string | null) ?? (r.level_name as string | null) ?? '';
+    return {
+      id: (r.user_id as number) ?? t.id,
+      name: `${t.first_name} ${t.last_name}`.trim() || t.email,
+      discipline: disc,
+      level: lvl,
+      avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    };
+  });
 
   const [student, setStudent] = useState('');
-  const [subject, setSubject] = useState(SUBJECTS[0]);
-  const [level, setLevel] = useState(getLevels(SUBJECTS[0])[2]);
+  const [subject, setSubject] = useState('');
+  const [level, setLevel] = useState('');
   const [slots, setSlots] = useState<Slot[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [searched, setSearched] = useState(false);
@@ -88,21 +116,17 @@ export default function ManagerMatching() {
   const [managerTimeFrom, setManagerTimeFrom] = useState('08:00');
   const [managerTimeTo, setManagerTimeTo] = useState('12:00');
   const [successCount, setSuccessCount] = useState(0);
+  const [filterErrors, setFilterErrors] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!student && rawStudents.length > 0) {
-      const first = rawStudents[0];
-      setStudent(`${first.first_name} ${first.last_name}`.trim() || first.email);
-    }
-  }, [student, rawStudents]);
 
   const handleSubjectChange = (newSubject: string) => {
     setSubject(newSubject);
-    setLevel(getLevels(newSubject)[0]);
+    setLevel('');
   };
 
   const addSlot = () => {
-    setSlots((prev) => [...prev, { id: Date.now(), day: DAYS[0], from: '14:00', to: '16:00' }]);
+    setFilterErrors([]);
+    setSlots((prev) => [...prev, { id: Date.now(), day: DAYS[0], from: '14:00', to: '15:00' }]);
   };
 
   const removeSlot = (id: number) => {
@@ -113,85 +137,166 @@ export default function ManagerMatching() {
     setSlots((prev) => prev.map((s) => s.id === id ? { ...s, [field]: value } : s));
   };
 
+  const handleSlotFromChange = (id: number, fromTime: string) => {
+    const [h, m] = fromTime.split(':').map(Number);
+    const toH = (h + 1) % 24;
+    const toTime = `${String(toH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    setSlots(prev => prev.map(s => s.id === id ? { ...s, from: fromTime, to: toTime } : s));
+  };
+
   const handleSearch = async () => {
+    const errors: string[] = [];
+    if (!student) errors.push('Оберіть учня');
+    if (!subject) errors.push('Оберіть предмет');
+    if (!level) errors.push('Оберіть рівень');
+    if (slots.length === 0) errors.push('Додайте хоча б один вільний слот учня');
+    slots.forEach((s, i) => {
+      if (!s.day) errors.push(`Слот ${i + 1}: оберіть день`);
+      if (!s.from) errors.push(`Слот ${i + 1}: вкажіть час`);
+    });
+    if (errors.length > 0) {
+      setFilterErrors(errors);
+      return;
+    }
+    setFilterErrors([]);
     setSearching(true);
     setAssignError('');
-    const searchSubject = subject;
-    const searchLevel = level;
-    const searchDays = managerDays;
-    const searchTimeFrom = managerTimeFrom;
-    const searchTimeTo = managerTimeTo;
     try {
       const [teachersRes, slotsRes] = await Promise.all([
         apiClient.get('/teachers/'),
         apiClient.get('/slots/available/'),
       ]);
-      const raw = (Array.isArray(teachersRes.data) ? teachersRes.data : []) as Array<{
-        user_id: number; email: string; first_name: string; last_name: string;
-        discipline?: string | null; level?: string | null;
-      }>;
 
-      let filtered = raw;
+      const raw = (Array.isArray(teachersRes.data) ? teachersRes.data : []) as Array<Record<string, unknown>>;
+      const allAvailableSlots = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<Record<string, unknown>>;
 
-      if (searchSubject) {
-        const subLower = searchSubject.toLowerCase();
-        filtered = filtered.filter(t => {
-          const disc = (t.discipline ?? '').toLowerCase();
-          return disc === '' || disc.includes(subLower) || subLower.includes(disc);
-        });
-      }
+      console.log('[ManagerMatching] teachers from API:', raw.length, raw.slice(0, 2));
+      console.log('[ManagerMatching] slots from API:', allAvailableSlots.length, allAvailableSlots.slice(0, 2));
+      console.log('[ManagerMatching] student slots requested:', slots);
 
-      if (searchLevel) {
-        const lvlLower = searchLevel.toLowerCase();
-        filtered = filtered.filter(t => {
-          const lvl = (t.level ?? '').toLowerCase();
-          return lvl === '' || lvl.includes(lvlLower) || lvlLower.includes(lvl);
-        });
-      }
+      // ── Subject filter (soft: teachers with no discipline are included with warning) ────
+      const reqSubject = subject.toLowerCase().trim();
+      const subjectFiltered = raw.filter(t => {
+        const disc = getTeacherSubject(t);
+        if (!disc) {
+          console.log(`[filter] teacher ${t.user_id} has no discipline — included (soft)`);
+          return true; // no discipline set — include
+        }
+        const match = disc === reqSubject || disc.includes(reqSubject) || reqSubject.includes(disc);
+        if (!match) console.log(`[filter] teacher ${t.user_id} subject "${disc}" ≠ "${reqSubject}" — excluded`);
+        return match;
+      });
 
-      const source = filtered.length > 0 ? filtered : raw;
+      // ── Level filter (if teacher has level set, it must match) ────────────────
+      const reqLevel = level.toLowerCase().trim();
+      const levelFiltered = subjectFiltered.filter(t => {
+        const lvl = getTeacherLevel(t);
+        if (!lvl) return true; // teacher without level — include
+        const match = lvl === reqLevel || lvl.includes(reqLevel) || reqLevel.includes(lvl);
+        if (!match) console.log(`[filter] teacher ${t.user_id} level "${lvl}" ≠ "${reqLevel}" — excluded`);
+        return match;
+      });
 
-      // Group available slots by teacher user_id for day/time filtering
-      const allSlots = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<{
-        id: number; teacher: { user_id: number }; start_time: string;
-      }>;
+      console.log('[ManagerMatching] after subject+level filter:', levelFiltered.length);
+
+      // ── Group available slots by teacher user_id ──────────────────────────────
       const slotsByTeacher: Record<number, Array<{ start_time: string }>> = {};
-      for (const s of allSlots) {
-        const tid = s.teacher.user_id;
-        if (!slotsByTeacher[tid]) slotsByTeacher[tid] = [];
-        slotsByTeacher[tid].push(s);
+      for (const s of allAvailableSlots) {
+        // Handle both nested {teacher: {user_id}} and flat {teacher_id}
+        const teacherObj = s.teacher as Record<string, unknown> | null;
+        const tid = (typeof teacherObj === 'object' && teacherObj !== null
+          ? (teacherObj.user_id ?? teacherObj.id)
+          : (s.teacher_id ?? s.teacher)) as number | undefined;
+        if (tid != null) {
+          if (!slotsByTeacher[tid]) slotsByTeacher[tid] = [];
+          slotsByTeacher[tid].push({ start_time: s.start_time as string });
+        }
       }
 
-      let finalSource = source;
-      if (searchDays.length > 0) {
-        const withMatchingSlots = source.filter(t =>
-          (slotsByTeacher[t.user_id] ?? []).some(s => {
-            const dayName = new Date(s.start_time).toLocaleDateString('uk-UA', { weekday: 'long' });
-            const slotTime = s.start_time.slice(11, 16);
-            const dayOk = searchDays.some(d => dayName.toLowerCase().includes(d.toLowerCase()));
-            const timeOk = slotTime >= searchTimeFrom && slotTime < searchTimeTo;
-            return dayOk && timeOk;
-          })
-        );
-        if (withMatchingSlots.length > 0) finalSource = withMatchingSlots;
+      // Debug: log slot breakdown for first teacher
+      if (levelFiltered.length > 0) {
+        const firstId = levelFiltered[0].user_id as number;
+        const tSlots = slotsByTeacher[firstId] ?? [];
+        console.log(`[ManagerMatching] teacher ${firstId} has ${tSlots.length} available slots`);
+        tSlots.slice(0, 3).forEach(ts => {
+          const k = getKyivComponents(ts.start_time);
+          console.log(`  slot: ${ts.start_time} → Kyiv day=${k.dayOfWeek} ${k.hours}:${String(k.minutes).padStart(2,'0')}`);
+        });
       }
+
+      // ── Strict slot filter: EVERY student slot must match a teacher slot ──────
+      const finalSource = slots.length > 0
+        ? levelFiltered.filter(t => {
+            const tid = t.user_id as number;
+            const teacherSlots = slotsByTeacher[tid] ?? [];
+            if (teacherSlots.length === 0) {
+              console.log(`[filter] teacher ${tid} has no available slots`);
+              return false;
+            }
+
+            return slots.every(reqSlot => {
+              if (!reqSlot.day || !reqSlot.from) return false;
+
+              const reqDayNum = DAY_MAP[reqSlot.day];
+              if (reqDayNum === undefined) {
+                console.warn(`[filter] unknown day: "${reqSlot.day}"`);
+                return false;
+              }
+
+              const [fromH, fromM] = reqSlot.from.split(':').map(Number);
+              const reqFromMin = fromH * 60 + fromM;
+              const reqToMin = reqSlot.to
+                ? (() => { const [h, m] = reqSlot.to.split(':').map(Number); return h * 60 + m; })()
+                : reqFromMin + 60;
+
+              const matched = teacherSlots.some(ts => {
+                const k = getKyivComponents(ts.start_time);
+                const slotMin = k.hours * 60 + k.minutes;
+                const dayOk = k.dayOfWeek === reqDayNum;
+                const timeOk = slotMin >= reqFromMin && slotMin < reqToMin;
+                console.log(
+                  `  [slot check] teacher ${tid} slot ${ts.start_time}` +
+                  ` → day ${k.dayOfWeek} vs req ${reqDayNum} dayOk=${dayOk}` +
+                  ` time ${k.hours}:${k.minutes} (${slotMin}) vs [${reqFromMin},${reqToMin}) timeOk=${timeOk}`
+                );
+                return dayOk && timeOk;
+              });
+
+              if (!matched) console.log(`[filter] teacher ${tid} has no slot for ${reqSlot.day} ${reqSlot.from}`);
+              return matched;
+            });
+          })
+        : levelFiltered;
+
+      console.log('[ManagerMatching] final results:', finalSource.length);
 
       const cards: Teacher[] = finalSource.map((t, i) => ({
-        id: t.user_id,
-        name: `${t.first_name} ${t.last_name}`.trim() || t.email,
-        experience: '—',
-        level: t.level ?? '—',
-        subjects: t.discipline ? [t.discipline] : [],
+        id: t.user_id as number,
+        name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim() || (t.email as string),
+        discipline: getTeacherSubject(t),
+        level: getTeacherLevel(t),
         avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
       }));
 
-      setTeachers(cards);
-      setSearched(true);
-      if (cards.length === 0) {
-        setAssignError('Викладачів не знайдено. Переконайтеся, що викладачі зареєстровані та підтверджені.');
+      if (cards.length === 0 && raw.length > 0) {
+        // Fallback: show all teachers with a notice
+        const fallbackCards: Teacher[] = raw.map((t, i) => ({
+          id: t.user_id as number,
+          name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim() || (t.email as string),
+          discipline: getTeacherSubject(t) || 'Предмет не вказано',
+          level: getTeacherLevel(t) || 'Рівень не вказано',
+          avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
+        }));
+        setTeachers(fallbackCards);
+        setSearched(true);
+        setFilterErrors(['Точного збігу не знайдено — показано всіх доступних викладачів.']);
+      } else {
+        setTeachers(cards);
+        setSearched(true);
+        setFilterErrors([]);
       }
     } catch (err) {
-      setAssignError(extractErrorMessage(err));
+      setFilterErrors([extractErrorMessage(err)]);
     } finally {
       setSearching(false);
     }
@@ -234,19 +339,19 @@ export default function ManagerMatching() {
         return;
       }
 
-      // 3. Determine filter criteria from selected request or manager form
-      const searchDays = selectedRequest?.preferred_days
+      // 3. Determine filter criteria from selected request or student slots
+      const reqDays = selectedRequest?.preferred_days
         ? selectedRequest.preferred_days.split(', ').filter(Boolean)
-        : managerDays;
-      const searchTimeFrom = selectedRequest?.preferred_time?.split('-')[0] ?? managerTimeFrom;
-      const searchTimeTo = selectedRequest?.preferred_time?.split('-')[1] ?? managerTimeTo;
+        : slots.map(s => s.day);
+      const reqTimeFrom = selectedRequest?.preferred_time?.split('-')[0] ?? slots[0]?.from ?? '08:00';
+      const reqTimeTo = selectedRequest?.preferred_time?.split('-')[1] ?? slots[slots.length - 1]?.to ?? '21:00';
 
       // 4. Filter slots by days + time range; fall back to first slot if none match
       let slotsToBook = slotsData.filter(ts => {
         const dayName = new Date(ts.start_time).toLocaleDateString('uk-UA', { weekday: 'long' });
         const slotTime = ts.start_time.slice(11, 16);
-        const dayOk = searchDays.length === 0 || searchDays.some(d => dayName.toLowerCase().includes(d.toLowerCase()));
-        const timeOk = slotTime >= searchTimeFrom && slotTime < searchTimeTo;
+        const dayOk = reqDays.length === 0 || reqDays.some(d => dayName.toLowerCase().includes(d.toLowerCase()));
+        const timeOk = slotTime >= reqTimeFrom && slotTime < reqTimeTo;
         return dayOk && timeOk;
       });
       if (slotsToBook.length === 0) slotsToBook = [slotsData[0]];
@@ -277,10 +382,9 @@ export default function ManagerMatching() {
       setTeachers([]);
       setSearched(false);
       setSlots([]);
-      const next = studentOptions.filter((s) => s !== student)[0] ?? studentOptions[0] ?? '';
-      setStudent(next);
-      setSubject(SUBJECTS[0]);
-      setLevel(getLevels(SUBJECTS[0])[0]);
+      setStudent('');
+      setSubject('');
+      setLevel('');
     } catch (err) {
       setAssignError(extractErrorMessage(err));
     } finally {
@@ -319,8 +423,6 @@ export default function ManagerMatching() {
                       setSelectedRequest(null);
                     } else {
                       setSelectedRequest(req);
-                      setSubject(req.subject);
-                      setLevel(getLevels(req.subject)[0]);
                     }
                   }}
                 >
@@ -381,10 +483,8 @@ export default function ManagerMatching() {
                 <label htmlFor="match-student" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Учень</label>
                 <div className="relative">
                   <select id="match-student" value={student} onChange={(e) => setStudent(e.target.value)} aria-label="Вибір учня" className={selectClass}>
-                    {studentOptions.length === 0
-                      ? <option value="">— Немає студентів —</option>
-                      : studentOptions.map((s) => <option key={s} value={s}>{s}</option>)
-                    }
+                    <option value="">— Оберіть учня —</option>
+                    {studentOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
@@ -395,6 +495,7 @@ export default function ManagerMatching() {
                   <label htmlFor="match-subject" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Предмет</label>
                   <div className="relative">
                     <select id="match-subject" value={subject} onChange={(e) => handleSubjectChange(e.target.value)} aria-label="Вибір предмету" className={selectClass}>
+                      <option value="">— Оберіть предмет —</option>
                       {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
@@ -404,6 +505,7 @@ export default function ManagerMatching() {
                   <label htmlFor="match-level" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Рівень</label>
                   <div className="relative">
                     <select id="match-level" value={level} onChange={(e) => setLevel(e.target.value)} aria-label="Вибір рівня" className={selectClass}>
+                      <option value="">— Оберіть рівень —</option>
                       {getLevels(subject).map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                     <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
@@ -411,59 +513,6 @@ export default function ManagerMatching() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Дні тижня</label>
-                <div className="flex flex-wrap gap-2">
-                  {DAYS.map(day => (
-                    <button key={day} type="button"
-                      onClick={() => setManagerDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
-                      className={`px-3 py-1.5 rounded-xl font-inter text-xs font-medium border transition-colors ${
-                        managerDays.includes(day) ? 'bg-[#1f8cf9] text-white border-[#1f8cf9]' : 'bg-white text-[#565d6d] border-[#dee1e6] hover:border-[#1f8cf9]'
-                      }`}>
-                      {day}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Час</label>
-                <div className="flex items-end gap-2">
-                  <div className="flex flex-col gap-1 flex-1">
-                    <span className="font-inter text-[#565d6d] text-xs">З</span>
-                    <div className="relative">
-                      <select
-                        value={managerTimeFrom}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setManagerTimeFrom(val);
-                          if (managerTimeTo <= val) {
-                            const nextIdx = MANAGER_TIME_OPTIONS.indexOf(val) + 1;
-                            setManagerTimeTo(MANAGER_TIME_OPTIONS[nextIdx] ?? '21:00');
-                          }
-                        }}
-                        aria-label="Час початку"
-                        className={selectClass}>
-                        {MANAGER_TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1 flex-1">
-                    <span className="font-inter text-[#565d6d] text-xs">До</span>
-                    <div className="relative">
-                      <select
-                        value={managerTimeTo}
-                        onChange={e => setManagerTimeTo(e.target.value)}
-                        aria-label="Час завершення"
-                        className={selectClass}>
-                        {MANAGER_TIME_OPTIONS.filter(t => t > managerTimeFrom).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Slots */}
@@ -493,14 +542,22 @@ export default function ManagerMatching() {
                     </select>
                     <svg className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                   </div>
-                  <input type="time" value={slot.from} onChange={(e) => updateSlot(slot.id, 'from', e.target.value)}
+                  <input type="time" value={slot.from} onChange={(e) => handleSlotFromChange(slot.id, e.target.value)}
                     aria-label="Час початку"
                     className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
-                  <input type="time" value={slot.to} onChange={(e) => updateSlot(slot.id, 'to', e.target.value)}
-                    aria-label="Час завершення"
-                    className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] w-24" />
+                  <input type="time" value={slot.to} readOnly
+                    aria-label="Час завершення (авто)"
+                    className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-[#f8f9fb] w-24 cursor-default" />
                 </div>
               ))}
+
+              {filterErrors.length > 0 && (
+                <div className="flex flex-col gap-1 p-3 bg-red-50 border border-red-200 rounded-xl">
+                  {filterErrors.map((e, i) => (
+                    <p key={i} className="font-inter text-red-600 text-xs">{e}</p>
+                  ))}
+                </div>
+              )}
 
               <button type="button" onClick={() => void handleSearch()} disabled={searching}
                 className="flex items-center justify-center gap-2 py-3 w-full bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors mt-2 disabled:opacity-50">
@@ -546,15 +603,8 @@ export default function ManagerMatching() {
                   <div className="flex flex-col gap-1.5 flex-1">
                     <span className="font-poppins font-bold text-slate-900 text-base">{t.name}</span>
                     <span className="font-inter text-[#565d6d] text-xs">
-                      Досвід: {t.experience} • Рівень: {t.level}
+                      {t.discipline || 'Предмет не вказано'}{t.level ? ` • ${t.level}` : ''}
                     </span>
-                    {t.subjects.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {t.subjects.map((s) => (
-                          <span key={s} className="px-2.5 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-medium text-[#565d6d] text-xs">{s}</span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   <button type="button"
                     onClick={() => void handleAssign(t)}

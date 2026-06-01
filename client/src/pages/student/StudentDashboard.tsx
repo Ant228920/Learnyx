@@ -21,8 +21,12 @@ export default function StudentDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
-  const formatDate = (iso: string) => new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  };
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 
   const handleJoinLesson = (meetingLink: string | null) => {
     if (meetingLink) {
