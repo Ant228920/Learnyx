@@ -18,6 +18,15 @@ const hasHomework = (val: unknown): boolean => {
 const taskText = (val: unknown): string =>
   typeof val === 'string' ? val : JSON.stringify(val);
 
+function isUrgentDeadline(iso?: string): boolean {
+  if (!iso) return false;
+  const deadline = new Date(iso);
+  const now = new Date();
+  const twoDaysAhead = new Date(now);
+  twoDaysAhead.setDate(twoDaysAhead.getDate() + 2);
+  return deadline >= now && deadline <= twoDaysAhead;
+}
+
 export function useStudentHomework() {
   const [homeworks, setHomeworks] = useState<StudentHomeworkTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +47,10 @@ export function useStudentHomework() {
           description: taskText(j.teacher_homework_task as unknown),
           deadline: formatDeadline(j.start_time),
           deadlineDate: j.start_time ? new Date(j.start_time) : new Date(),
-          urgent: false,
+          urgent: isUrgentDeadline(j.start_time),
           answerUrl: j.homework_answer_url || undefined,
+          fileUrl: j.homework_answer_url || undefined,
+          homeworkStatus: j.homework_status ?? 'assigned',
         }));
       setHomeworks(tasks);
     } catch (e) {

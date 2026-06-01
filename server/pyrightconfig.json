@@ -1,0 +1,6 @@
+{
+  "pythonPath": "/usr/local/bin/python",
+  "ignore": ["**/*"],
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useManagerMatching, useManagerLearningRequests } from '../../features/manager/matching';
+import { useManagerLearningRequests, useManagerMatching } from '../../features/manager/matching';
 import ManagerLayout from './ManagerLayout';
 import { apiClient, extractErrorMessage } from '../../services/api';
-import type { LearningRequestItem } from '../../services/api';
 
 interface Slot {
   id: number;
@@ -28,8 +27,8 @@ const SUBJECT_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Очікує', matched: 'Підібрано', cancelled: 'Скасовано',
 };
-const LEVELS_ENGLISH = ['A1 - Початковий', 'A2 - Елементарний', 'B1 - Середній', 'B2 - Вище середнього', 'C1 - Просунутий', 'C2 - Досконалий'];
-const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
+const LEVELS_ENGLISH = ['A1-B1 рівень', 'B2-C2 рівень'];
+const LEVELS_OTHER = ['1-4 клас', '5-11 клас'];
 const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
 const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
 const MANAGER_TIME_OPTIONS = Array.from({ length: 27 }, (_, i) => {
@@ -69,6 +68,7 @@ export default function ManagerMatching() {
     name: `${t.first_name} ${t.last_name}`.trim() || t.email,
     experience: '—',
     level: '—',
+    
     subjects: [],
     avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
   }));
@@ -116,13 +116,11 @@ export default function ManagerMatching() {
   const handleSearch = async () => {
     setSearching(true);
     setAssignError('');
-    const searchSubject = selectedRequest ? selectedRequest.subject : subject;
-    const searchLevel = selectedRequest ? selectedRequest.level : level;
-    const searchDays = selectedRequest?.preferred_days
-      ? selectedRequest.preferred_days.split(', ').filter(Boolean)
-      : managerDays;
-    const searchTimeFrom = selectedRequest?.preferred_time?.split('-')[0] ?? managerTimeFrom;
-    const searchTimeTo = selectedRequest?.preferred_time?.split('-')[1] ?? managerTimeTo;
+    const searchSubject = subject;
+    const searchLevel = level;
+    const searchDays = managerDays;
+    const searchTimeFrom = managerTimeFrom;
+    const searchTimeTo = managerTimeTo;
     try {
       const [teachersRes, slotsRes] = await Promise.all([
         apiClient.get('/teachers/'),

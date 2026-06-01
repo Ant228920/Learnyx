@@ -9,7 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env', override=True)
 
 # ── Security ──────────────────────────────────────────────────
-SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-insecure-key')
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required")
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
 
@@ -90,8 +92,6 @@ REST_FRAMEWORK = {
 }
 
 # ── JWT ───────────────────────────────────────────────────────
-from datetime import timedelta
-
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME':  timedelta(minutes=int(os.getenv('ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('REFRESH_TOKEN_LIFETIME_DAYS', 7))),
@@ -141,10 +141,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# ── Email Configuration (MOCK for development) ────────────────
-# Листи не відправлятимуться реально, а виводитимуться в консоль Docker
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'noreply@learnyx.com'
+# ── Email Configuration ───────────────────────────────────────
+# Default: console backend for development (set EMAIL_BACKEND=smtp in .env for production)
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@learnyx.com')
 MANAGER_EMAIL = os.getenv('MANAGER_EMAIL', 'manager@learnyx.com')
 
 # ── Password Hashers ──────────────────────────────────────────

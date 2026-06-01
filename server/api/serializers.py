@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
 from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest, Complaint, LessonMaterial
-from users.models import Student, Review
+from users.models import Student, Review, User
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
@@ -15,6 +15,30 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'created_at']
 
     def validate(self, data):
+        email = data.get('email')
+        phone = data.get('phone')
+        telegram_nickname = data.get('telegram_nickname')
+
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                {'email': 'Користувач з такою поштою вже зареєстрований.'}
+            )
+
+        if phone and User.objects.filter(phone=phone).exists():
+            raise serializers.ValidationError(
+                {'phone': 'Користувач з таким номером телефону вже зареєстрований.'}
+            )
+
+        if telegram_nickname and User.objects.filter(nickname=telegram_nickname).exists():
+            raise serializers.ValidationError(
+                {'telegram_nickname': 'Користувач з таким Telegram вже зареєстрований.'}
+            )
+
+        if email and RegistrationRequest.objects.filter(email=email).exclude(status='rejected').exists():
+            raise serializers.ValidationError(
+                {'email': 'Заявка з такою поштою вже існує.'}
+            )
+
         if data.get('role') == 'teacher':
             if not data.get('subject'):
                 raise serializers.ValidationError(
@@ -129,8 +153,9 @@ class JournalRecordSerializer(serializers.ModelSerializer):
         return value
 
     def validate_homework_grade(self, value):
-        if value is not None and not (1 <= value <= 10):
-            raise serializers.ValidationError('homework_grade must be between 1 and 10.')
+        # Allow 0 (not done) through 12 (extended scale used by teachers)
+        if value is not None and not (0 <= value <= 12):
+            raise serializers.ValidationError('homework_grade must be between 0 and 12.')
         return value
 
 
@@ -154,17 +179,42 @@ class StudentListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email')
     phone = serializers.CharField(source='user.phone', allow_null=True, default=None)
     telegram_nickname = serializers.CharField(source='user.nickname', allow_null=True, default=None)
-    level = serializers.CharField(source='level.name', allow_null=True, default=None)
+    level = serializers.SerializerMethodField()
+    subject = serializers.SerializerMethodField()
+    level_name = serializers.SerializerMethodField()
     lessons_balance = serializers.IntegerField()
+    total_lessons = serializers.SerializerMethodField()
+
+    def get_level(self, obj):
+        return None
+
+    def get_subject(self, obj):
+        req = obj.learning_requests.filter(status='pending').first()
+        return req.get_subject_display() if req else None
+
+    def get_level_name(self, obj):
+        req = obj.learning_requests.filter(status='pending').first()
+        return req.level if req else None
+
+    def get_total_lessons(self, obj):
+        pkg = obj.packages.filter(status='active').first()
+        return pkg.total_lessons if pkg else 0
 
     class Meta:
         model = Student
-        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'telegram_nickname', 'level', 'lessons_balance']
+        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'telegram_nickname',
+                  'level', 'subject', 'level_name', 'lessons_balance', 'total_lessons']
 
 
 class JournalListSerializer(serializers.ModelSerializer):
     start_time = serializers.DateTimeField(source='lesson.slot.start_time', read_only=True)
     lesson_status = serializers.CharField(source='lesson.status', read_only=True)
+    homework_status = serializers.CharField(read_only=True)
+    student_name = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj):
+        u = obj.lesson.student.user
+        return f'{u.first_name} {u.last_name}'.strip() or u.email
 
     class Meta:
         model = JournalRecord
@@ -172,6 +222,7 @@ class JournalListSerializer(serializers.ModelSerializer):
             'id', 'lesson', 'start_time', 'lesson_status',
             'is_present', 'activity_grade', 'homework_grade',
             'teacher_homework_task', 'homework_answer_url', 'teacher_notes',
+            'homework_status', 'student_name',
         ]
 
 
@@ -229,7 +280,7 @@ class AssignLessonSerializer(serializers.Serializer):
 
 class HomeworkSerializer(serializers.Serializer):
     teacher_homework_task = serializers.JSONField()
-    homework_answer_url = serializers.URLField(max_length=255, required=False, allow_blank=True)
+    homework_answer_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     # LEAR-67: optional file attachment — saved as LessonMaterial on the lesson
     file = serializers.FileField(required=False)
     file_title = serializers.CharField(max_length=200, required=False, default='Homework material')
@@ -240,20 +291,6 @@ class HomeworkSerializer(serializers.Serializer):
             validate_file_size(value)
             validate_file_extension(value)
         return value
-
-
-# ── LEAR-75 ──────────────────────────────────────────────────────────────────
-
-class HomeworkGradeSerializer(serializers.Serializer):
-    homework_grade = serializers.IntegerField(
-        min_value=1,
-        max_value=10,
-        error_messages={
-            'required': 'Ви не оцінили виконання домашнього завдання',
-            'null': 'Ви не оцінили виконання домашнього завдання',
-            'invalid': 'Ви не оцінили виконання домашнього завдання',
-        },
-    )
 
 
 # ── LEAR-75 ──────────────────────────────────────────────────────────────────
@@ -448,10 +485,9 @@ class ComplaintStatusSerializer(serializers.Serializer):
 
 # ── LEAR-125 ──────────────────────────────────────────────────────────────────
 
-class LessonMaterialUploadSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LessonMaterial
-        fields = ['title', 'file']
+class LessonMaterialUploadSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=200)
+    file = serializers.FileField()
 
     def validate_file(self, value):
         from api.validators import validate_file_size, validate_file_extension
@@ -465,10 +501,7 @@ class LessonMaterialListSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.SerializerMethodField()
 
     def get_file_url(self, obj):
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.file.url)
-        return obj.file.url
+        return obj.file_url or None
 
     def get_uploaded_by_name(self, obj):
         u = obj.uploaded_by.user
@@ -509,12 +542,7 @@ class HomeworkDetailSerializer(serializers.ModelSerializer):
         return LessonMaterialListSerializer(qs, many=True, context={'request': request}).data
 
     def get_homework_file_url(self, obj):
-        if not obj.homework_file:
-            return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.homework_file.url)
-        return obj.homework_file.url
+        return obj.homework_file_url or None
 
     class Meta:
         model = JournalRecord

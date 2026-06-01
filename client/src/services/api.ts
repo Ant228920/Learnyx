@@ -121,6 +121,8 @@ export interface JournalRecord {
   teacher_notes: string | null;
   start_time?: string;
   lesson_status?: string;
+  homework_status?: string;   // 'assigned' | 'submitted' | 'reviewed'
+  student_name?: string;      // returned by JournalListSerializer
 }
 
 export interface StudentDashboard {
@@ -212,6 +214,7 @@ export function extractErrorMessage(error: unknown): string {
       subject: 'Предмет',
       level: 'Рівень',
       non_field_errors: '',
+      homework_answer_url: 'Файл відповіді',
     };
 
     const ERROR_TRANSLATIONS: Record<string, string> = {
@@ -224,7 +227,13 @@ export function extractErrorMessage(error: unknown): string {
       'Invalid pk': 'Невірний ідентифікатор.',
       'No active account found': 'Акаунт не знайдено або пароль невірний.',
       'Невірний email або пароль': 'Невірний email або пароль.',
-      'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час для слоту.',
+      'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час.',
+      'end_time must be after start_time.': 'Час завершення має бути пізніше часу початку.',
+      'start_time must be in the future': 'Час початку має бути в майбутньому.',
+      'Enter a valid URL.': 'Невірний формат файлу.',
+      'Expected a Response': 'Помилка сервера. Зверніться до адміністратора.',
+      'NoneType': 'Помилка сервера. Спробуйте пізніше.',
+      'AssertionError': 'Помилка сервера. Спробуйте пізніше.',
     };
 
     for (const key of ['message', 'detail', 'error']) {
@@ -364,6 +373,24 @@ export const studentApi = {
     return data;
   },
 
+  // POST /homeworks/{journalId}/submit/ — student uploads homework file (multipart)
+  submitHomework: async (journalId: number, file: File): Promise<JournalRecord> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await apiClient.post(`/homeworks/${journalId}/submit/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data as JournalRecord;
+  },
+
+  // POST /lessons/{lessonId}/submit-homework/ — student submits answer URL
+  submitHomeworkUrl: async (lessonId: number, homework_answer_url: string): Promise<JournalRecord> => {
+    const { data } = await apiClient.post(`/lessons/${lessonId}/submit-homework/`, {
+      homework_answer_url,
+    });
+    return data as JournalRecord;
+  },
+
   getLearningRequests: async () => {
     const { data } = await apiClient.get('/students/me/learning-requests/');
     return data as LearningRequestItem[];
@@ -460,7 +487,9 @@ export const teacherApi = {
   },
 
   getStudents: async (): Promise<Array<{
-    user_id: number; first_name: string; last_name: string; email: string; lessons_balance: number;
+    user_id: number; first_name: string; last_name: string; email: string;
+    phone: string | null; subject: string | null; level_name: string | null;
+    lessons_balance: number; total_lessons: number;
   }>> => {
     const { data } = await apiClient.get('/students/');
     return data.results ?? data;

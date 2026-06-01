@@ -196,7 +196,14 @@ export default function TeacherSchedule() {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label htmlFor="free-from" className="font-inter text-[#565d6d] text-xs mb-1 block">Початок</label>
-                  <input id="free-from" type="time" value={freeFrom} onChange={e => setFreeFrom(e.target.value)}
+                  <input id="free-from" type="time" value={freeFrom}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFreeFrom(val);
+                      const [h, m] = val.split(':').map(Number);
+                      const endH = (h + 1) % 24;
+                      setFreeTo(`${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                    }}
                     aria-label="Початок вільного часу"
                     className="w-full border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
                 </div>

@@ -1,22 +1,30 @@
 from django.db import models
-from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg
+from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg, Prefetch
 from django.db.models.functions import Coalesce
-from users.models import User, TeacherLevel, Student, Manager
+from users.models import User, TeacherLevel, Student
 from django.core.validators import MaxValueValidator, MinValueValidator
-from api.validators import validate_file_size, validate_file_extension
 
+class DisciplineQuerySet(models.QuerySet):
+    pass
+
+<<<<<<< HEAD
+=======
+class CourseQuerySet(models.QuerySet):
+    pass
+# -----------------------------------------------------------------
+
+>>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    
+    objects = DisciplineQuerySet.as_manager()
 
-    def __str__(self): 
+    def __str__(self):
         return self.name
 
 class TeacherQuerySet(models.QuerySet):
     def with_analytics(self):
-        """
-        Складний аналітичний SQL-запит (Joins + Aggregations).
-        Рахує статистику ефективності вчителів на рівні бази даних.
-        """
+        # [COMPLEX QUERY: JOINS + AGGREGATIONS]
         return self.annotate(
             total_conducted_lessons=Count('slots__lesson', filter=Q(slots__lesson__status='conducted')),
             total_earned=Coalesce(Sum('transactions__amount', filter=Q(transactions__is_penalty=False)), 0.0),
@@ -32,6 +40,9 @@ class Teacher(models.Model):
 
     objects = TeacherQuerySet.as_manager()
 
+    def __str__(self):
+        return self.user.get_full_name() or self.user.email
+
 class Material(models.Model):
     title = models.CharField(max_length=255)
     file_url = models.CharField(max_length=500)
@@ -45,7 +56,7 @@ class Slot(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='slots')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    
+
     STATUS_CHOICES = [
         ('available', 'Available'),
         ('booked', 'Booked'),
@@ -54,15 +65,23 @@ class Slot(models.Model):
 
     class Meta:
         indexes = [
+            # Оптимізація: швидкий пошук вільних слотів конкретного вчителя
             models.Index(fields=['teacher', 'start_time', 'status']),
         ]
-        unique_together = ('teacher', 'start_time')  # Захист від овербукінгу на рівні БД
+        unique_together = ('teacher', 'start_time')
         constraints = [
+            # DATA INTEGRITY: Час закінчення слоту фізично не може бути меншим або дорівнювати часу початку
             CheckConstraint(
                 condition=Q(end_time__gt=F('start_time')),
                 name='check_valid_slot_time_range'
             )
         ]
+
+    def __str__(self):
+        return f'Slot {self.pk}: {self.teacher} {self.start_time:%Y-%m-%d %H:%M}'
+
+class CourseQuerySet(models.QuerySet):
+    pass
 
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name='courses')
@@ -75,6 +94,8 @@ class Course(models.Model):
         blank=True, null=True, default=dict,
         help_text='Логіка: {"85": 5, "91": 10, "96": 15}. Ключ — мінімальний бал для отримання відсотка знижки.'
     )
+
+    objects = CourseQuerySet.as_manager()
 
     class Meta:
         indexes = [
@@ -91,6 +112,9 @@ class Topic(models.Model):
     level_topics = models.CharField(max_length=50, blank=True, null=True)
     order_index = models.IntegerField()
 
+    def __str__(self):
+        return self.title
+
 class CurriculumLesson(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='curriculum_lessons')
     title = models.CharField(max_length=255)
@@ -99,11 +123,19 @@ class CurriculumLesson(models.Model):
     default_homework = models.TextField(blank=True, null=True)
     order_index = models.IntegerField()
 
+    def __str__(self):
+        return f'{self.topic} #{self.order_index}'
+
+
+# --- COMPLEX QUERIES MANAGERS ---
+# Реалізація вимоги "Складні запити (Join, Aggregation)" на рівні моделей
 class CourseCompletionQuerySet(models.QuerySet):
     def with_student_details(self):
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('student', 'course')
 
     def aggregate_points(self):
+        # [COMPLEX QUERY: AGGREGATIONS]
         return self.aggregate(total_system_points=Sum('total_points'))
 
 class CourseCompletion(models.Model):
@@ -111,7 +143,7 @@ class CourseCompletion(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='completions')
     completed_lessons_count = models.IntegerField(default=0)
     total_points = models.IntegerField(default=0)
-    
+
     earned_discount = models.IntegerField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(100)]
@@ -122,16 +154,17 @@ class CourseCompletion(models.Model):
     )
     completed_at = models.DateTimeField(blank=True, null=True)
 
+    # Підключаємо кастомний менеджер складних запитів
     objects = CourseCompletionQuerySet.as_manager()
 
     class Meta:
         indexes = [
             models.Index(fields=['student', 'is_discount_used']),
         ]
-        unique_together = ('student', 'course')  # Захист від дублювання випуску з курсу
+        unique_together = ('student', 'course') 
         constraints = [
             CheckConstraint(
-                condition=Q(earned_discount__gte=0) & Q(earned_discount__lte=100), 
+                condition=Q(earned_discount__gte=0) & Q(earned_discount__lte=100),
                 name='check_valid_earned_discount'
             ),
             CheckConstraint(
@@ -144,6 +177,20 @@ class CourseCompletion(models.Model):
         status = "Використано" if self.is_discount_used else "Доступно"
         return f"{self.student} - {self.course}: {self.earned_discount}% ({status})"
 
+
+class PackageQuerySet(models.QuerySet):
+    def financial_analytics(self):
+        # [COMPLEX QUERY: AGGREGATIONS]
+        return self.aggregate(
+            total_revenue=Coalesce(Sum('final_price'), 0.0, output_field=models.DecimalField()),
+            total_unused_lessons=Coalesce(Sum('balance', filter=Q(status='active')), 0)
+        )
+
+    def with_full_details(self):
+        # [COMPLEX QUERY: JOINS]
+        return self.select_related('student__user', 'course', 'discipline')
+
+
 class Package(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='packages')
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
@@ -155,6 +202,17 @@ class Package(models.Model):
     balance = models.IntegerField()
     status = models.CharField(max_length=50, default='active')
     purchased_at = models.DateTimeField(auto_now_add=True)
+    
+    objects = PackageQuerySet.as_manager()
+
+    # [DATA HOTFIX / TRIGGER]
+    # Виправляє дефект математичної точності. Гарантує, що перед збереженням
+    # фінальна ціна завжди буде мати рівно 2 знаки після коми. Запобігає 
+    # багам у фінансових звітах через довгі числа з рухомою комою (напр. 150.500000001).
+    def save(self, *args, **kwargs):
+        if self.final_price is not None:
+            self.final_price = round(float(self.final_price), 2)
+        super().save(*args, **kwargs)
 
     class Meta:
         indexes = [
@@ -163,6 +221,9 @@ class Package(models.Model):
         constraints = [
             CheckConstraint(condition=Q(balance__gte=0), name='check_positive_package_balance')
         ]
+
+    def __str__(self):
+        return f'Package {self.pk}: {self.student} ({self.status})'
 
 class PackagePlan(models.Model):
     name = models.CharField(max_length=100)
@@ -178,6 +239,7 @@ class PackagePlan(models.Model):
     def __str__(self):
         return f"{self.name} ({self.total_lessons} занять)"
 
+
 class LearningRequest(models.Model):
     SUBJECT_CHOICES = [
         ('english', 'Англійська мова'),
@@ -191,10 +253,10 @@ class LearningRequest(models.Model):
         ('matched', 'Підібрано викладача'),
         ('cancelled', 'Скасовано'),
     ]
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='learning_requests')
+    student = models.ForeignKey('users.Student', on_delete=models.CASCADE, related_name='learning_requests')
     package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True, related_name='learning_requests')
     subject = models.CharField(max_length=50, choices=SUBJECT_CHOICES)
-    level = models.CharField(max_length=20)
+    level = models.CharField(max_length=50)
     preferred_days = models.CharField(max_length=200, blank=True, default='')
     preferred_time = models.CharField(max_length=100, blank=True, default='')
     notes = models.TextField(blank=True, default='')
@@ -207,8 +269,10 @@ class LearningRequest(models.Model):
     def __str__(self):
         return f"{self.student.user.email} — {self.subject} ({self.status})"
 
+
 class LessonQuerySet(models.QuerySet):
     def with_full_relations(self):
+        # [COMPLEX QUERY: JOINS]
         return self.select_related('student', 'slot__teacher', 'package', 'curriculum_lesson')
 
 class Lesson(models.Model):
@@ -223,7 +287,7 @@ class Lesson(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='lessons')
     package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='lessons')
     curriculum_lesson = models.ForeignKey(CurriculumLesson, on_delete=models.SET_NULL, null=True)
-    
+
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
     meeting_link = models.CharField(max_length=255, blank=True, null=True)
 
@@ -233,6 +297,9 @@ class Lesson(models.Model):
         indexes = [
             models.Index(fields=['student', 'status']),
         ]
+
+    def __str__(self):
+        return f'Lesson {self.pk}: {self.slot}'
 
 class JournalRecord(models.Model):
     class HomeworkStatus(models.TextChoices):
@@ -244,12 +311,8 @@ class JournalRecord(models.Model):
     is_present = models.BooleanField(default=True)
 
     teacher_homework_task = models.JSONField(blank=True, null=True, default=dict)
-    homework_answer_url = models.CharField(max_length=255, blank=True, null=True)
-    homework_file = models.FileField(
-        upload_to='homework_answers/%Y/%m/',
-        null=True, blank=True,
-        validators=[validate_file_size, validate_file_extension],
-    )
+    homework_answer_url = models.TextField(blank=True, null=True)
+    homework_file_url = models.URLField(max_length=500, blank=True, null=True)
     homework_status = models.CharField(
         max_length=20,
         choices=HomeworkStatus.choices,
@@ -278,16 +341,23 @@ class JournalRecord(models.Model):
             )
         ]
 
+    def __str__(self):
+        return f'JournalRecord {self.pk}: lesson {self.lesson_id}'
+
 class LessonMaterial(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='materials')
     uploaded_by = models.ForeignKey(Teacher, on_delete=models.PROTECT, related_name='lesson_materials')
-    
+
     title = models.CharField(max_length=200)
-    file = models.FileField(
-        upload_to='lesson_materials/%Y/%m/',
-        validators=[validate_file_size, validate_file_extension],
-    )
+    file_url = models.URLField(max_length=500, blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f'{self.title} (lesson {self.lesson_id})'
+
 
 class Complaint(models.Model):
     class Status(models.TextChoices):
@@ -308,6 +378,7 @@ class Complaint(models.Model):
     def __str__(self):
         return f'Complaint #{self.pk}: {self.student} on lesson {self.lesson_id} ({self.status})'
 
+
 class Transaction(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='transactions')
     lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True)
@@ -319,8 +390,13 @@ class Transaction(models.Model):
 
     class Meta:
         indexes = [
+            # DB Optimization: Транзакції часто шукають за вчителем та датою
             models.Index(fields=['teacher', 'created_at']),
         ]
         constraints = [
+            # Data Integrity: Сума не може бути від'ємною (штрафи позначаються булевим полем is_penalty)
             CheckConstraint(condition=Q(amount__gte=0), name='check_positive_transaction_amount')
         ]
+
+    def __str__(self):
+        return f'Transaction {self.pk}: {self.teacher} ₴{self.amount}'
