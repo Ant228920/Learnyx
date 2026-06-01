@@ -8,6 +8,7 @@ export interface TeacherStudent {
   phone: string;
   avatarBg: string;
   lessons_balance: number;
+  total_lessons: number;
 }
 
 export interface AvailableRequest {

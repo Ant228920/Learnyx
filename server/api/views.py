@@ -130,15 +130,6 @@ class ApproveRegistrationRequestView(APIView):
         if User.objects.filter(phone=reg_request.phone).exists():
             return Response({'error': 'Користувач з таким телефоном вже існує'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if reg_request.role.lower() == 'student':
-            reg_request.subject = request.data.get('subject', reg_request.subject)
-            reg_request.level = request.data.get('level', reg_request.level)
-            if not reg_request.subject or not reg_request.level:
-                return Response(
-                    {'error': 'Для учня обов\'язково вкажіть subject і level при апруві.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
         password = generate_password()
 
         try:
@@ -163,10 +154,7 @@ class ApproveRegistrationRequestView(APIView):
                 )
 
                 if reg_request.role.lower() == 'student':
-                    student_level = None
-                    if reg_request.level:
-                        student_level, _ = StudentLevel.objects.get_or_create(name=reg_request.level)
-                    student_obj = Student.objects.create(user=user, level=student_level)
+                    student_obj = Student.objects.create(user=user)
                     # Create 3 available package options for this student
                     course = Course.objects.first()
                     if course:
@@ -657,13 +645,12 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
         record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
 
-        material = None
         uploaded_file = serializer.validated_data.get('file')
         if uploaded_file:
             from api.dropbox_storage import upload_lesson_material
             title = serializer.validated_data.get('file_title') or 'Homework material'
             dropbox_url = upload_lesson_material(lesson.pk, uploaded_file, notify_email=request.user.email)
-            material = LessonMaterial.objects.create(
+            LessonMaterial.objects.create(
                 lesson=lesson,
                 uploaded_by=teacher,
                 title=title,
@@ -673,6 +660,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
             )
 
+        return Response(JournalRecordSerializer(record).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='submit-homework')
     def submit_homework(self, request, pk=None):
@@ -693,9 +681,31 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if answer_url.startswith('data:'):
+            try:
+                import io
+                import base64 as _b64
+                from api.dropbox_storage import upload_homework_file
+
+                header, encoded = answer_url.split(',', 1)
+                mime = header.split(':')[1].split(';')[0] if ':' in header else 'application/octet-stream'
+                ext = mime.split('/')[1] if '/' in mime else 'bin'
+                file_bytes = _b64.b64decode(encoded)
+
+                class _FileLike:
+                    def __init__(self, data: bytes, name: str):
+                        self._buf = io.BytesIO(data)
+                        self.name = name
+                    def read(self):
+                        return self._buf.read()
+
+                buf = _FileLike(file_bytes, f'homework.{ext}')
+                answer_url = upload_homework_file(lesson.pk, student.pk, buf, notify_email=request.user.email)
+            except Exception as e:
+                logger.error(f'Dropbox upload failed in submit_homework: {e}')
+
         record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
-        # Store up to 2000 chars (CharField max_length is 255, but we store a URL or short data ref)
-        record.homework_answer_url = str(answer_url)[:255]
+        record.homework_answer_url = answer_url
         record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
         record.homework_submitted_at = timezone.now()
         record.save(update_fields=['homework_answer_url', 'homework_status', 'homework_submitted_at'])
@@ -779,7 +789,9 @@ class StudentListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         role = getattr(getattr(user, 'role_obj', None), 'name', '').lower()
-        base_qs = Student.objects.select_related('user', 'level').annotate(
+        base_qs = Student.objects.select_related('user').prefetch_related(
+            'packages', 'learning_requests',
+        ).annotate(
             lessons_balance=Coalesce(
                 Sum('packages__balance', filter=Q(packages__status='active')),
                 0,
@@ -1134,12 +1146,14 @@ class PackagePlanListView(generics.ListAPIView):
 
 class PackagePurchaseView(APIView):
     """
-    Activate a pre-created Package record (status: available → active).
-    Any authenticated user with a Student profile can purchase their own package.
+    POST /packages/<pk>/purchase/
+    pk is always a PackagePlan id (from the catalog). Creates a new active Package for the student.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        from decimal import Decimal
+
         try:
             student = Student.objects.get(user=request.user)
         except Student.DoesNotExist:
@@ -1148,54 +1162,55 @@ class PackagePurchaseView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        package = get_object_or_404(Package, pk=pk)
+        plan = get_object_or_404(PackagePlan, pk=pk, is_active=True)
 
-        if package.student_id != student.pk:
+        if Package.objects.filter(student=student, status='active').exists():
             return Response(
-                {'detail': 'Цей пакет не належить вам.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if package.status == 'active':
-            return Response(
-                {'detail': 'Цей пакет вже активний.'},
+                {'detail': 'У вас вже є активний абонемент. Завершіть поточний перед покупкою нового.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Block purchase if student already has a different active package
-        existing_active = Package.objects.filter(student=student, status='active').exclude(pk=pk).first()
-        if existing_active:
+        bonus_pct = max(0, min(15, int(request.data.get('bonus_discount_pct', 0) or 0)))
+        base_price = Decimal(str(plan.price))
+        final_price = base_price * (Decimal('1') - Decimal(str(bonus_pct)) / Decimal('100'))
+
+        wallet_balance = Decimal(str(student.money_balance or 0))
+        if wallet_balance < final_price:
             return Response(
-                {'detail': 'У вас вже є активний абонемент. Завершіть поточний курс перед покупкою нового.'},
+                {'detail': f'Недостатньо коштів. Ваш баланс: ₴{wallet_balance:.0f}. Потрібно: ₴{final_price:.0f}. Поповніть рахунок.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if package.status != 'available':
+        course = Course.objects.filter(is_active=True).first()
+        if not course:
             return Response(
-                {'detail': 'Цей пакет недоступний для покупки.'},
+                {'detail': 'Немає доступних курсів. Зверніться до менеджера.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        package.status = 'active'
-        package.purchased_at = timezone.now()
-        package.save(update_fields=['status', 'purchased_at'])
+        student.money_balance = wallet_balance - final_price
+        student.save(update_fields=['money_balance'])
 
-        logger.info(f'Package {pk} purchased by student {student.pk}')
+        package = Package.objects.create(
+            student=student,
+            course=course,
+            total_lessons=plan.total_lessons,
+            balance=plan.total_lessons,
+            final_price=final_price,
+            discount=Decimal(str(bonus_pct)),
+            status='active',
+        )
 
-        package.status = 'active'
-        package.purchased_at = timezone.now()
-        package.save(update_fields=['status', 'purchased_at', 'final_price', 'discount'])
-
-        logger.info(f'Package {pk} purchased by student {student.pk}')
+        logger.info(f'Package {package.pk} (plan {pk}) purchased by student {student.pk}')
 
         return Response({
+            'message': f'Абонемент на {plan.total_lessons} уроків успішно придбано!',
             'package_id': package.id,
             'total_lessons': package.total_lessons,
             'balance': package.balance,
-            'final_price': float(package.final_price),
-            'status': package.status,
-            'message': f'Пакет на {package.total_lessons} уроків успішно придбано!',
-        }, status=status.HTTP_201_CREATED)
+            'final_price': str(final_price),
+            'discount_applied': f'{bonus_pct}%' if bonus_pct > 0 else 'Без знижки',
+        }, status=status.HTTP_200_OK)
 
 
 class StudentWalletView(APIView):
@@ -1622,3 +1637,29 @@ class HomeworkSubmitView(APIView):
         record.save(update_fields=['homework_file_url', 'homework_status', 'homework_submitted_at'])
 
         return Response(HomeworkDetailSerializer(record, context={'request': request}).data)
+
+
+class PackageCancelView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return Response(
+                {'detail': 'У вас немає профілю студента.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        package = get_object_or_404(Package, pk=pk, student=student)
+
+        if package.status != 'active':
+            return Response(
+                {'detail': 'Можна скасувати лише активний абонемент.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        package.status = 'cancelled'
+        package.save()
+
+        return Response({'message': 'Абонемент скасовано.'})

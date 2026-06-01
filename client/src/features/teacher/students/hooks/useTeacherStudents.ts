@@ -37,13 +37,14 @@ export function useTeacherStudents() {
       const mapped: TeacherStudent[] = studentsRaw.map(u => ({
         id: u.user_id,
         name: `${u.first_name} ${u.last_name}`.trim(),
-        subject: '—',
-        level: '—',
+        subject: u.subject ?? '—',
+        level: u.level_name ?? '—',
         status: u.lessons_balance > 0 ? 'Активний' : 'Неактивний',
         email: u.email,
-        phone: '—',
+        phone: u.phone ?? '—',
         avatarBg: avatarBg(u.user_id),
         lessons_balance: u.lessons_balance,
+        total_lessons: u.total_lessons,
       }));
       setStudents(mapped);
       setSlots(slotsRaw);

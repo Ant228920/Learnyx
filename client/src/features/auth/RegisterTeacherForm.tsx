@@ -12,8 +12,14 @@ const SUBJECTS = [
   'Історія України',
 ];
 
-const LEVELS_ENGLISH = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-const LEVELS_OTHER = ['1 - 4 клас', '5 - 11 клас'];
+const LEVELS_ENGLISH = [
+  { value: 'A1-B1 рівень', label: 'A1 - B1 рівень (Початковий — Середній)' },
+  { value: 'B2-C2 рівень', label: 'B2 - C2 рівень (Вище середнього — Досконалий)' },
+];
+const LEVELS_OTHER = [
+  { value: '1-4 клас', label: '1 - 4 клас' },
+  { value: '5-11 клас', label: '5 - 11 клас' },
+];
 
 export default function RegisterTeacherForm({ onSuccess }: Props) {
   const [form, setForm] = useState({
@@ -37,7 +43,7 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
   };
 
   const getLevels = () =>
-    form.subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER;
+    form.subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER as typeof LEVELS_ENGLISH;
 
   const handleSubmit = async () => {
     if (
@@ -160,7 +166,7 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
               disabled={!form.subject}
               className="form-input appearance-none pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               <option value="">Оберіть рівень</option>
-              {getLevels().map(l => <option key={l} value={l}>{l}</option>)}
+              {getLevels().map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
             </select>
             <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9095a1" strokeWidth="2">
               <polyline points="6 9 12 15 18 9" />

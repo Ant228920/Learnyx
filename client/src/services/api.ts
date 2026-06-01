@@ -227,8 +227,13 @@ export function extractErrorMessage(error: unknown): string {
       'Invalid pk': 'Невірний ідентифікатор.',
       'No active account found': 'Акаунт не знайдено або пароль невірний.',
       'Невірний email або пароль': 'Невірний email або пароль.',
-      'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час для слоту.',
-      'Enter a valid URL.': 'Завантажте файл правильного формату.',
+      'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час.',
+      'end_time must be after start_time.': 'Час завершення має бути пізніше часу початку.',
+      'start_time must be in the future': 'Час початку має бути в майбутньому.',
+      'Enter a valid URL.': 'Невірний формат файлу.',
+      'Expected a Response': 'Помилка сервера. Зверніться до адміністратора.',
+      'NoneType': 'Помилка сервера. Спробуйте пізніше.',
+      'AssertionError': 'Помилка сервера. Спробуйте пізніше.',
     };
 
     for (const key of ['message', 'detail', 'error']) {
@@ -482,7 +487,9 @@ export const teacherApi = {
   },
 
   getStudents: async (): Promise<Array<{
-    user_id: number; first_name: string; last_name: string; email: string; lessons_balance: number;
+    user_id: number; first_name: string; last_name: string; email: string;
+    phone: string | null; subject: string | null; level_name: string | null;
+    lessons_balance: number; total_lessons: number;
   }>> => {
     const { data } = await apiClient.get('/students/');
     return data.results ?? data;
