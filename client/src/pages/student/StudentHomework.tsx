@@ -208,91 +208,54 @@ export default function StudentHomework() {
             <aside className="w-[340px] flex-shrink-0 bg-white rounded-2xl shadow-[0px_25px_50px_-12px_#00000040] overflow-hidden sticky top-24">
               <div className="p-6 flex flex-col gap-5">
 
-                {/* Urgent badge */}
-                {selected.urgent && (
-                  <span className="px-3 py-1 bg-red-500 rounded-full font-inter font-bold text-white text-[10px] w-fit">
-                    Термінове
-                  </span>
-                )}
-
-                {/* Title + meta */}
+                {/* ТЕМА ДОМАШНЬОГО ЗАВДАННЯ */}
                 <div>
-                  <h2 className="font-poppins font-bold text-slate-900 text-xl leading-tight">
-                    {selected.title}
-                  </h2>
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="flex items-center gap-1 font-inter text-[#565d6d] text-xs">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                      </svg>
-                      {selected.subject}
-                    </span>
-                    <span className="flex items-center gap-1 font-inter text-[#565d6d] text-xs">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                      </svg>
-                      {selected.deadline.replace('До ', '')}
-                    </span>
+                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5">Тема домашнього завдання</p>
+                  <h2 className="font-poppins font-bold text-slate-900 text-base leading-snug">{selected.title}</h2>
+                </div>
+
+                {/* ТЕРМІН ЗДАЧІ */}
+                <div>
+                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5">Термін здачі</p>
+                  <div className="flex items-center gap-1.5">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <span className="font-inter text-slate-800 text-sm">{selected.deadline}</span>
                   </div>
                 </div>
 
-                {/* "Домашнє завдання" — teacher's reference file */}
+                {/* ФАЙЛ З ЗАВДАННЯМ — teacher's reference file */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    <span className="font-inter font-bold text-slate-900 text-sm">
-                      Домашнє завдання
-                    </span>
-                  </div>
+                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-2">Файл з завданням</p>
 
                   {selected.fileUrl ? (
-                    <div className="flex items-center justify-between p-3 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                          stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
-                        </svg>
-                        <div className="min-w-0">
-                          <p className="font-inter font-semibold text-slate-800 text-xs truncate">
-                            {getFilename(selected.fileUrl)}
-                          </p>
-                          <p className="font-inter text-[#9095a1] text-[10px]">PDF • файл завдання</p>
-                        </div>
-                      </div>
-                      <a
-                        href={selected.fileUrl.replace('?dl=0', '?dl=1')}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Завантажити завдання"
-                        className="text-[#1f8cf9] hover:text-blue-700 flex-shrink-0 ml-2 transition-colors"
-                      >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="7 10 12 15 17 10" />
-                          <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                      </a>
-                    </div>
+                    <a
+                      href={selected.fileUrl.replace('?dl=0', '?dl=1')}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 bg-[#f4f4f6] rounded-xl hover:bg-blue-50 transition-colors"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                      <p className="font-inter text-[#1f8cf9] text-sm font-medium flex-1">Завантажити файл завдання</p>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                    </a>
                   ) : (
-                    <p className="font-inter text-[#9095a1] text-xs italic">
-                      Файл завдання не прикріплено — виконайте письмово
-                    </p>
+                    <p className="font-inter text-[#9095a1] text-sm">Файл завдання відсутній — виконайте письмово</p>
                   )}
                 </div>
 
-                {/* "Завантажити результат" */}
+                {/* ВІДПОВІДЬ УЧНЯ */}
                 <div>
-                  <p className="font-inter font-bold text-slate-900 text-sm mb-3">
-                    Завантажити результат
-                  </p>
+                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-3">Ваша відповідь</p>
 
                   {/* Drop zone */}
                   <div
@@ -372,10 +335,10 @@ export default function StudentHomework() {
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                     <polyline points="22 4 12 14.01 9 11.01" />
                   </svg>
-                  {submitLoading ? 'Відправлення...' : 'Відправити на оцінення'}
+                  {submitLoading ? 'Відправлення...' : 'Відправити вчителю'}
                 </button>
 
-                <p className="font-inter text-[10px] text-[#9095a1] text-center italic">
+                <p className="font-inter text-[10px] text-[#9095a1] text-center">
                   Натискаючи кнопку, ви підтверджуєте самостійне виконання роботи
                 </p>
               </div>

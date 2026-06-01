@@ -15,7 +15,8 @@ interface HomeworkRow {
   studentId: number;
   topic: string;
   subject: string;
-  deadline: string;
+  deadline: string;         // lesson date (formatted)
+  nextLessonDate: string;   // next lesson date (formatted) — homework deadline
   status: HWStatus;
   homeworkGrade: number | null;
   teacherNotes: string | null;
@@ -100,14 +101,16 @@ export default function TeacherHomework() {
             : '';
         if (!task) return;
 
+        const jr = j as Record<string, unknown>;
         result.push({
           lessonId: lesson.id,
           journalId: j.id,
           student: lesson.student_name ?? `Студент #${lesson.student}`,
           studentId: lesson.student,
           topic: task,
-          subject: '—',
+          subject: (jr.subject_name as string | null) ?? '—',
           deadline: formatDate(j.start_time),
+          nextLessonDate: formatDate((jr.next_lesson_date as string | null) ?? undefined),
           status: j.homework_grade != null ? 'ПЕРЕВІРЕНО' : 'НЕ ПЕРЕВІРЕНО',
           homeworkGrade: j.homework_grade,
           teacherNotes: j.teacher_notes,
@@ -351,7 +354,7 @@ export default function TeacherHomework() {
                         <line x1="3" y1="10" x2="21" y2="10" />
                       </svg>
                       <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">
-                        {row.deadline}
+                        {row.nextLessonDate !== '—' ? row.nextLessonDate : row.deadline}
                       </span>
                     </div>
 
@@ -378,194 +381,106 @@ export default function TeacherHomework() {
 
               {/* Panel header */}
               <div className="flex items-center gap-3 p-5 border-b border-[#dee1e6]">
-                <div
-                  className={`w-10 h-10 rounded-full ${selected.avatarBg} flex items-center justify-center flex-shrink-0`}
-                >
-                  <span className="font-inter font-bold text-[#1f8cf9] text-sm">
-                    {selected.student[0]?.toUpperCase() ?? '?'}
-                  </span>
+                <div className={`w-10 h-10 rounded-full ${selected.avatarBg} flex items-center justify-center flex-shrink-0`}>
+                  <span className="font-inter font-bold text-[#1f8cf9] text-sm">{selected.student[0]?.toUpperCase() ?? '?'}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-poppins font-bold text-slate-900 text-sm truncate">
-                    {selected.student}
-                  </p>
-                  <p className="font-inter font-bold text-[#1f8cf9] text-xs">{selected.subject}</p>
-                </div>
-                {/* Three-dot menu */}
-                <button
-                  type="button"
-                  aria-label="Більше дій"
-                  className="text-[#9095a1] hover:text-slate-700 flex-shrink-0 p-1 rounded-lg transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <circle cx="5" cy="12" r="2" />
-                    <circle cx="12" cy="12" r="2" />
-                    <circle cx="19" cy="12" r="2" />
-                  </svg>
-                </button>
+                <p className="font-poppins font-bold text-slate-900 text-sm truncate flex-1">{selected.student}</p>
               </div>
 
-              <div className="p-5 flex flex-col gap-5">
+              <div className="p-5 flex flex-col gap-4">
 
-                {/* ПОТОЧНЕ ЗАВДАННЯ */}
+                {/* ТЕМА ДОМАШНЬОГО ЗАВДАННЯ */}
                 <div>
-                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-2">
-                    Поточне завдання
-                  </p>
-                  <p className="font-inter font-medium text-slate-800 text-sm leading-relaxed">
-                    {selected.topic}
-                  </p>
+                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5">Тема домашнього завдання</p>
+                  <p className="font-inter font-medium text-slate-800 text-sm leading-relaxed">{selected.topic}</p>
                 </div>
 
-                {/* ФАЙЛИ РОБОТИ — student's submitted file */}
+                {/* ТЕРМІН ЗДАЧІ */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-inter font-bold text-slate-900 text-sm">Файли роботи</p>
-                    <span className="w-5 h-5 bg-[#1f8cf9] rounded-full flex items-center justify-center font-inter font-bold text-white text-[10px]">
-                      {studentSubmitted ? '1' : '0'}
-                    </span>
+                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5">Термін здачі</p>
+                  <div className="flex items-center gap-1.5">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <span className="font-inter text-slate-800 text-sm">До {selected.nextLessonDate !== '—' ? selected.nextLessonDate : selected.deadline}</span>
                   </div>
+                </div>
 
+                {/* ФАЙЛ УЧНЯ */}
+                <div>
+                  <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5">Файл учня</p>
                   {studentSubmitted && selected.fileUrl ? (
                     <div className="flex items-center justify-between p-3 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
                       <div className="flex items-center gap-2 min-w-0">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                          stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
                         </svg>
-                        <div className="min-w-0">
-                          <p className="font-inter font-semibold text-slate-800 text-xs truncate">
-                            {getFilename(selected.fileUrl)}
-                          </p>
-                          <p className="font-inter text-[#9095a1] text-[10px]">
-                            {selected.fileUrl.startsWith('data:') ? 'Файл' : 'Dropbox'}
-                          </p>
-                        </div>
+                        <span className="font-inter font-semibold text-slate-800 text-xs truncate">{getFilename(selected.fileUrl)}</span>
                       </div>
                       <a
-                        href={
-                          selected.fileUrl.startsWith('data:')
-                            ? selected.fileUrl
-                            : selected.fileUrl.replace('?dl=0', '?dl=1')
-                        }
+                        href={selected.fileUrl.startsWith('data:') ? selected.fileUrl : selected.fileUrl.replace('?dl=0', '?dl=1')}
                         target={selected.fileUrl.startsWith('data:') ? undefined : '_blank'}
                         download={selected.fileUrl.startsWith('data:') ? getFilename(selected.fileUrl) : undefined}
                         rel="noopener noreferrer"
-                        aria-label="Завантажити файл"
+                        aria-label="Завантажити файл учня"
                         className="text-[#1f8cf9] hover:text-blue-700 flex-shrink-0 ml-2 transition-colors"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="7 10 12 15 17 10" />
-                          <line x1="12" y1="15" x2="12" y2="3" />
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
                         </svg>
                       </a>
                     </div>
                   ) : (
-                    <p className="font-inter text-[#9095a1] text-xs italic">
-                      Студент ще не відправив роботу
-                    </p>
+                    <p className="font-inter text-red-500 text-xs italic">Учень не виконав вчасно</p>
                   )}
                 </div>
 
-                {/* ── REVIEWED state ── */}
+                {/* ОЦІНКА + ЗБЕРЕГТИ */}
                 {isChecked ? (
-                  <>
+                  <div className="flex flex-col gap-3">
                     <div>
-                      <p className="font-inter font-bold text-slate-900 text-sm block mb-2">Коментар вчителя</p>
-                      <div className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-[#f8f9fb] min-h-[80px]">
-                        {selected.teacherNotes
-                          ? selected.teacherNotes
-                          : <span className="text-[#9095a1]">Коментар відсутній</span>
-                        }
-                      </div>
-                    </div>
-                    <div>
-                      <p className="font-inter font-bold text-slate-900 text-sm block mb-2">Оцінка</p>
-                      <div className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter bg-[#f8f9fb]">
-                        <span className="font-inter font-black text-[#1f8cf9] text-lg">
-                          {selected.homeworkGrade ?? '—'}
-                        </span>
+                      <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5">Оцінка</p>
+                      <div className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 bg-[#f8f9fb]">
+                        <span className="font-inter font-black text-[#1f8cf9] text-lg">{selected.homeworkGrade ?? '—'}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 p-3 bg-[#e0faea] rounded-xl">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a7bd9" strokeWidth="2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                        <polyline points="22 4 12 14.01 9 11.01" />
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a7bd9" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                       </svg>
-                      <span className="font-inter font-medium text-[#1a7bd9] text-sm">
-                        Робота вже перевірена
-                      </span>
+                      <span className="font-inter font-medium text-[#1a7bd9] text-sm">Робота вже перевірена</span>
                     </div>
-                  </>
-                ) : studentSubmitted ? (
-                  /* ── NORMAL GRADE FLOW (student submitted) ── */
-                  <>
-                    {/* Коментар вчителя */}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {!studentSubmitted && (
+                      <div className="p-3 bg-orange-50 rounded-xl border border-orange-100">
+                        <p className="font-inter text-orange-700 text-xs font-medium">
+                          Домашнє завдання не виконано вчасно. Оцінка 0 буде виставлена автоматично.
+                        </p>
+                      </div>
+                    )}
                     <div>
-                      <label
-                        htmlFor="teacher-comment"
-                        className="font-inter font-bold text-slate-900 text-sm block mb-2"
-                      >
-                        Коментар вчителя
-                      </label>
-                      <textarea
-                        id="teacher-comment"
-                        value={comment}
-                        onChange={e => setComment(e.target.value)}
-                        placeholder="Вкажіть сильні сторони або помилки..."
-                        rows={4}
-                        className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                      />
-                    </div>
-
-                    {/* Оцінка */}
-                    <div>
-                      <label
-                        htmlFor="teacher-grade"
-                        className="font-inter font-bold text-slate-900 text-sm block mb-2"
-                      >
-                        Оцінка
-                      </label>
+                      <label htmlFor="teacher-grade" className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5 block">Оцінка</label>
                       <input
                         id="teacher-grade"
                         type="number"
-                        min={1}
+                        min={0}
                         max={10}
                         value={grade}
                         onChange={e => setGrade(e.target.value)}
-                        placeholder="Наприклад: 8"
-                        className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+                        placeholder={studentSubmitted ? 'Наприклад: 8' : '0'}
+                        disabled={!studentSubmitted}
+                        className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] disabled:bg-[#f8f9fb] disabled:text-[#9095a1]"
                       />
                     </div>
-
-                    {/* Save button */}
                     <button
                       type="button"
-                      onClick={() => void handleSave()}
-                      disabled={saving}
+                      onClick={() => studentSubmitted ? void handleSave() : void handleMarkNotDone()}
+                      disabled={saving || notDoneLoading}
                       className="w-full py-3.5 bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-60"
                     >
-                      {saving ? 'Збереження...' : 'Зберегти та надіслати'}
-                    </button>
-                  </>
-                ) : (
-                  /* ── NOT SUBMITTED — show "Не виконано" button ── */
-                  <div className="flex flex-col gap-3">
-                    <div className="p-3 bg-orange-50 rounded-xl border border-orange-100">
-                      <p className="font-inter text-orange-700 text-xs font-medium">
-                        Студент не відправив роботу
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleMarkNotDone()}
-                      disabled={notDoneLoading}
-                      className="w-full py-3.5 bg-orange-500 rounded-2xl font-inter font-medium text-white text-sm hover:bg-orange-600 transition-colors disabled:opacity-60"
-                    >
-                      {notDoneLoading ? 'Збереження...' : 'Не виконано'}
+                      {saving || notDoneLoading ? 'Збереження...' : 'Зберегти'}
                     </button>
                   </div>
                 )}

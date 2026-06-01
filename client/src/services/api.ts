@@ -206,8 +206,8 @@ export function extractErrorMessage(error: unknown): string {
     const FIELD_TRANSLATIONS: Record<string, string> = {
       email: 'Email',
       password: 'Пароль',
-      phone: 'Телефон',
-      full_name: 'ПІБ',
+      phone: 'Номер телефону',
+      full_name: "Повне ім'я",
       telegram_nickname: 'Telegram нікнейм',
       start_time: 'Час початку',
       role: 'Роль',
@@ -223,10 +223,12 @@ export function extractErrorMessage(error: unknown): string {
       'This field may not be blank.': 'Це поле не може бути порожнім.',
       'This field is required.': 'Це поле є обовʼязковим.',
       'Enter a valid email address.': 'Введіть коректну email адресу.',
+      'Enter a valid phone number.': 'Введіть коректний номер телефону.',
       'Ensure this field has no more than': 'Поле занадто довге.',
       'Invalid pk': 'Невірний ідентифікатор.',
       'No active account found': 'Акаунт не знайдено або пароль невірний.',
       'Невірний email або пароль': 'Невірний email або пароль.',
+      'Ваш акаунт ще не підтверджено менеджером.': 'Ваш акаунт ще не підтверджено. Зверніться до адміністратора.',
       'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час.',
       'end_time must be after start_time.': 'Час завершення має бути пізніше часу початку.',
       'start_time must be in the future': 'Час початку має бути в майбутньому.',
@@ -623,4 +625,33 @@ export const profileApi = {
     const { data } = await apiClient.patch('/profile/', payload);
     return data;
   },
+};
+
+// ── Time/date formatting utilities (always Kyiv timezone) ─────────────────────
+// Slots are stored as naive datetimes that Django treats as UTC.
+// The UTC value IS the intended wall-clock time, so we read UTC fields directly.
+
+export const formatUkrTime = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  } catch { return ''; }
+};
+
+export const formatUkrDate = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${day}.${month}.${d.getUTCFullYear()}`;
+  } catch { return ''; }
+};
+
+export const formatUkrDateLong = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+  } catch { return ''; }
 };

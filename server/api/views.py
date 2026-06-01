@@ -152,6 +152,8 @@ class ApproveRegistrationRequestView(APIView):
                     role_obj=role_obj,
                     is_approved=True,
                 )
+                user.is_approved = True
+                user.save(update_fields=['is_approved'])
 
                 if reg_request.role.lower() == 'student':
                     student_obj = Student.objects.create(user=user)
@@ -479,6 +481,33 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         serializer = JournalRecordSerializer(existing, data=request.data, partial=bool(existing))
         serializer.is_valid(raise_exception=True)
         journal = serializer.save(lesson=lesson)
+
+        # Save additional fields not handled by the main serializer
+        update_fields = []
+
+        lesson_topic = request.data.get('lesson_topic', '')
+        if lesson_topic:
+            journal.lesson_topic = lesson_topic
+            update_fields.append('lesson_topic')
+
+        hw_file = request.data.get('homework_file_url', '')
+        hw_task = request.data.get('teacher_homework_task', '')
+        hw_filename = request.data.get('homework_filename', 'homework.pdf')
+
+        if hw_file and hw_file.startswith('data:'):
+            from api.storage import DropboxStorage
+            hw_file = DropboxStorage().upload(hw_file, hw_filename, '/learnyx/tasks')
+
+        if hw_file:
+            journal.homework_file_url = hw_file
+            update_fields.append('homework_file_url')
+        if hw_task:
+            journal.teacher_homework_task = hw_task
+            update_fields.append('teacher_homework_task')
+
+        if update_fields:
+            journal.save(update_fields=update_fields)
+
         code = status.HTTP_200_OK if existing else status.HTTP_201_CREATED
         return Response(JournalRecordSerializer(journal).data, status=code)
 
@@ -621,7 +650,10 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=True, methods=['post'], url_path='homework')
     def homework(self, request, pk=None):
-        """LEAR-186: Teacher sets homework text (and optional URL) on a conducted lesson."""
+        """Teacher sets homework task, optional teacher file, optional student answer — with Dropbox upload."""
+        from api.storage import DropboxStorage
+        storage = DropboxStorage()
+
         lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
 
         teacher = get_object_or_404(Teacher, user=request.user)
@@ -631,24 +663,33 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if lesson.status not in ('conducted', 'scheduled'):
-            return Response(
-                {'detail': 'Homework can only be added for conducted or scheduled lessons.'},
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        serializer = HomeworkSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
         record, created = JournalRecord.objects.get_or_create(lesson=lesson)
-        record.teacher_homework_task = serializer.validated_data['teacher_homework_task']
-        record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
-        record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
+        homework_was_empty = not bool(record.teacher_homework_task)
 
-<<<<<<< HEAD
-=======
-        material = None
->>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
+        data = request.data
+
+        # Teacher's homework file (base64 → Dropbox)
+        hw_file = data.get('homework_file_url', '')
+        filename = data.get('filename', 'homework.pdf')
+        if hw_file and hw_file.startswith('data:'):
+            hw_file = storage.upload(hw_file, filename, '/learnyx/tasks')
+        if hw_file:
+            record.homework_file_url = hw_file
+
+        # Student's answer file (base64 → Dropbox)
+        answer_url = data.get('homework_answer_url', '')
+        answer_filename = data.get('answer_filename', 'answer.pdf')
+        if answer_url and answer_url.startswith('data:'):
+            answer_url = storage.upload(answer_url, answer_filename, '/learnyx/homework')
+        if answer_url:
+            record.homework_answer_url = answer_url
+
+        # Homework task text
+        task = data.get('teacher_homework_task')
+        if task:
+            record.teacher_homework_task = task
+
+        record.save()
         uploaded_file = serializer.validated_data.get('file')
         if uploaded_file:
             from api.dropbox_storage import upload_lesson_material
@@ -663,16 +704,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             logger.info(
                 f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
             )
-<<<<<<< HEAD
-=======
 
         http_status = status.HTTP_201_CREATED if (created or homework_was_empty) else status.HTTP_200_OK
-        data = JournalRecordSerializer(record).data
-        if material:
-            data['attached_material'] = LessonMaterialListSerializer(
-                material, context={'request': request}
-            ).data
-        return Response(data, status=http_status)
+        return Response(JournalRecordSerializer(record).data, status=http_status)
 
     @action(detail=True, methods=['patch'], url_path='homework/grade')
     def grade_homework(self, request, pk=None):
@@ -722,7 +756,6 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
             record.reviewed_at = None
             record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
->>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
 
         return Response(JournalRecordSerializer(record).data, status=status.HTTP_200_OK)
 
@@ -886,7 +919,9 @@ class TeacherListView(APIView):
                 'phone': t.user.phone or None,
                 'telegram_nickname': t.user.nickname or None,
                 'discipline': t.discipline.name if t.discipline else None,
+                'discipline_name': t.discipline.name if t.discipline else None,
                 'level': t.level.name if t.level else None,
+                'level_name': t.level.name if t.level else None,
             }
             for t in teachers
         ]
@@ -1067,7 +1102,12 @@ class JournalListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = JournalRecord.objects.select_related('lesson__slot')
+        qs = JournalRecord.objects.select_related(
+            'lesson__slot__teacher__discipline',
+            'lesson__student__user',
+            'lesson__package__discipline',
+            'lesson__package__course__discipline',
+        )
         lesson_id = self.request.query_params.get('lesson_id')
 
         try:
@@ -1129,7 +1169,9 @@ class LessonArchiveView(generics.ListAPIView):
 
     def get_queryset(self):
         qs = Lesson.objects.select_related(
-            'slot__teacher__user', 'student__user', 'package__discipline'
+            'slot__teacher__user', 'slot__teacher__discipline',
+            'student__user',
+            'package__discipline', 'package__course__discipline',
         )
         p = self.request.query_params
         if p.get('date_from'):
@@ -1245,19 +1287,12 @@ class PackagePurchaseView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        course = Course.objects.filter(is_active=True).first()
-        if not course:
-            return Response(
-                {'detail': 'Немає доступних курсів. Зверніться до менеджера.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         student.money_balance = wallet_balance - final_price
         student.save(update_fields=['money_balance'])
 
         package = Package.objects.create(
             student=student,
-            course=course,
+            course=Course.objects.filter(is_active=True).first(),
             total_lessons=plan.total_lessons,
             balance=plan.total_lessons,
             final_price=final_price,
@@ -1360,19 +1395,12 @@ class PackagePlanPurchaseView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        course = Course.objects.filter(is_active=True).first()
-        if not course:
-            return Response(
-                {'detail': 'Немає доступних курсів. Зверніться до менеджера.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         student.money_balance -= final_price
         student.save(update_fields=['money_balance'])
 
         pkg = Package.objects.create(
             student=student,
-            course=course,
+            course=Course.objects.filter(is_active=True).first(),
             total_lessons=plan.total_lessons,
             balance=plan.total_lessons,
             final_price=final_price,
@@ -1727,3 +1755,23 @@ class PackageCancelView(APIView):
         package.save()
 
         return Response({'message': 'Абонемент скасовано.'})
+
+
+class TeacherMaterialView(APIView):
+    """Upload a material file to Dropbox and return its URL."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from api.storage import DropboxStorage
+        storage = DropboxStorage()
+
+        file_data = request.data.get('file_data', '')
+        filename = request.data.get('filename', 'material.pdf')
+        file_size = request.data.get('file_size', 0)
+
+        if not file_data:
+            return Response({'detail': 'Файл не надано.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        url = storage.upload(file_data, filename, '/learnyx/materials')
+
+        return Response({'url': url, 'name': filename, 'size': file_size})

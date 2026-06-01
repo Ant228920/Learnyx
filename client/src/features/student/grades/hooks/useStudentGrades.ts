@@ -19,30 +19,37 @@ export function useStudentGrades() {
       const journal = await studentApi.getJournal();
       const result: GradeRecord[] = [];
       journal.forEach(j => {
+        const r = j as Record<string, unknown>;
+        const subjectName = (r.subject_name as string | null) || null;
+        const lessonTopic = (r.lesson_topic as string | null) || null;
+        const hwTask = typeof j.teacher_homework_task === 'string'
+          ? j.teacher_homework_task
+          : null;
+
         if (j.activity_grade != null) {
           result.push({
             id: j.id * 10,
-            subject: '—',
+            subject: subjectName ?? null,
             date: formatDate(j.start_time),
-            topic: '—',
+            topic: lessonTopic ?? null,
             type: 'Урок',
             score: j.activity_grade,
             maxScore: 10,
-            teacher: '—',
-            feedback: j.teacher_notes || '—',
+            teacher: null,
+            feedback: j.teacher_notes || null,
           });
         }
         if (j.homework_grade != null) {
           result.push({
             id: j.id * 10 + 1,
-            subject: '—',
+            subject: subjectName ?? null,
             date: formatDate(j.start_time),
-            topic: typeof j.teacher_homework_task === 'string' ? j.teacher_homework_task : '—',
+            topic: hwTask ?? lessonTopic ?? null,
             type: 'ДЗ',
             score: j.homework_grade,
             maxScore: 10,
-            teacher: '—',
-            feedback: j.teacher_notes || '—',
+            teacher: null,
+            feedback: j.teacher_notes || null,
           });
         }
       });

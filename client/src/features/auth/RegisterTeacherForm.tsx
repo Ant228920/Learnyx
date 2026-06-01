@@ -29,6 +29,7 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const set = (field: string) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -40,18 +41,40 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
       return updated;
     });
     setError('');
+    setFieldErrors(prev => ({ ...prev, [field]: '' }));
   };
 
   const getLevels = () =>
     form.subject === 'Англійська мова' ? LEVELS_ENGLISH : LEVELS_OTHER as typeof LEVELS_ENGLISH;
 
+  const validate = () => {
+    const errors: Record<string, string> = {};
+    if (!form.email) {
+      errors.email = "Email є обов'язковим";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = 'Введіть коректну email адресу';
+    }
+    if (!form.phone) {
+      errors.phone = "Номер телефону є обов'язковим";
+    } else if (!/^\+?[\d\s\-()]{10,15}$/.test(form.phone)) {
+      errors.phone = 'Введіть коректний номер телефону (наприклад +380991234567)';
+    }
+    if (!form.telegram_nickname) {
+      errors.telegram_nickname = "Telegram нікнейм є обов'язковим";
+    } else if (form.telegram_nickname.length < 3) {
+      errors.telegram_nickname = 'Telegram нікнейм занадто короткий';
+    }
+    return errors;
+  };
+
   const handleSubmit = async () => {
-    if (
-      !form.lastName.trim() || !form.firstName.trim() ||
-      !form.phone.trim() || !form.email.trim() ||
-      !form.telegram_nickname.trim() || !form.subject || !form.level
-    ) {
-      setError('Заповніть всі обов\'язкові поля');
+    if (!form.lastName.trim() || !form.firstName.trim() || !form.subject || !form.level) {
+      setError("Заповніть всі обов'язкові поля");
+      return;
+    }
+    const errors = validate();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
     setLoading(true);
@@ -115,6 +138,9 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
             <input id="t-phone" type="tel" value={form.phone} onChange={set('phone')}
               placeholder="+380" className="form-input-icon" />
           </div>
+          {fieldErrors.phone && (
+            <p className="font-inter text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
+          )}
         </div>
         <div>
           <label htmlFor="t-email" className="block text-xs font-semibold text-[#565d6d] mb-1 font-inter">
@@ -125,6 +151,9 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
             <input id="t-email" type="email" value={form.email} onChange={set('email')}
               placeholder="example@mail.com" className="form-input-icon" />
           </div>
+          {fieldErrors.email && (
+            <p className="font-inter text-red-500 text-xs mt-1">{fieldErrors.email}</p>
+          )}
         </div>
       </div>
 
@@ -138,6 +167,9 @@ export default function RegisterTeacherForm({ onSuccess }: Props) {
           <input id="t-telegram" value={form.telegram_nickname} onChange={set('telegram_nickname')}
             placeholder="@nickname" className="form-input-icon" />
         </div>
+        {fieldErrors.telegram_nickname && (
+          <p className="font-inter text-red-500 text-xs mt-1">{fieldErrors.telegram_nickname}</p>
+        )}
       </div>
 
       {/* Предмет + Рівень */}

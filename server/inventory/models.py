@@ -193,7 +193,7 @@ class PackageQuerySet(models.QuerySet):
 
 class Package(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='packages')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True)
     discipline = models.ForeignKey(Discipline, on_delete=models.SET_NULL, null=True)
     completed = models.ForeignKey(CourseCompletion, on_delete=models.SET_NULL, null=True)
     total_lessons = models.IntegerField()
@@ -312,7 +312,8 @@ class JournalRecord(models.Model):
 
     teacher_homework_task = models.JSONField(blank=True, null=True, default=dict)
     homework_answer_url = models.TextField(blank=True, null=True)
-    homework_file_url = models.URLField(max_length=500, blank=True, null=True)
+    homework_file_url = models.TextField(blank=True, null=True)
+    lesson_topic = models.CharField(max_length=500, blank=True, null=True)
     homework_status = models.CharField(
         max_length=20,
         choices=HomeworkStatus.choices,
