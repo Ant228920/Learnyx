@@ -438,14 +438,20 @@ export default function TeacherHomework() {
                           <p className="font-inter font-semibold text-slate-800 text-xs truncate">
                             {getFilename(selected.fileUrl)}
                           </p>
-                          <p className="font-inter text-[#9095a1] text-[10px]">URL</p>
+                          <p className="font-inter text-[#9095a1] text-[10px]">
+                            {selected.fileUrl.startsWith('data:') ? 'Файл' : 'Dropbox'}
+                          </p>
                         </div>
                       </div>
                       <a
-                        href={selected.fileUrl}
+                        href={
+                          selected.fileUrl.startsWith('data:')
+                            ? selected.fileUrl
+                            : selected.fileUrl.replace('?dl=0', '?dl=1')
+                        }
                         target={selected.fileUrl.startsWith('data:') ? undefined : '_blank'}
                         download={selected.fileUrl.startsWith('data:') ? getFilename(selected.fileUrl) : undefined}
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         aria-label="Завантажити файл"
                         className="text-[#1f8cf9] hover:text-blue-700 flex-shrink-0 ml-2 transition-colors"
                       >

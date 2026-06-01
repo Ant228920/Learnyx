@@ -266,9 +266,10 @@ export default function StudentHomework() {
                         </div>
                       </div>
                       <a
-                        href={selected.fileUrl}
+                        href={selected.fileUrl.replace('?dl=0', '?dl=1')}
+                        download
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         aria-label="Завантажити завдання"
                         className="text-[#1f8cf9] hover:text-blue-700 flex-shrink-0 ml-2 transition-colors"
                       >

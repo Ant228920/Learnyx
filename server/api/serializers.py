@@ -179,12 +179,31 @@ class StudentListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email')
     phone = serializers.CharField(source='user.phone', allow_null=True, default=None)
     telegram_nickname = serializers.CharField(source='user.nickname', allow_null=True, default=None)
-    level = serializers.CharField(source='level.name', allow_null=True, default=None)
+    level = serializers.SerializerMethodField()
+    subject = serializers.SerializerMethodField()
+    level_name = serializers.SerializerMethodField()
     lessons_balance = serializers.IntegerField()
+    total_lessons = serializers.SerializerMethodField()
+
+    def get_level(self, obj):
+        return None
+
+    def get_subject(self, obj):
+        req = obj.learning_requests.filter(status='pending').first()
+        return req.get_subject_display() if req else None
+
+    def get_level_name(self, obj):
+        req = obj.learning_requests.filter(status='pending').first()
+        return req.level if req else None
+
+    def get_total_lessons(self, obj):
+        pkg = obj.packages.filter(status='active').first()
+        return pkg.total_lessons if pkg else 0
 
     class Meta:
         model = Student
-        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'telegram_nickname', 'level', 'lessons_balance']
+        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'telegram_nickname',
+                  'level', 'subject', 'level_name', 'lessons_balance', 'total_lessons']
 
 
 class JournalListSerializer(serializers.ModelSerializer):

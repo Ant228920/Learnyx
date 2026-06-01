@@ -7,10 +7,13 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 class DisciplineQuerySet(models.QuerySet):
     pass
 
+<<<<<<< HEAD
+=======
 class CourseQuerySet(models.QuerySet):
     pass
 # -----------------------------------------------------------------
 
+>>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
     
@@ -76,6 +79,9 @@ class Slot(models.Model):
 
     def __str__(self):
         return f'Slot {self.pk}: {self.teacher} {self.start_time:%Y-%m-%d %H:%M}'
+
+class CourseQuerySet(models.QuerySet):
+    pass
 
 class Course(models.Model):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name='courses')

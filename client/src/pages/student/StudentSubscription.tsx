@@ -1,15 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import StudentLayout from './StudentLayout';
 import { useStudentSubscription } from '../../features/student/subscription';
-import { studentApi, apiClient, extractErrorMessage } from '../../services/api';
-
-const SUBJECT_OPTIONS = [
-  { value: 'english', label: 'Англійська мова' },
-  { value: 'math', label: 'Математика' },
-  { value: 'ukrainian', label: 'Українська мова' },
-  { value: 'history', label: 'Історія України' },
-  { value: 'informatics', label: 'Інформатика' },
-];
+import { apiClient, extractErrorMessage } from '../../services/api';
 const FEATURES = [
   'Безлімітний доступ до лекцій 24/7', 'Персоналізована траєкторія навчання',
   'Знижки на офлайн-заходи партнерів', 'Участь у закритих вебінарах',
@@ -43,14 +35,15 @@ const DEFAULT_PLANS = [
     popular: false,
   },
 ];
-const ENGLISH_LEVELS = ['A1 - Початковий', 'A2 - Елементарний', 'B1 - Середній', 'B2 - Вище середнього', 'C1 - Просунутий', 'C2 - Досконалий'];
-const CLASS_LEVELS = ['1 - 4 клас', '5 - 8 клас', '9 - 11 клас'];
-const LR_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-const TIME_OPTIONS = ['Ранок (9:00-12:00)', 'День (12:00-17:00)', 'Вечір (17:00-21:00)'];
+
+const PLAN_FEATURES: Record<number, string[]> = {
+  8:  DEFAULT_PLANS[0].features,
+  10: DEFAULT_PLANS[1].features,
+  12: DEFAULT_PLANS[2].features,
+};
 
 export default function StudentSubscription() {
-  const { subData, loading, error, moneyBalance, bonusDiscountPct, topUp } = useStudentSubscription();
-  const [pagePlans, setPagePlans] = useState(DEFAULT_PLANS as typeof DEFAULT_PLANS);
+  const { subData, plans, loading, error, moneyBalance, bonusDiscountPct, topUp, refetch } = useStudentSubscription();
   const [purchasing, setPurchasing] = useState<number | null>(null);
   const [purchaseError, setPurchaseError] = useState('');
   const [purchaseSuccess, setPurchaseSuccess] = useState('');
@@ -58,82 +51,41 @@ export default function StudentSubscription() {
   const [topUpCustom, setTopUpCustom] = useState('');
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [topUpMsg, setTopUpMsg] = useState('');
-  const [showLearningReq, setShowLearningReq] = useState(false);
-  const [lrSubject, setLrSubject] = useState('english');
-  const [lrLevel, setLrLevel] = useState(ENGLISH_LEVELS[0]);
-  const [lrDays, setLrDays] = useState<string[]>([]);
-  const [lrTime, setLrTime] = useState(TIME_OPTIONS[0]);
-  const [lrNotes, setLrNotes] = useState('');
-  const [lrSending, setLrSending] = useState(false);
-  const [lrSent, setLrSent] = useState(false);
-  const [purchasedPackageId, setPurchasedPackageId] = useState<number | null>(null);
+  const [selectedBonus, setSelectedBonus] = useState(0);
 
-  const lrLevels = lrSubject === 'english' ? ENGLISH_LEVELS : CLASS_LEVELS;
-
-  useEffect(() => {
-    setLrLevel(lrSubject === 'english' ? ENGLISH_LEVELS[0] : CLASS_LEVELS[0]);
-  }, [lrSubject]);
-
-  useEffect(() => {
-    apiClient.get('/packages/?status=available')
-      .then(res => {
-        const raw = res.data as { results?: unknown[] } | unknown[];
-        const items = (Array.isArray(raw) ? raw : (raw as { results?: unknown[] }).results ?? []) as Array<Record<string, unknown>>;
-        if (items.length > 0) {
-          const normalized = items.map((item, idx) => ({
-            id: Number(item.id),
-            total_lessons: Number(item.total_lessons),
-            final_price: String(item.price ?? item.final_price ?? '0').replace(/\.00$/, ''),
-            description: String(item.description ?? DEFAULT_PLANS[Math.min(idx, DEFAULT_PLANS.length - 1)].description),
-            features: DEFAULT_PLANS[Math.min(idx, DEFAULT_PLANS.length - 1)].features,
-            popular: idx === 1,
-          }));
-          setPagePlans(normalized);
-        }
-      })
-      .catch(() => { /* keep DEFAULT_PLANS on failure */ });
-  }, []);
-
-  const toggleDay = (d: string) =>
-    setLrDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+  // Derive display plans from PackagePlan catalog (hook fetches GET /packages/)
+  const displayPlans = plans.filter(p => [8, 10, 12].includes(p.total_lessons)).length > 0
+    ? plans
+        .filter(p => [8, 10, 12].includes(p.total_lessons))
+        .map((p, idx) => ({
+          id: p.id,
+          total_lessons: p.total_lessons,
+          final_price: String(p.price).replace(/\.00$/, ''),
+          description: p.description || DEFAULT_PLANS[idx]?.description || '',
+          features: PLAN_FEATURES[p.total_lessons] ?? DEFAULT_PLANS[idx]?.features ?? [],
+          popular: idx === 1,
+        }))
+    : DEFAULT_PLANS;
 
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   const activePackage = subData?.activePackage ?? null;
 
-  const handlePurchase = async (plan: typeof pagePlans[0]) => {
+  const handlePurchase = async (plan: typeof displayPlans[0]) => {
     setPurchasing(plan.id);
     setPurchaseError('');
     try {
-      const res = await apiClient.post(`/packages/${plan.id}/purchase/`);
-      const data = res.data as { package_id?: number; total_lessons?: number; message?: string };
-      setPurchasedPackageId(data.package_id ?? plan.id);
+      const res = await apiClient.post(`/packages/${plan.id}/purchase/`, {
+        bonus_discount_pct: selectedBonus || 0,
+      });
+      const data = res.data as { total_lessons?: number; message?: string };
       setPurchaseSuccess(data.message ?? `Абонемент на ${data.total_lessons ?? plan.total_lessons} уроків успішно придбано!`);
-      // Remove purchased plan from the list
-      setPagePlans(prev => prev.filter(p => p.id !== plan.id));
+      await refetch();
     } catch (err) {
       setPurchaseError(extractErrorMessage(err));
     } finally {
       setPurchasing(null);
-    }
-  };
-
-  const handleLearningReqSubmit = async () => {
-    setLrSending(true);
-    try {
-      await studentApi.createLearningRequest({
-        subject: lrSubject,
-        level: lrLevel,
-        preferred_days: lrDays.join(', '),
-        preferred_time: lrTime,
-        notes: lrNotes,
-        package: purchasedPackageId,
-      });
-      setLrSent(true);
-      setTimeout(() => { setShowLearningReq(false); setLrSent(false); }, 1800);
-    } catch { /* ignore */ } finally {
-      setLrSending(false);
     }
   };
 
@@ -201,36 +153,56 @@ export default function StudentSubscription() {
         </div>
 
         {/* Bonus banner */}
-        <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl border ${bonusDiscountPct > 0 ? 'bg-[#e0faea] border-[#1a7bd9]' : 'bg-[#f8f9fb] border-[#dee1e6]'}`}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={bonusDiscountPct > 0 ? '#1a7bd9' : '#9095a1'} strokeWidth="2">
-            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <span className={`font-inter font-medium text-sm ${bonusDiscountPct > 0 ? 'text-[#1a7bd9]' : 'text-[#565d6d]'}`}>
-            {bonusDiscountPct > 0
-              ? `У вас є бонусна знижка ${bonusDiscountPct}% на наступний абонемент`
-              : 'Завершіть курс для отримання бонусу'}
-          </span>
-        </div>
+        {bonusDiscountPct > 0 && (
+          <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border bg-[#e0faea] border-[#1a7bd9]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a7bd9" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span className="font-inter font-medium text-sm text-[#1a7bd9]">
+              У вас є бонусна знижка {bonusDiscountPct}% на наступний абонемент
+            </span>
+          </div>
+        )}
+        {!bonusDiscountPct && activePackage && activePackage.balance > 0 && (
+          <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border bg-[#f8f9fb] border-[#dee1e6]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9095a1" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span className="font-inter font-medium text-sm text-[#565d6d]">Завершіть курс для отримання бонусу</span>
+          </div>
+        )}
 
         {/* Subscription plan cards */}
         <div className="flex flex-col gap-6">
           <div className="text-center">
             <h2 className="font-poppins font-bold text-slate-900 text-2xl">Оберіть свій ідеальний абонемент</h2>
             <p className="font-inter text-[#565d6d] text-base mt-1">Змінюйте план у будь-який час. Ми підберемо найкраще рішення для вашого темпу.</p>
-            {bonusDiscountPct > 0 && (
-              <div className="flex items-center justify-center gap-2 mt-3 px-4 py-2 bg-[#e0faea] rounded-xl border border-[#1a7bd9] w-fit mx-auto">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" aria-hidden="true">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-                <span className="font-inter text-green-700 text-sm font-medium">
-                  Ваш бонус: {bonusDiscountPct}% знижка застосована до всіх планів
-                </span>
-              </div>
+          </div>
+
+          {/* Bonus selector */}
+          <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6]">
+            <span className="font-inter font-medium text-slate-800 text-sm flex-shrink-0">Бонусна знижка:</span>
+            {bonusDiscountPct > 0 ? (
+              <select
+                value={selectedBonus}
+                aria-label="Оберіть бонусну знижку"
+                onChange={e => setSelectedBonus(Number(e.target.value))}
+                className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+              >
+                <option value={0}>Без знижки</option>
+                {bonusDiscountPct >= 5  && <option value={5}>5% знижка</option>}
+                {bonusDiscountPct >= 10 && <option value={10}>10% знижка</option>}
+                {bonusDiscountPct >= 15 && <option value={15}>15% знижка</option>}
+              </select>
+            ) : (
+              <span className="font-inter text-[#9095a1] text-sm">
+                У вас ще немає бонусів. Виконуйте домашні завдання вчасно для накопичення бонусів.
+              </span>
             )}
           </div>
           </div>
           <div className="grid grid-cols-3 gap-6">
-            {pagePlans.map(plan => (
+            {displayPlans.map(plan => (
               <div key={plan.id}
                 className={`flex flex-col gap-4 p-6 bg-white rounded-2xl border transition-all ${
                   plan.popular ? 'border-[#1f8cf9] shadow-[0px_4px_24px_#1f8cf920]' : 'border-[#dee1e6]'
@@ -244,11 +216,11 @@ export default function StudentSubscription() {
                   <p className="font-poppins font-bold text-slate-900 text-2xl">{plan.total_lessons} уроків</p>
                   <p className="font-inter text-[#565d6d] text-sm mt-1">{plan.description}</p>
                 </div>
-                {bonusDiscountPct > 0 ? (
+                {selectedBonus > 0 ? (
                   <div className="flex items-center gap-3">
                     <span className="font-inter text-[#9095a1] text-lg line-through">₴{plan.final_price}</span>
                     <span className="font-poppins font-bold text-[#1f8cf9] text-3xl">
-                      ₴{Math.round(Number(plan.final_price) * (1 - bonusDiscountPct / 100))}
+                      ₴{Math.round(Number(plan.final_price) * (1 - selectedBonus / 100))}
                     </span>
                   </div>
                 ) : (
@@ -325,127 +297,14 @@ export default function StudentSubscription() {
             </div>
             <h2 className="font-poppins font-bold text-xl text-slate-900">Готово!</h2>
             <p className="font-inter text-sm text-[#565d6d] text-center">{purchaseSuccess}</p>
-            <button type="button" onClick={() => { setPurchaseSuccess(''); setShowLearningReq(true); }}
-              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">
-              Підібрати викладача
-            </button>
             <button type="button" onClick={() => setPurchaseSuccess('')}
-              className="w-full py-2 text-[#565d6d] font-inter text-sm hover:underline">
-              Пізніше
+              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">
+              OK
             </button>
           </div>
         </div>
       )}
 
-      {/* Learning request modal */}
-      {showLearningReq && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl p-8 flex flex-col gap-5">
-            {lrSent ? (
-              <div className="flex flex-col items-center gap-4 py-6">
-                <span className="text-4xl">✅</span>
-                <p className="font-poppins font-bold text-slate-900 text-xl text-center">Запит надіслано!</p>
-                <p className="font-inter text-[#565d6d] text-sm text-center">Менеджер підбере викладача та зв'яжеться з вами.</p>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <h2 className="font-poppins font-bold text-slate-900 text-xl">Запит на підбір викладача</h2>
-                  <p className="font-inter text-[#565d6d] text-sm mt-1">Вкажіть параметри — менеджер підбере найкращого викладача.</p>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="lr-subject" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Предмет</label>
-                    <select
-                      id="lr-subject"
-                      value={lrSubject}
-                      onChange={e => setLrSubject(e.target.value)}
-                      className="border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                    >
-                      {SUBJECT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="lr-level" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Рівень</label>
-                    <select
-                      id="lr-level"
-                      value={lrLevel}
-                      onChange={e => setLrLevel(e.target.value)}
-                      className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                    >
-                      {lrLevels.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <span className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Зручні дні</span>
-                    <div className="flex gap-2 flex-wrap">
-                      {LR_DAYS.map(d => (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => toggleDay(d)}
-                          className={`px-3 py-2 rounded-xl border font-inter text-sm font-medium transition-colors ${lrDays.includes(d) ? 'bg-[#1f8cf9] text-white border-[#1f8cf9]' : 'bg-white text-[#565d6d] border-[#dee1e6] hover:border-[#1f8cf9]'}`}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="lr-time" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Зручний час</label>
-                    <select
-                      id="lr-time"
-                      value={lrTime}
-                      onChange={e => setLrTime(e.target.value)}
-                      className="w-full border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                    >
-                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="lr-notes" className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Побажання</label>
-                    <textarea
-                      id="lr-notes"
-                      rows={3}
-                      value={lrNotes}
-                      onChange={e => setLrNotes(e.target.value)}
-                      placeholder="Будь-які додаткові побажання…"
-                      className="border border-[#dee1e6] rounded-xl px-3 py-2.5 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9] resize-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowLearningReq(false)}
-                    className="flex-1 py-3 border border-[#dee1e6] rounded-xl font-inter font-medium text-[#565d6d] text-sm hover:bg-gray-50 transition-colors"
-                  >
-                    Пропустити
-                  </button>
-                  <button
-                    type="button"
-                    disabled={lrSending}
-                    onClick={() => void handleLearningReqSubmit()}
-                    className="flex-1 py-3 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {lrSending ? 'Надсилання...' : 'Надіслати запит'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Top-up modal */}
       {showTopUp && (
