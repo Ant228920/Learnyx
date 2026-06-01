@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { studentApi, extractErrorMessage } from '../../../../services/api';
 import type { StudentHomeworkTask } from '../types';
 
-function formatDeadline(iso?: string): string {
-  if (!iso) return 'До —';
-  const d = new Date(iso);
-  return `До ${d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}, ${d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}`;
+function formatDeadline(lessonStartTime?: string): string {
+  if (!lessonStartTime) return 'До —';
+  const lessonDate = new Date(lessonStartTime);
+  const deadline = new Date(lessonDate);
+  deadline.setDate(lessonDate.getDate() + 2);
+  return `До ${deadline.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}`;
 }
 
 const hasHomework = (val: unknown): boolean => {
@@ -18,13 +20,13 @@ const hasHomework = (val: unknown): boolean => {
 const taskText = (val: unknown): string =>
   typeof val === 'string' ? val : JSON.stringify(val);
 
-function isUrgentDeadline(iso?: string): boolean {
-  if (!iso) return false;
-  const deadline = new Date(iso);
-  const now = new Date();
-  const twoDaysAhead = new Date(now);
-  twoDaysAhead.setDate(twoDaysAhead.getDate() + 2);
-  return deadline >= now && deadline <= twoDaysAhead;
+function isUrgentDeadline(lessonStartTime?: string): boolean {
+  if (!lessonStartTime) return false;
+  const lessonDate = new Date(lessonStartTime);
+  const deadline = new Date(lessonDate);
+  deadline.setDate(lessonDate.getDate() + 2);
+  const hoursLeft = (deadline.getTime() - Date.now()) / (1000 * 60 * 60);
+  return hoursLeft <= 24 && hoursLeft > 0;
 }
 
 export function useStudentHomework() {
@@ -46,10 +48,14 @@ export function useStudentHomework() {
           title: taskText(j.teacher_homework_task as unknown),
           description: taskText(j.teacher_homework_task as unknown),
           deadline: formatDeadline(j.start_time),
-          deadlineDate: j.start_time ? new Date(j.start_time) : new Date(),
-          urgent: isUrgentDeadline(j.start_time),
+          deadlineDate: (() => {
+            const d = j.start_time ? new Date(j.start_time) : new Date();
+            d.setDate(d.getDate() + 2);
+            return d;
+          })(),
+          urgent: !j.homework_answer_url && isUrgentDeadline(j.start_time),
           answerUrl: j.homework_answer_url || undefined,
-          fileUrl: j.homework_answer_url || undefined,
+          fileUrl: (j as Record<string, unknown>).homework_file_url as string | undefined || undefined,
           homeworkStatus: j.homework_status ?? 'assigned',
         }));
       setHomeworks(tasks);

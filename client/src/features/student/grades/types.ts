@@ -2,12 +2,12 @@ export type GradeType = 'ДЗ' | 'Урок';
 
 export interface GradeRecord {
   id: number;
-  subject: string;
+  subject: string | null;
   date: string;
-  topic: string;
+  topic: string | null;
   type: GradeType;
   score: number;
   maxScore: number;
-  teacher: string;
-  feedback: string;
+  teacher: string | null;
+  feedback: string | null;
 }

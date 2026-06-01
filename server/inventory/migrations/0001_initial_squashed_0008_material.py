@@ -11,9 +11,7 @@ class Migration(migrations.Migration):
     replaces = [('inventory', '0001_initial'), ('inventory', '0002_initial'), ('inventory', '0003_remove_slot_is_booked_slot_status_and_more'), ('inventory', '0004_journalrecord_grade_and_more'), ('inventory', '0005_remove_slot_inventory_s_teacher_d45cf3_idx_and_more'), ('inventory', '0006_packageplan'), ('inventory', '0007_learning_request'), ('inventory', '0008_material')]
 
     dependencies = [
-        ('users', '0001_initial'),
-        ('users', '0002_alter_user_email'),
-        ('users', '0004_student_money_balance'),
+        ('users', '0006_student_check_positive_money_balance'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import TeacherLayout from './TeacherLayout';
 import { useAuth } from '../../app/providers';
-import { teacherApi, extractErrorMessage } from '../../services/api';
+import { apiClient, teacherApi, extractErrorMessage, formatUkrTime } from '../../services/api';
 import type { TeacherDashboard as DashboardData } from '../../services/api';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-interface UploadedFile { id: number; name: string; size: string; type: string; }
+interface UploadedFile { id: number; name: string; size: string; type: string; url?: string; }
 
 type LessonStatus = 'conducted' | 'student_missed' | 'teacher_missed';
 
@@ -33,17 +33,24 @@ export default function TeacherDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState('');
-  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [files, setFiles] = useState<UploadedFile[]>(() => {
+    try { return JSON.parse(localStorage.getItem('teacher_materials') ?? '[]') as UploadedFile[]; }
+    catch { return []; }
+  });
   const [showAllFiles, setShowAllFiles] = useState(false);
+  const [uploadingMaterial, setUploadingMaterial] = useState(false);
+  const [materialError, setMaterialError] = useState('');
   const [gradeModal, setGradeModal] = useState<DashboardData['today_lessons'][0] | null>(null);
   const [linkModal, setLinkModal] = useState(false);
   const [linkLessonId, setLinkLessonId] = useState<number | null>(null);
   const [gradeForm, setGradeForm] = useState<{
+    lessonTopic: string;
     activityGrade: number;
     lessonStatus: LessonStatus;
     homeworkTopic: string;
     homeworkFile: File | null;
   }>({
+    lessonTopic: '',
     activityGrade: 10,
     lessonStatus: 'conducted',
     homeworkTopic: '',
@@ -75,22 +82,50 @@ export default function TeacherDashboard() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+  const formatTime = formatUkrTime;
 
   const resetGradeForm = () =>
-    setGradeForm({ activityGrade: 10, lessonStatus: 'conducted', homeworkTopic: '', homeworkFile: null });
+    setGradeForm({ lessonTopic: '', activityGrade: 10, lessonStatus: 'conducted', homeworkTopic: '', homeworkFile: null });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploaded = Array.from(e.target.files ?? []);
-    const newFiles: UploadedFile[] = uploaded.map((f, i) => ({
-      id: Date.now() + i,
-      name: f.name,
-      size: `${(f.size / 1024 / 1024).toFixed(1)} MB`,
-      type: f.name.split('.').pop()?.toUpperCase() ?? 'FILE',
-    }));
-    setFiles(prev => [...newFiles, ...prev]);
     if (e.target) e.target.value = '';
+    for (const f of uploaded) {
+      void (async () => {
+        setUploadingMaterial(true);
+        setMaterialError('');
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = ev => resolve(ev.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(f);
+          });
+          const res = await apiClient.post('/teacher/materials/', {
+            file_data: base64,
+            filename: f.name,
+            file_size: f.size,
+          });
+          const d = res.data as { url: string; name: string };
+          const newFile: UploadedFile = {
+            id: Date.now(),
+            name: f.name,
+            size: `${(f.size / 1024 / 1024).toFixed(1)} MB`,
+            type: f.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+            url: d.url || undefined,
+          };
+          setFiles(prev => {
+            const updated = [newFile, ...prev];
+            localStorage.setItem('teacher_materials', JSON.stringify(updated));
+            return updated;
+          });
+        } catch (err) {
+          setMaterialError(extractErrorMessage(err));
+        } finally {
+          setUploadingMaterial(false);
+        }
+      })();
+    }
   };
 
   const handleStartLesson = (lesson: DashboardData['today_lessons'][0]) => {
@@ -112,27 +147,38 @@ export default function TeacherDashboard() {
     setGrading(true);
     setGradeError('');
     const lessonId = gradeModal.lesson_id;
-    const isPresent = gradeForm.lessonStatus === 'conducted';
+    const conducted = gradeForm.lessonStatus === 'conducted';
 
     try {
       // 1. Evaluate — record attendance + activity grade
-      await teacherApi.evaluateLesson(lessonId, {
-        is_present: isPresent,
-        activity_grade: isPresent ? gradeForm.activityGrade : 0,
+      await apiClient.post(`/lessons/${lessonId}/evaluate/`, {
+        is_present: conducted,
+        activity_grade: conducted ? gradeForm.activityGrade : 0,
+        lesson_topic: gradeForm.lessonTopic.trim() || undefined,
       });
 
-      // 2. Set homework task (only when lesson was conducted)
-      if (isPresent && gradeForm.homeworkTopic.trim()) {
-        // If a file was selected, store its filename as the reference URL
-        const fileRef = gradeForm.homeworkFile ? gradeForm.homeworkFile.name : undefined;
-        await teacherApi.setHomework(lessonId, {
+      // 2. Set lesson status
+      await teacherApi.setLessonStatus(lessonId, gradeForm.lessonStatus);
+
+      // 3. Upload homework task + optional file (converted to base64 → Dropbox)
+      if (conducted && (gradeForm.homeworkTopic.trim() || gradeForm.homeworkFile)) {
+        let fileData = '';
+        let filename = '';
+        if (gradeForm.homeworkFile) {
+          filename = gradeForm.homeworkFile.name;
+          fileData = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(gradeForm.homeworkFile!);
+          });
+        }
+        await apiClient.post(`/lessons/${lessonId}/homework/`, {
           teacher_homework_task: gradeForm.homeworkTopic,
-          homework_answer_url: fileRef,
+          homework_file_url: fileData || undefined,
+          filename: filename || undefined,
         });
       }
-
-      // 3. Mark lesson status
-      await teacherApi.setLessonStatus(lessonId, gradeForm.lessonStatus);
 
       setGradedIds(p => [...p, lessonId]);
       setGradeSuccess('Оцінку виставлено успішно!');
@@ -140,14 +186,7 @@ export default function TeacherDashboard() {
       resetGradeForm();
       void fetchDashboard();
     } catch (err) {
-      const responseData = (err as { response?: { data?: unknown } })?.response?.data;
-      const msg =
-        typeof responseData === 'string'
-          ? responseData
-          : (responseData as Record<string, unknown[]>)?.activity_grade?.[0]?.toString()
-            ?? (responseData as Record<string, string>)?.error
-            ?? extractErrorMessage(err);
-      setGradeError(msg);
+      setGradeError(extractErrorMessage(err));
     } finally {
       setGrading(false);
     }
@@ -380,6 +419,12 @@ export default function TeacherDashboard() {
             <p className="font-inter text-[#9095a1] text-[10px] text-center leading-4">
               PDF, DOCX, ZIP. Максимум 50MB.
             </p>
+            {uploadingMaterial && (
+              <p className="font-inter text-[#1f8cf9] text-xs text-center">Завантаження...</p>
+            )}
+            {materialError && (
+              <p className="font-inter text-red-500 text-xs text-center">{materialError}</p>
+            )}
           </div>
 
           {files.length > 0 && (
@@ -398,19 +443,34 @@ export default function TeacherDashboard() {
                         <p className="font-inter text-[#9095a1] text-[10px]">{file.size} • {file.type}</p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setFiles(p => p.filter(f => f.id !== file.id))}
-                      aria-label={`Видалити ${file.name}`}
-                      title="Видалити"
-                      className="text-[#9095a1] hover:text-[#e64c4c] transition-colors flex-shrink-0 ml-1 opacity-0 group-hover:opacity-100"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                      </svg>
-                    </button>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-1 opacity-0 group-hover:opacity-100">
+                      {file.url && (
+                        <a href={file.url} download target="_blank" rel="noopener noreferrer"
+                          aria-label={`Завантажити ${file.name}`} title="Завантажити"
+                          className="text-[#1f8cf9] hover:text-blue-700 transition-colors p-1">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                          </svg>
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setFiles(p => {
+                          const updated = p.filter(f => f.id !== file.id);
+                          localStorage.setItem('teacher_materials', JSON.stringify(updated));
+                          return updated;
+                        })}
+                        aria-label={`Видалити ${file.name}`} title="Видалити"
+                        className="text-[#9095a1] hover:text-[#e64c4c] transition-colors p-1"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -464,6 +524,18 @@ export default function TeacherDashboard() {
                 {new Date(gradeModal.start_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })} —{' '}
                 {gradeModal.topic ?? 'Заняття'}
               </p>
+            </div>
+
+            {/* 0. Тема уроку */}
+            <div className="flex flex-col gap-2">
+              <label className="font-inter font-bold text-slate-900 text-sm">Тема уроку</label>
+              <input
+                type="text"
+                value={gradeForm.lessonTopic}
+                onChange={e => setGradeForm(p => ({ ...p, lessonTopic: e.target.value }))}
+                placeholder="Введіть тему уроку..."
+                className="border border-[#dee1e6] rounded-xl px-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
+              />
             </div>
 
             {/* 1. Оцінка за урок */}

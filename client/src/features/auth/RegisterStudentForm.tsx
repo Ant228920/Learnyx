@@ -10,15 +10,42 @@ export default function RegisterStudentForm({ onSuccess }: Props) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
     setError('');
+    setFieldErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  const validate = () => {
+    const errors: Record<string, string> = {};
+    if (!form.email) {
+      errors.email = "Email є обов'язковим";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = 'Введіть коректну email адресу';
+    }
+    if (!form.phone) {
+      errors.phone = "Номер телефону є обов'язковим";
+    } else if (!/^\+?[\d\s\-()]{10,15}$/.test(form.phone)) {
+      errors.phone = 'Введіть коректний номер телефону (наприклад +380991234567)';
+    }
+    if (!form.telegram_nickname) {
+      errors.telegram_nickname = "Telegram нікнейм є обов'язковим";
+    } else if (form.telegram_nickname.length < 3) {
+      errors.telegram_nickname = 'Telegram нікнейм занадто короткий';
+    }
+    return errors;
   };
 
   const handleSubmit = async () => {
-    if (!form.lastName.trim() || !form.firstName.trim() || !form.phone.trim() || !form.email.trim() || !form.telegram_nickname.trim()) {
-      setError('Заповніть всі обов\'язкові поля');
+    if (!form.lastName.trim() || !form.firstName.trim()) {
+      setError("Заповніть всі обов'язкові поля");
+      return;
+    }
+    const errors = validate();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
     setLoading(true);
@@ -79,6 +106,9 @@ export default function RegisterStudentForm({ onSuccess }: Props) {
           <input id="s-phone" type="tel" value={form.phone} onChange={set('phone')}
             placeholder="+380 00 000 00 00" className="form-input-icon" />
         </div>
+        {fieldErrors.phone && (
+          <p className="font-inter text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
+        )}
       </div>
 
       {/* Email */}
@@ -91,6 +121,9 @@ export default function RegisterStudentForm({ onSuccess }: Props) {
           <input id="s-email" type="email" value={form.email} onChange={set('email')}
             placeholder="example@mail.com" className="form-input-icon" />
         </div>
+        {fieldErrors.email && (
+          <p className="font-inter text-red-500 text-xs mt-1">{fieldErrors.email}</p>
+        )}
       </div>
 
       {/* Telegram */}
@@ -103,6 +136,9 @@ export default function RegisterStudentForm({ onSuccess }: Props) {
           <input id="s-telegram" value={form.telegram_nickname} onChange={set('telegram_nickname')}
             placeholder="@username" className="form-input-icon" />
         </div>
+        {fieldErrors.telegram_nickname && (
+          <p className="font-inter text-red-500 text-xs mt-1">{fieldErrors.telegram_nickname}</p>
+        )}
       </div>
 
       {error && (

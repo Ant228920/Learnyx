@@ -1,18 +1,16 @@
 import { useManagerReports } from '../../features/manager/reports';
 import ManagerLayout from './ManagerLayout';
 
-function getStatusLabel(status: string): string {
+function getStatusBadge(status: string): { label: string; className: string } {
   switch (status) {
-    case 'conducted': return 'Проведено';
-    case 'missed':    return 'Не проведено — по вині учня';
-    case 'cancelled': return 'Не проведено — по вині викладача';
-    default:          return status;
+    case 'conducted':      return { label: 'Проведено',               className: 'bg-[#e0faea] text-green-700' };
+    case 'scheduled':      return { label: 'Заплановано',             className: 'bg-orange-100 text-orange-600' };
+    case 'student_missed': return { label: 'Учень не з\'явився',      className: 'bg-red-100 text-red-600' };
+    case 'teacher_missed': return { label: 'Вчитель не з\'явився',    className: 'bg-red-100 text-red-600' };
+    case 'canceled_advance':
+    case 'cancelled':      return { label: 'Скасовано',               className: 'bg-gray-100 text-gray-500' };
+    default:               return { label: status,                    className: 'bg-gray-100 text-gray-500' };
   }
-}
-
-function getStatusStyle(status: string): string {
-  if (status === 'conducted') return 'bg-[#e0faea] text-[#1a7bd9]';
-  return 'bg-[#fff0f0] text-[#e64c4c]';
 }
 
 const IconBook = () => (
@@ -25,7 +23,7 @@ export default function ManagerReports() {
   const { lessons, loading, error } = useManagerReports();
 
   const conducted = lessons.filter(l => l.status === 'conducted').length;
-  const cancelled = lessons.filter(l => l.status !== 'conducted').length;
+  const cancelled = lessons.filter(l => ['student_missed', 'teacher_missed', 'canceled_advance', 'cancelled'].includes(l.status)).length;
 
   return (
     <ManagerLayout>
@@ -92,13 +90,16 @@ export default function ManagerReports() {
                   <span className="font-inter font-medium text-slate-800 text-sm">{lesson.time}</span>
                   <div className="flex items-center gap-2">
                     <IconBook />
-                    <span className="font-inter font-semibold text-slate-800 text-sm">{lesson.subject}</span>
+                    {lesson.subject && lesson.subject !== '—'
+                      ? <span className="font-inter font-semibold text-slate-800 text-sm">{lesson.subject}</span>
+                      : <span className="font-inter text-[#9095a1] text-sm">Не вказано</span>
+                    }
                   </div>
                   <span className="font-inter text-[#565d6d] text-sm">{lesson.teacher}</span>
                   <span className="font-inter text-[#565d6d] text-sm">{lesson.student}</span>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full font-inter font-semibold text-xs w-fit ${getStatusStyle(lesson.status)}`}>
-                    {getStatusLabel(lesson.status)}
-                  </span>
+                  {(() => { const b = getStatusBadge(lesson.status); return (
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full font-inter font-bold text-[10px] w-fit ${b.className}`}>{b.label}</span>
+                  ); })()}
                 </div>
               ))}
             </div>
