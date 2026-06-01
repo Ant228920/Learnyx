@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from api.models import RegistrationRequest
 from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest, Complaint, LessonMaterial
-from users.models import Student, Review
+from users.models import Student, Review, User
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
@@ -15,6 +15,30 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'created_at']
 
     def validate(self, data):
+        email = data.get('email')
+        phone = data.get('phone')
+        telegram_nickname = data.get('telegram_nickname')
+
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                {'email': 'Користувач з такою поштою вже зареєстрований.'}
+            )
+
+        if phone and User.objects.filter(phone=phone).exists():
+            raise serializers.ValidationError(
+                {'phone': 'Користувач з таким номером телефону вже зареєстрований.'}
+            )
+
+        if telegram_nickname and User.objects.filter(nickname=telegram_nickname).exists():
+            raise serializers.ValidationError(
+                {'telegram_nickname': 'Користувач з таким Telegram вже зареєстрований.'}
+            )
+
+        if email and RegistrationRequest.objects.filter(email=email).exclude(status='rejected').exists():
+            raise serializers.ValidationError(
+                {'email': 'Заявка з такою поштою вже існує.'}
+            )
+
         if data.get('role') == 'teacher':
             if not data.get('subject'):
                 raise serializers.ValidationError(
@@ -442,10 +466,9 @@ class ComplaintStatusSerializer(serializers.Serializer):
 
 # ── LEAR-125 ──────────────────────────────────────────────────────────────────
 
-class LessonMaterialUploadSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LessonMaterial
-        fields = ['title', 'file']
+class LessonMaterialUploadSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=200)
+    file = serializers.FileField()
 
     def validate_file(self, value):
         from api.validators import validate_file_size, validate_file_extension
@@ -459,7 +482,7 @@ class LessonMaterialListSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.SerializerMethodField()
 
     def get_file_url(self, obj):
-        return obj.file.url if obj.file else None
+        return obj.file_url or None
 
     def get_uploaded_by_name(self, obj):
         u = obj.uploaded_by.user
@@ -500,7 +523,7 @@ class HomeworkDetailSerializer(serializers.ModelSerializer):
         return LessonMaterialListSerializer(qs, many=True, context={'request': request}).data
 
     def get_homework_file_url(self, obj):
-        return obj.homework_file.url if obj.homework_file else None
+        return obj.homework_file_url or None
 
     class Meta:
         model = JournalRecord
