@@ -645,6 +645,10 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         record.homework_answer_url = serializer.validated_data.get('homework_answer_url') or ''
         record.save(update_fields=['teacher_homework_task', 'homework_answer_url'])
 
+<<<<<<< HEAD
+=======
+        material = None
+>>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
         uploaded_file = serializer.validated_data.get('file')
         if uploaded_file:
             from api.dropbox_storage import upload_lesson_material
@@ -659,6 +663,66 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             logger.info(
                 f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
             )
+<<<<<<< HEAD
+=======
+
+        http_status = status.HTTP_201_CREATED if (created or homework_was_empty) else status.HTTP_200_OK
+        data = JournalRecordSerializer(record).data
+        if material:
+            data['attached_material'] = LessonMaterialListSerializer(
+                material, context={'request': request}
+            ).data
+        return Response(data, status=http_status)
+
+    @action(detail=True, methods=['patch'], url_path='homework/grade')
+    def grade_homework(self, request, pk=None):
+        """LEAR-75: Teacher grades a student's homework (1–10) on a conducted lesson."""
+        lesson = get_object_or_404(Lesson.objects.select_related('slot__teacher'), pk=pk)
+
+        teacher = get_object_or_404(Teacher, user=request.user)
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response(
+                {'detail': 'You can only grade homework for your own lessons.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = HomeworkGradeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
+        record.homework_grade = serializer.validated_data['homework_grade']
+        record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
+        record.reviewed_at = timezone.now()
+        record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
+
+        return Response(JournalRecordSerializer(record).data)
+
+    @action(detail=True, methods=['post'], url_path='homework/grade/reset')
+    def reset_homework_grade(self, request, pk=None):
+        """LEAR-rollback: Teacher resets homework grade back to submitted state."""
+        lesson = self.get_object()
+        teacher = get_object_or_404(Teacher, user=request.user)
+
+        if lesson.slot.teacher_id != teacher.pk:
+            return Response({'error': 'Немає доступу'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            record = JournalRecord.objects.get(lesson=lesson)
+        except JournalRecord.DoesNotExist:
+            return Response({'error': 'ДЗ не знайдено'}, status=status.HTTP_404_NOT_FOUND)
+
+        if record.homework_status != JournalRecord.HomeworkStatus.REVIEWED:
+            return Response(
+                {'error': 'Оцінку можна скасувати тільки якщо статус reviewed'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            record.homework_grade = None
+            record.homework_status = JournalRecord.HomeworkStatus.SUBMITTED
+            record.reviewed_at = None
+            record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
+>>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
 
         return Response(JournalRecordSerializer(record).data, status=status.HTTP_200_OK)
 

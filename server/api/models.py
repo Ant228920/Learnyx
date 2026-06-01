@@ -15,7 +15,7 @@ class RegistrationRequest(models.Model):
     # Основні поля
     full_name = models.CharField(max_length=150)
     phone = models.CharField(max_length=20)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
     telegram_nickname = models.CharField(max_length=50, blank=True, null=True)
     role = models.CharField(max_length=10, choices=RoleChoice.choices)
 
