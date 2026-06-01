@@ -690,6 +690,20 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             record.teacher_homework_task = task
 
         record.save()
+        uploaded_file = serializer.validated_data.get('file')
+        if uploaded_file:
+            from api.dropbox_storage import upload_lesson_material
+            title = serializer.validated_data.get('file_title') or 'Homework material'
+            dropbox_url = upload_lesson_material(lesson.pk, uploaded_file, notify_email=request.user.email)
+            LessonMaterial.objects.create(
+                lesson=lesson,
+                uploaded_by=teacher,
+                title=title,
+                file_url=dropbox_url,
+            )
+            logger.info(
+                f'Homework material "{title}" attached to lesson {lesson.pk} by teacher {teacher.pk}'
+            )
 
         http_status = status.HTTP_201_CREATED if (created or homework_was_empty) else status.HTTP_200_OK
         return Response(JournalRecordSerializer(record).data, status=http_status)
