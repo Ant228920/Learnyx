@@ -58,10 +58,10 @@ export default function StudentGrades() {
                 onClick={() => setSelected(p => p?.id === g.id ? null : g)}
                 className={`grid grid-cols-[2fr_2fr_0.7fr_0.7fr] items-center px-6 py-5 cursor-pointer transition-colors ${i < displayed.length - 1 ? 'border-b border-[#dee1e6]' : ''} ${selected?.id === g.id ? 'bg-[#f0f7ff]' : 'hover:bg-[#f8f9fb]'}`}>
                 <div>
-                  <p className="font-inter font-bold text-slate-900 text-sm">{g.subject}</p>
+                  <p className="font-inter font-bold text-slate-900 text-sm">{g.subject ?? 'Предмет'}</p>
                   <p className="font-inter text-[#9095a1] text-xs mt-0.5">{g.date}</p>
                 </div>
-                <span className="font-inter text-slate-800 text-sm">{g.topic}</span>
+                <span className="font-inter text-slate-800 text-sm">{g.topic ?? 'Тема не вказана'}</span>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-inter font-bold text-xs w-fit ${g.type === 'ДЗ' ? 'bg-[#e0f0ff] text-[#1f8cf9]' : 'bg-[#fff0e0] text-[#f5a83d]'}`}>{g.type}</span>
                 <div className={`w-12 h-9 rounded-full border-2 border-[#dee1e6] flex items-center justify-center font-inter font-black text-xs ${getScoreColor(g.score, g.maxScore)}`}>{g.score}/{g.maxScore}</div>
               </div>
@@ -87,8 +87,8 @@ export default function StudentGrades() {
                   <span className="font-inter text-[#9095a1] text-xs">{selected.date}</span>
                 </div>
                 <div>
-                  <h2 className="font-poppins font-bold text-slate-900 text-xl">{selected.topic}</h2>
-                  <p className="font-inter font-bold text-[#1f8cf9] text-sm mt-1">{selected.subject}</p>
+                  {selected.topic && <h2 className="font-poppins font-bold text-slate-900 text-xl">{selected.topic}</h2>}
+                  {selected.subject && <p className="font-inter font-bold text-[#1f8cf9] text-sm mt-1">{selected.subject}</p>}
                 </div>
                 <div className="flex flex-col items-center gap-1 py-4 bg-[#f8f9fb] rounded-xl">
                   <span className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Оцінка</span>
@@ -97,17 +97,12 @@ export default function StudentGrades() {
                     <span className="font-inter font-bold text-[#9095a1] text-xl">/ {selected.maxScore}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 pb-4 border-b border-[#f4f4f6]">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                  <span className="font-inter font-medium text-slate-800 text-sm">{selected.teacher}</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                    <span className="font-inter font-bold text-slate-900 text-sm">Відгук викладача</span>
+                {selected.teacher && selected.teacher !== '—' && (
+                  <div className="flex items-center gap-2 pb-4 border-b border-[#f4f4f6]">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                    <span className="font-inter font-medium text-slate-800 text-sm">{selected.teacher}</span>
                   </div>
-                  <p className="font-inter text-[#565d6d] text-sm leading-5 italic">"{selected.feedback}"</p>
-                </div>
+                )}
               </div>
             </aside>
           )}

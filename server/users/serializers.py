@@ -22,5 +22,12 @@ class LoginSerializer(serializers.Serializer):
                 "Невірний email або пароль."
             )
 
+        role = getattr(user, 'role_obj', None)
+        role_name = role.name.lower() if role else ''
+        if not user.is_approved and role_name not in ('manager', 'admin'):
+            raise serializers.ValidationError(
+                "Ваш акаунт ще не підтверджено менеджером."
+            )
+
         data['user'] = user
         return data

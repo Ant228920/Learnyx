@@ -76,7 +76,7 @@ export default function StudentSubscription() {
     setPurchasing(plan.id);
     setPurchaseError('');
     try {
-      const res = await apiClient.post(`/packages/${plan.id}/purchase/`, {
+      const res = await apiClient.post(`/package-plans/${plan.id}/purchase/`, {
         bonus_discount_pct: selectedBonus || 0,
       });
       const data = res.data as { total_lessons?: number; message?: string };

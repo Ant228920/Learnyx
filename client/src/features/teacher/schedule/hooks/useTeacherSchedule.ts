@@ -13,24 +13,25 @@ function dayOf(iso: string): number {
 
 export function useTeacherSchedule() {
   const [slotsByDay, setSlotsByDay] = useState<SlotsByDay>({});
+  const [allSlots, setAllSlots] = useState<SlotItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const buildMap = useCallback((rawSlots: Awaited<ReturnType<typeof teacherApi.getSlots>>) => {
+  const buildItems = useCallback((rawSlots: Awaited<ReturnType<typeof teacherApi.getSlots>>) => {
+    const items: SlotItem[] = rawSlots.map(s => ({
+      id: s.id,
+      time: `${formatTime(s.start_time)} - ${formatTime(s.end_time)}`,
+      is_booked: s.status === 'booked',
+      start_time: s.start_time,
+      end_time: s.end_time,
+    }));
     const map: SlotsByDay = {};
-    for (const s of rawSlots) {
-      const day = dayOf(s.start_time);
-      const item: SlotItem = {
-        id: s.id,
-        time: `${formatTime(s.start_time)} - ${formatTime(s.end_time)}`,
-        is_booked: s.status === 'booked',
-        start_time: s.start_time,
-        end_time: s.end_time,
-      };
+    for (const item of items) {
+      const day = dayOf(item.start_time);
       if (!map[day]) map[day] = [];
       map[day].push(item);
     }
-    return map;
+    return { items, map };
   }, []);
 
   const fetch = useCallback(async () => {
@@ -38,20 +39,21 @@ export function useTeacherSchedule() {
     setError(null);
     try {
       const raw = await teacherApi.getSlots();
-      setSlotsByDay(buildMap(raw));
+      const { items, map } = buildItems(raw);
+      setAllSlots(items);
+      setSlotsByDay(map);
     } catch (e) {
       setError(extractErrorMessage(e));
     } finally {
       setLoading(false);
     }
-  }, [buildMap]);
+  }, [buildItems]);
 
   useEffect(() => { void fetch(); }, [fetch]);
 
   const createSlot = useCallback(async (startIso: string, endIso: string) => {
     try {
       const slot = await teacherApi.createSlot(startIso, endIso);
-      const day = dayOf(slot.start_time);
       const item: SlotItem = {
         id: slot.id,
         time: `${formatTime(slot.start_time)} - ${formatTime(slot.end_time)}`,
@@ -59,6 +61,8 @@ export function useTeacherSchedule() {
         start_time: slot.start_time,
         end_time: slot.end_time,
       };
+      const day = dayOf(item.start_time);
+      setAllSlots(prev => [...prev, item]);
       setSlotsByDay(prev => ({ ...prev, [day]: [...(prev[day] ?? []), item] }));
     } catch (e) { showError('Помилка створення слоту: ' + extractErrorMessage(e)); throw e; }
   }, []);
@@ -66,6 +70,7 @@ export function useTeacherSchedule() {
   const deleteSlot = useCallback(async (slotId: number) => {
     try {
       await teacherApi.deleteSlot(slotId);
+      setAllSlots(prev => prev.filter(s => s.id !== slotId));
       setSlotsByDay(prev => {
         const next = { ...prev };
         for (const day of Object.keys(next)) {
@@ -77,5 +82,5 @@ export function useTeacherSchedule() {
     } catch (e) { showError('Помилка видалення слоту: ' + extractErrorMessage(e)); throw e; }
   }, []);
 
-  return { slotsByDay, loading, error, refetch: fetch, createSlot, deleteSlot };
+  return { slotsByDay, allSlots, loading, error, refetch: fetch, createSlot, deleteSlot };
 }
