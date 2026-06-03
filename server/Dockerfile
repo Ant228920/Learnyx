@@ -31,3 +31,10 @@ EXPOSE 8000
 
 # Використовуємо gunicorn для production-ready запуску
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000"]
+
+# Копіюємо скрипт у контейнер
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Встановлюємо його як точку входу
+ENTRYPOINT ["/app/entrypoint.sh"]

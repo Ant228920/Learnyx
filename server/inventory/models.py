@@ -7,13 +7,6 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 class DisciplineQuerySet(models.QuerySet):
     pass
 
-<<<<<<< HEAD
-=======
-class CourseQuerySet(models.QuerySet):
-    pass
-# -----------------------------------------------------------------
-
->>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
     
