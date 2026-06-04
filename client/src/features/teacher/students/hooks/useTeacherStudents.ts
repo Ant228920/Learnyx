@@ -29,9 +29,7 @@ export function useTeacherStudents() {
         avatarBg: avatarBg(u.user_id),
         lessons_balance: u.lessons_balance,
         total_lessons: u.total_lessons,
-      }));
-      setStudents(mapped);
-      setSlots(slotsRaw);
+      })));
     } catch (e) {
       setError(extractErrorMessage(e));
     } finally {

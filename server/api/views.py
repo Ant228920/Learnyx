@@ -448,7 +448,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
                 )
 
-                if package.balance < 2:
+                if package.balance <= 2:
                     low_balance_package = package
 
                 if package.status == 'completed':

@@ -195,6 +195,7 @@ class Package(models.Model):
     balance = models.IntegerField()
     status = models.CharField(max_length=50, default='active')
     purchased_at = models.DateTimeField(auto_now_add=True)
+    low_balance_notified = models.BooleanField(default=False)
 
     objects = PackageQuerySet.as_manager()
 

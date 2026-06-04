@@ -35,12 +35,12 @@ class Command(BaseCommand):
 
         # ОНОВЛЕНО: Нова структура рівнів знань
         general_levels = [
-            'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 
-            '1-4 клас', '5-11 клас', 'Дошкільнята', 
+            'A1', 'A2', 'B1', 'B2', 'C1', 'C2',
+            '1-4 клас', '5-11 клас', 'Дошкільнята',
             'Підготовка до НМТ/ЗНО', 'Дорослі (Business)'
         ]
         english_levels = ['A1-B1', 'B1-B2', 'B2-C1', 'С1-С2']
-        
+
         all_levels = list(set(general_levels + english_levels))
         for name in all_levels:
             StudentLevel.objects.get_or_create(name=name)
@@ -87,14 +87,14 @@ class Command(BaseCommand):
         sr = Role.objects.get(name='Student')
         tr = Role.objects.get(name='Teacher')
         mr = Role.objects.get(name='Manager')
-        
+
         # ОНОВЛЕНО: Отримуємо нові рівні для прив'язки
         lv_math = StudentLevel.objects.get(name='Підготовка до НМТ/ЗНО')
         lv_math_basic = StudentLevel.objects.get(name='5-11 клас')
         lv_eng_mid = StudentLevel.objects.get(name='B1-B2')
         lv_eng_beg = StudentLevel.objects.get(name='A1-B1')
         lv_prog = StudentLevel.objects.get(name='A1')
-        
+
         tlv = TeacherLevel.objects.get(name='Senior')
 
         # Manager
@@ -146,20 +146,20 @@ class Command(BaseCommand):
             )
             u.set_password('Student1234!')
             u.save()
-            
+
             # Створюємо студента тільки з балансом
             s, _ = Student.objects.get_or_create(
                 user=u,
                 defaults={'money_balance': balance},
             )
-            
+
             # Прив'язуємо предмет та рівень через нову таблицю
             StudentDisciplineLevel.objects.get_or_create(
-                student=s, 
-                discipline=disc, 
+                student=s,
+                discipline=disc,
                 defaults={'level': level_obj}
             )
-            
+
             self.students.append(s)
 
         self.stdout.write('  Users: 1 manager, 3 teachers, 5 students')
