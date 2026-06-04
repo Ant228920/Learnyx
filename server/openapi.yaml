@@ -721,6 +721,46 @@ paths:
         '200':
           description: Заняття позначено як пропущене, застосовано штрафні правила
 
+  /lessons/{id}/status/:
+    patch:
+      tags: [Lessons]
+      summary: "LEAR-79: Update lesson status (teacher only)"
+      description: |
+        Викладач оновлює статус уроку. При статусі 'conducted' — списується баланс пакету.
+        Якщо balance <= 2 після списання — менеджеру надсилається email-сповіщення (LEAR-79).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [conducted, canceled_advance, student_missed, teacher_missed]
+            example:
+              status: "conducted"
+      responses:
+        '200':
+          description: Статус оновлено
+          content:
+            application/json:
+              example:
+                id: 20
+                status: "conducted"
+                package_balance_remaining: 1
+        '400': {description: Невалідний статус або повторна зміна}
+        '403': {description: Не викладач або чужий урок}
+        '404': {description: Урок не знайдено}
+
   # ───────────────────────────────────────────
   # PACKAGES
   # ───────────────────────────────────────────
@@ -1725,6 +1765,26 @@ components:
         price: {type: number}
         description: {type: string}
         is_active: {type: boolean}
+
+    Package:
+      type: object
+      properties:
+        id: {type: integer}
+        student_id: {type: integer}
+        course_id: {type: integer, nullable: true}
+        discipline_id: {type: integer, nullable: true}
+        total_lessons: {type: integer}
+        balance: {type: integer}
+        final_price: {type: number, format: decimal}
+        discount: {type: number, format: decimal, default: 0.00}
+        status:
+          type: string
+          enum: [available, active, completed, cancelled]
+        purchased_at: {type: string, format: date-time}
+        low_balance_notified:
+          type: boolean
+          description: "True якщо email менеджеру про низький баланс вже надіслано"
+          default: false
 
     ErrorResponse:
       type: object
