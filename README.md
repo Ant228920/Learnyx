@@ -9,6 +9,9 @@
 [![React](https://img.shields.io/badge/React-18.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![DRF](https://img.shields.io/badge/DRF-3.x-red?style=for-the-badge)](https://www.django-rest-framework.org)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+![Status](https://img.shields.io/badge/Status-Release_Candidate-brightgreen?style=for-the-badge)
 
 </div>
 
@@ -52,6 +55,10 @@
 | **Django REST Framework** | latest | REST API |
 | **PostgreSQL** | 14+ | База даних |
 | **drf-spectacular** | latest | OpenAPI / Swagger |
+| **SimpleJWT** | 5.x | JWT-авторизація |
+| **Dropbox API** | 12.x | Файлове сховище |
+| **SMTP (Gmail)** | — | Email-сповіщення |
+| **Docker + Compose** | 24+ | Контейнеризація |
 
 ### Frontend
 | Технологія | Версія | Призначення |
@@ -65,40 +72,113 @@
 
 ---
 
+## ⚙️ Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) >= 24.0
+- [Docker Compose](https://docs.docker.com/compose/) >= 2.0
+- Git >= 2.40
+
+---
+
 ## 📁 Repository Structure
 
 ```
 Learnyx/
 │
-├── 📂 client/              # ⚛️  Frontend — React + TypeScript
-│   ├── src/
-│   │   ├── components/     # Перевикористовувані UI-компоненти
-│   │   ├── pages/          # Сторінки (Student, Teacher, Manager)
-│   │   ├── services/       # HTTP-клієнт (Axios), запити до API
-│   │   ├── hooks/          # Кастомні React хуки
-│   │   └── assets/         # Статичні ресурси
-│   ├── .env.example
-│   ├── vite.config.ts
-│   └── README.md           # 👉 Детальна документація фронтенду
+├── 📂 client/                    # ⚛️ Frontend — React + TypeScript
+│   └── src/
+│       ├── app/                  # Роутинг, глобальний стан
+│       ├── assets/               # Статичні ресурси (зображення, іконки)
+│       ├── components/           # Перевикористовувані UI-компоненти
+│       │   └── layout/           # Layout компоненти
+│       ├── features/             # Функціональні модулі за роллю
+│       │   ├── auth/             # Авторизація
+│       │   ├── manager/          # Кабінет менеджера
+│       │   │   ├── applications/ # Заявки на реєстрацію
+│       │   │   ├── dashboard/    # Дашборд
+│       │   │   ├── matching/     # Підбір викладача
+│       │   │   ├── reports/      # Звіти
+│       │   │   └── subscriptions/# Пакети
+│       │   ├── profile/          # Профіль користувача
+│       │   ├── student/          # Кабінет учня
+│       │   │   ├── grades/       # Оцінки
+│       │   │   ├── homework/     # Домашні завдання
+│       │   │   ├── schedule/     # Розклад
+│       │   │   └── subscription/ # Пакети
+│       │   └── teacher/          # Кабінет викладача
+│       │       ├── finances/     # Фінанси
+│       │       ├── homework/     # Домашні завдання
+│       │       ├── schedule/     # Розклад
+│       │       └── students/     # Учні
+│       ├── hooks/                # Кастомні React хуки
+│       ├── pages/                # Сторінки (manager/, student/, teacher/)
+│       ├── services/             # HTTP-клієнт (Axios), запити до API
+│       └── utils/                # Утиліти (toast, helpers)
 │
-├── 📂 server/              # 🐍  Backend — Django + Python
-│   ├── core/               # Django-проєкт (settings, urls, wsgi)
-│   ├── manage.py
-│   ├── requirements.txt
-│   ├── openapi.yaml        # OpenAPI 3.0 специфікація
-│   ├── .env.example
-│   └── README.md           # 👉 Детальна документація бекенду
+├── 📂 server/                    # 🐍 Backend — Django + Python
+│   ├── api/                      # Головний API додаток
+│   │   ├── migrations/           # Міграції БД (api app)
+│   │   ├── models.py             # RegistrationRequest
+│   │   ├── views.py              # API views та ViewSets
+│   │   ├── serializers.py        # DRF серіалайзери
+│   │   ├── services.py           # Бізнес-логіка (cashback, email)
+│   │   ├── urls.py               # URL маршрути
+│   │   ├── permissions.py        # Кастомні permissions
+│   │   ├── validators.py         # Валідатори файлів
+│   │   ├── dropbox_storage.py    # Dropbox інтеграція
+│   │   └── tests.py              # Django тести
+│   ├── core/                     # Django проєкт
+│   │   ├── settings.py           # Налаштування
+│   │   ├── urls.py               # Кореневі URL
+│   │   └── exceptions.py        # Глобальний exception handler
+│   ├── inventory/                # Моделі уроків, пакетів, слотів
+│   │   ├── migrations/           # Міграції БД (inventory app)
+│   │   └── models.py             # Lesson, Package, Slot, Teacher...
+│   ├── users/                    # Моделі користувачів
+│   │   ├── migrations/           # Міграції БД (users app)
+│   │   ├── models.py             # User, Student, Manager, Role...
+│   │   └── management/commands/  # seed.py, integrity_audit.py
+│   ├── openapi.yaml              # OpenAPI 3.0 специфікація
+│   ├── requirements.txt          # Python залежності
+│   └── .env.example              # Шаблон змінних середовища
 │
-├── 📂 .github/             # PR templates, workflows
-├── .editorconfig
+├── docker-compose.yaml           # Docker Compose конфігурація
 ├── .gitignore
-├── CONTRIBUTORS.md
 └── README.md
 ```
 
 ---
 
 ## 🚀 Getting Started
+
+### 🐳 Docker (рекомендований спосіб)
+
+```bash
+# 1. Клонування репозиторію
+git clone https://github.com/Ant228920/Learnyx.git
+cd Learnyx
+
+# 2. Налаштування змінних середовища
+cp server/.env.example server/.env
+# Відредагуй server/.env — заповни SECRET_KEY, паролі БД, SMTP, Dropbox
+
+# 3. Запуск усіх сервісів
+docker compose up --build
+
+# 4. (Опційно) Застосувати міграції вручну, якщо не запустились автоматично
+docker exec learnyx_app python manage.py migrate
+docker exec learnyx_app python manage.py seed
+```
+
+| Сервіс | URL |
+|--------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000/api/v1/ |
+| Swagger UI | http://localhost:8000/api/schema/swagger-ui/ |
+| pgAdmin | http://localhost:5050 |
+| Nginx proxy | http://localhost:8080 |
+
+---
 
 ### ⚛️ Frontend
 
@@ -151,6 +231,37 @@ python manage.py runserver
 
 ---
 
+## 🔑 Demo Credentials
+
+> Доступні після запуску `docker compose up` та застосування seed-даних.
+
+| Роль | Email                          | Пароль           |
+|------|--------------------------------|------------------|
+| Manager | manager@learnyx.com            | Manager1234!     |
+| Teacher | teacher(1,2,3)@learnyx.com     | Teacher1234!     |
+| Student | student(1,2,3,4,5)@learnyx.com | Student1234!     |
+| Admin (Django) | admin@learnyx.com              | adminpassword123 |
+
+---
+
+## 📖 API Documentation
+
+Повна документація доступна через Swagger UI після запуску:
+
+```
+http://localhost:8000/api/schema/swagger-ui/
+```
+
+Також доступна ReDoc-версія:
+
+```
+http://localhost:8000/api/schema/redoc/
+```
+
+OpenAPI-специфікація: [`server/openapi.yaml`](./server/openapi.yaml)
+
+---
+
 ## 👥 Team
 
 | Роль | Ім'я | GitHub |
@@ -160,7 +271,6 @@ python manage.py runserver
 | 🎨 **Frontend Developer** | Клевач В.Р. | [@1nxiz](https://github.com/1nxiz) |
 | 🗄️ **Database Engineer** | Сусла В.В. | [@Vlad8800](https://github.com/Vlad8800) |
 | 🧪 **QA Engineer** | Волущук М.В. | [@Markovoloshchuk](https://github.com/Markovoloshchuk) |
-| 🎓 **Ментор-викладач** | Комісарчук В.В. | — |
 
 ---
 
@@ -173,8 +283,7 @@ python manage.py runserver
 | 📝 **Business Requirements** | [Notion — BRL](https://www.notion.so/Business-Requirements-List-328cc7cf61f3806f9db5c414bcaa5cef) |
 | 📡 **API Docs (Swagger)** | [OpenAPI Specification](https://www.notion.so/Swagger-OpenAPI-Specification-33acc7cf61f380a19b25f5235443bb35) |
 | 🎨 **UI/UX Prototype** | [Figma Wireframes](https://www.figma.com/design/JX3mRS5rRtxMKETHkzbDSf/Wireframes-first-etap?node-id=2034-3&t=tE9YoIxzsK0ciPc1-0) |
-| ⚛️ **Frontend Docs** | [client/README.md](./client/README.md) |
-| 🐍 **Backend Docs** | [server/README.md](./server/README.md) |
+
 
 ---
 

@@ -26,6 +26,9 @@ def notify_manager_low_balance(package) -> None:
     Called after the lesson-status transaction commits.
     Errors are logged but never raised — must not affect the lesson update response.
     """
+    if package.low_balance_notified:
+        return
+
     student = package.student
     user = student.user
     if package.discipline:
@@ -49,6 +52,8 @@ def notify_manager_low_balance(package) -> None:
             recipient_list=[settings.MANAGER_EMAIL],
             fail_silently=False,
         )
+        package.low_balance_notified = True
+        package.save(update_fields=['low_balance_notified'])
         logger.info(f'Low-balance email sent for package {package.pk} (balance={package.balance})')
     except Exception as e:
         logger.warning(f'Failed to send low-balance email for package {package.pk}: {e}')

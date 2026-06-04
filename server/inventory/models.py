@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg, Prefetch
+from django.db.models import CheckConstraint, Q, F, Count, Sum, Avg
 from django.db.models.functions import Coalesce
 from users.models import User, TeacherLevel, Student
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -7,16 +7,9 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 class DisciplineQuerySet(models.QuerySet):
     pass
 
-<<<<<<< HEAD
-=======
-class CourseQuerySet(models.QuerySet):
-    pass
-# -----------------------------------------------------------------
-
->>>>>>> aeb0bf0735d006db60797b767473977b4b8d976a
 class Discipline(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    
+
     objects = DisciplineQuerySet.as_manager()
 
     def __str__(self):
@@ -161,7 +154,7 @@ class CourseCompletion(models.Model):
         indexes = [
             models.Index(fields=['student', 'is_discount_used']),
         ]
-        unique_together = ('student', 'course') 
+        unique_together = ('student', 'course')
         constraints = [
             CheckConstraint(
                 condition=Q(earned_discount__gte=0) & Q(earned_discount__lte=100),
@@ -202,12 +195,13 @@ class Package(models.Model):
     balance = models.IntegerField()
     status = models.CharField(max_length=50, default='active')
     purchased_at = models.DateTimeField(auto_now_add=True)
-    
+    low_balance_notified = models.BooleanField(default=False)
+
     objects = PackageQuerySet.as_manager()
 
     # [DATA HOTFIX / TRIGGER]
     # Виправляє дефект математичної точності. Гарантує, що перед збереженням
-    # фінальна ціна завжди буде мати рівно 2 знаки після коми. Запобігає 
+    # фінальна ціна завжди буде мати рівно 2 знаки після коми. Запобігає
     # багам у фінансових звітах через довгі числа з рухомою комою (напр. 150.500000001).
     def save(self, *args, **kwargs):
         if self.final_price is not None:

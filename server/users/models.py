@@ -14,7 +14,7 @@ class StudentLevel(models.Model):
 
     def __str__(self):
         return self.name
-    
+
    # [DATA HOTFIX] Прибираємо лише зайві пробіли по краях.
 class TeacherLevel(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -38,7 +38,7 @@ class Role(models.Model):
         if self.name:
             self.name = self.name.strip().capitalize()
         super().save(*args, **kwargs)
-        
+
     def __str__(self):
         return self.name
 
@@ -198,7 +198,7 @@ class Request(models.Model):
             models.Index(fields=['status', 'created_at']),
             models.Index(fields=['manager', 'status']),
         ]
-        
+
     def __str__(self):
         return f"Заявка #{self.id} від {self.user.email} ({self.get_status_display()})"
 
