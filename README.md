@@ -85,29 +85,65 @@
 ```
 Learnyx/
 │
-├── 📂 client/              # ⚛️  Frontend — React + TypeScript
-│   ├── src/
-│   │   ├── components/     # Перевикористовувані UI-компоненти
-│   │   ├── pages/          # Сторінки (Student, Teacher, Manager)
-│   │   ├── services/       # HTTP-клієнт (Axios), запити до API
-│   │   ├── hooks/          # Кастомні React хуки
-│   │   └── assets/         # Статичні ресурси
-│   ├── .env.example
-│   ├── vite.config.ts
-│   └── README.md           # 👉 Детальна документація фронтенду
+├── 📂 client/                    # ⚛️ Frontend — React + TypeScript
+│   └── src/
+│       ├── app/                  # Роутинг, глобальний стан
+│       ├── assets/               # Статичні ресурси (зображення, іконки)
+│       ├── components/           # Перевикористовувані UI-компоненти
+│       │   └── layout/           # Layout компоненти
+│       ├── features/             # Функціональні модулі за роллю
+│       │   ├── auth/             # Авторизація
+│       │   ├── manager/          # Кабінет менеджера
+│       │   │   ├── applications/ # Заявки на реєстрацію
+│       │   │   ├── dashboard/    # Дашборд
+│       │   │   ├── matching/     # Підбір викладача
+│       │   │   ├── reports/      # Звіти
+│       │   │   └── subscriptions/# Пакети
+│       │   ├── profile/          # Профіль користувача
+│       │   ├── student/          # Кабінет учня
+│       │   │   ├── grades/       # Оцінки
+│       │   │   ├── homework/     # Домашні завдання
+│       │   │   ├── schedule/     # Розклад
+│       │   │   └── subscription/ # Пакети
+│       │   └── teacher/          # Кабінет викладача
+│       │       ├── finances/     # Фінанси
+│       │       ├── homework/     # Домашні завдання
+│       │       ├── schedule/     # Розклад
+│       │       └── students/     # Учні
+│       ├── hooks/                # Кастомні React хуки
+│       ├── pages/                # Сторінки (manager/, student/, teacher/)
+│       ├── services/             # HTTP-клієнт (Axios), запити до API
+│       └── utils/                # Утиліти (toast, helpers)
 │
-├── 📂 server/              # 🐍  Backend — Django + Python
-│   ├── core/               # Django-проєкт (settings, urls, wsgi)
-│   ├── manage.py
-│   ├── requirements.txt
-│   ├── openapi.yaml        # OpenAPI 3.0 специфікація
-│   ├── .env.example
-│   └── README.md           # 👉 Детальна документація бекенду
+├── 📂 server/                    # 🐍 Backend — Django + Python
+│   ├── api/                      # Головний API додаток
+│   │   ├── migrations/           # Міграції БД (api app)
+│   │   ├── models.py             # RegistrationRequest
+│   │   ├── views.py              # API views та ViewSets
+│   │   ├── serializers.py        # DRF серіалайзери
+│   │   ├── services.py           # Бізнес-логіка (cashback, email)
+│   │   ├── urls.py               # URL маршрути
+│   │   ├── permissions.py        # Кастомні permissions
+│   │   ├── validators.py         # Валідатори файлів
+│   │   ├── dropbox_storage.py    # Dropbox інтеграція
+│   │   └── tests.py              # Django тести
+│   ├── core/                     # Django проєкт
+│   │   ├── settings.py           # Налаштування
+│   │   ├── urls.py               # Кореневі URL
+│   │   └── exceptions.py        # Глобальний exception handler
+│   ├── inventory/                # Моделі уроків, пакетів, слотів
+│   │   ├── migrations/           # Міграції БД (inventory app)
+│   │   └── models.py             # Lesson, Package, Slot, Teacher...
+│   ├── users/                    # Моделі користувачів
+│   │   ├── migrations/           # Міграції БД (users app)
+│   │   ├── models.py             # User, Student, Manager, Role...
+│   │   └── management/commands/  # seed.py, integrity_audit.py
+│   ├── openapi.yaml              # OpenAPI 3.0 специфікація
+│   ├── requirements.txt          # Python залежності
+│   └── .env.example              # Шаблон змінних середовища
 │
-├── 📂 .github/             # PR templates, workflows
-├── .editorconfig
+├── docker-compose.yaml           # Docker Compose конфігурація
 ├── .gitignore
-├── CONTRIBUTORS.md
 └── README.md
 ```
 
@@ -199,12 +235,12 @@ python manage.py runserver
 
 > Доступні після запуску `docker compose up` та застосування seed-даних.
 
-| Роль | Email | Пароль |
-|------|-------|--------|
-| Manager | manager@learnyx.com | Demo1234! |
-| Teacher | teacher@learnyx.com | Demo1234! |
-| Student | student1@learnyx.com | Student1234! |
-| Admin (Django) | admin@learnyx.com | adminpassword123 |
+| Роль | Email                          | Пароль           |
+|------|--------------------------------|------------------|
+| Manager | manager@learnyx.com            | Manager1234!     |
+| Teacher | teacher(1,2,3)@learnyx.com     | Teacher1234!     |
+| Student | student(1,2,3,4,5)@learnyx.com | Student1234!     |
+| Admin (Django) | admin@learnyx.com              | adminpassword123 |
 
 ---
 
@@ -235,7 +271,6 @@ OpenAPI-специфікація: [`server/openapi.yaml`](./server/openapi.yaml)
 | 🎨 **Frontend Developer** | Клевач В.Р. | [@1nxiz](https://github.com/1nxiz) |
 | 🗄️ **Database Engineer** | Сусла В.В. | [@Vlad8800](https://github.com/Vlad8800) |
 | 🧪 **QA Engineer** | Волущук М.В. | [@Markovoloshchuk](https://github.com/Markovoloshchuk) |
-| 🎓 **Ментор-викладач** | Комісарчук В.В. | — |
 
 ---
 
@@ -248,8 +283,7 @@ OpenAPI-специфікація: [`server/openapi.yaml`](./server/openapi.yaml)
 | 📝 **Business Requirements** | [Notion — BRL](https://www.notion.so/Business-Requirements-List-328cc7cf61f3806f9db5c414bcaa5cef) |
 | 📡 **API Docs (Swagger)** | [OpenAPI Specification](https://www.notion.so/Swagger-OpenAPI-Specification-33acc7cf61f380a19b25f5235443bb35) |
 | 🎨 **UI/UX Prototype** | [Figma Wireframes](https://www.figma.com/design/JX3mRS5rRtxMKETHkzbDSf/Wireframes-first-etap?node-id=2034-3&t=tE9YoIxzsK0ciPc1-0) |
-| ⚛️ **Frontend Docs** | [client/README.md](./client/README.md) |
-| 🐍 **Backend Docs** | [server/README.md](./server/README.md) |
+
 
 ---
 
