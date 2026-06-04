@@ -9,6 +9,9 @@
 [![React](https://img.shields.io/badge/React-18.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![DRF](https://img.shields.io/badge/DRF-3.x-red?style=for-the-badge)](https://www.django-rest-framework.org)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+![Status](https://img.shields.io/badge/Status-Release_Candidate-brightgreen?style=for-the-badge)
 
 </div>
 
@@ -52,6 +55,10 @@
 | **Django REST Framework** | latest | REST API |
 | **PostgreSQL** | 14+ | База даних |
 | **drf-spectacular** | latest | OpenAPI / Swagger |
+| **SimpleJWT** | 5.x | JWT-авторизація |
+| **Dropbox API** | 12.x | Файлове сховище |
+| **SMTP (Gmail)** | — | Email-сповіщення |
+| **Docker + Compose** | 24+ | Контейнеризація |
 
 ### Frontend
 | Технологія | Версія | Призначення |
@@ -62,6 +69,14 @@
 | **Axios** | latest | HTTP-клієнт |
 | **React Router** | v6 | Маршрутизація |
 | **React Hook Form** | latest | Форми |
+
+---
+
+## ⚙️ Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) >= 24.0
+- [Docker Compose](https://docs.docker.com/compose/) >= 2.0
+- Git >= 2.40
 
 ---
 
@@ -99,6 +114,35 @@ Learnyx/
 ---
 
 ## 🚀 Getting Started
+
+### 🐳 Docker (рекомендований спосіб)
+
+```bash
+# 1. Клонування репозиторію
+git clone https://github.com/Ant228920/Learnyx.git
+cd Learnyx
+
+# 2. Налаштування змінних середовища
+cp server/.env.example server/.env
+# Відредагуй server/.env — заповни SECRET_KEY, паролі БД, SMTP, Dropbox
+
+# 3. Запуск усіх сервісів
+docker compose up --build
+
+# 4. (Опційно) Застосувати міграції вручну, якщо не запустились автоматично
+docker exec learnyx_app python manage.py migrate
+docker exec learnyx_app python manage.py seed
+```
+
+| Сервіс | URL |
+|--------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000/api/v1/ |
+| Swagger UI | http://localhost:8000/api/schema/swagger-ui/ |
+| pgAdmin | http://localhost:5050 |
+| Nginx proxy | http://localhost:8080 |
+
+---
 
 ### ⚛️ Frontend
 
@@ -148,6 +192,37 @@ python manage.py runserver
 ```
 
 > 🌐 Сервер запуститься на **`http://127.0.0.1:8000/`**
+
+---
+
+## 🔑 Demo Credentials
+
+> Доступні після запуску `docker compose up` та застосування seed-даних.
+
+| Роль | Email | Пароль |
+|------|-------|--------|
+| Manager | manager@learnyx.com | Demo1234! |
+| Teacher | teacher@learnyx.com | Demo1234! |
+| Student | student1@learnyx.com | Student1234! |
+| Admin (Django) | admin@learnyx.com | adminpassword123 |
+
+---
+
+## 📖 API Documentation
+
+Повна документація доступна через Swagger UI після запуску:
+
+```
+http://localhost:8000/api/schema/swagger-ui/
+```
+
+Також доступна ReDoc-версія:
+
+```
+http://localhost:8000/api/schema/redoc/
+```
+
+OpenAPI-специфікація: [`server/openapi.yaml`](./server/openapi.yaml)
 
 ---
 
