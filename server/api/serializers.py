@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 from api.models import RegistrationRequest
 from inventory.models import Slot, Teacher, Lesson, Package, JournalRecord, CurriculumLesson, PackagePlan, LearningRequest, Complaint, LessonMaterial
@@ -38,6 +40,14 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'email': 'Заявка з такою поштою вже існує.'}
             )
+
+        phone = data.get('phone', '')
+        if phone:
+            cleaned_phone = re.sub(r'[\s\-\(\)]', '', phone)
+            if not re.match(r'^\+?\d{10,15}$', cleaned_phone):
+                raise serializers.ValidationError(
+                    {'phone': 'Введіть коректний номер телефону (наприклад: +380991234567)'}
+                )
 
         if data.get('role') == 'teacher':
             if not data.get('subject'):
