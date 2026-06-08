@@ -146,7 +146,23 @@ copy .env.example .env # Windows
 python manage.py migrate
 python manage.py runserver
 ```
+### 🗄️ Database
+```bash
+# 1. Запустити базу даних (PostgreSQL) у Docker
+docker-compose up -d
 
+# 2. Перейти в папку сервера (якщо ви ще не там)
+cd server
+
+# 3. Переконатися, що віртуальне середовище активоване
+# Windows: venv\Scripts\activate | macOS/Linux: source venv/bin/activate
+
+# 4. Створити таблиці в базі даних (Міграції)
+python manage.py migrate
+
+# 5. Наповнити базу демонстраційними даними (Seed Data)
+python manage.py loaddata seed_data.json
+```
 > 🌐 Сервер запуститься на **`http://127.0.0.1:8000/`**
 
 ---
