@@ -1,13 +1,11 @@
 # ─── Stage 1: base ─────────────────────────────────────────────
 FROM python:3.12-slim AS base
 
-# Не генерувати .pyc файли; stdout/stderr без буферизації
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Системні залежності для psycopg2
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -24,10 +22,8 @@ RUN pip install --upgrade pip \
 # ─── Stage 3: final ────────────────────────────────────────────
 FROM dependencies AS final
 
-# Копіюємо весь server/ в контейнер
 COPY . .
 
 EXPOSE 8000
 
-# Використовуємо gunicorn для production-ready запуску
-CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3"]

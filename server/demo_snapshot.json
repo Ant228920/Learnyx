@@ -1,0 +1,3170 @@
+[
+{
+    "model": "inventory.discipline",
+    "pk": 1,
+    "fields": {
+        "name": "Математика"
+    }
+},
+{
+    "model": "inventory.discipline",
+    "pk": 2,
+    "fields": {
+        "name": "Англійська мова"
+    }
+},
+{
+    "model": "inventory.discipline",
+    "pk": 3,
+    "fields": {
+        "name": "Програмування"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 1,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-13T10:00:00Z",
+        "end_time": "2026-05-13T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 2,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-13T14:00:00Z",
+        "end_time": "2026-05-13T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 3,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-15T10:00:00Z",
+        "end_time": "2026-05-15T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 4,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-15T14:00:00Z",
+        "end_time": "2026-05-15T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 5,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-20T10:00:00Z",
+        "end_time": "2026-05-20T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 6,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-20T14:00:00Z",
+        "end_time": "2026-05-20T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 7,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-22T10:00:00Z",
+        "end_time": "2026-05-22T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 8,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-22T14:00:00Z",
+        "end_time": "2026-05-22T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 9,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-27T10:00:00Z",
+        "end_time": "2026-05-27T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 10,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-27T14:00:00Z",
+        "end_time": "2026-05-27T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 11,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-29T10:00:00Z",
+        "end_time": "2026-05-29T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 12,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-29T14:00:00Z",
+        "end_time": "2026-05-29T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 13,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-01T10:00:00Z",
+        "end_time": "2026-06-01T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 14,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-01T14:00:00Z",
+        "end_time": "2026-06-01T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 15,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-02T10:00:00Z",
+        "end_time": "2026-06-02T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 16,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-04T10:00:00Z",
+        "end_time": "2026-06-04T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 17,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-04T14:00:00Z",
+        "end_time": "2026-06-04T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 18,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-06T10:00:00Z",
+        "end_time": "2026-06-06T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 19,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-06T14:00:00Z",
+        "end_time": "2026-06-06T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 20,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-08T10:00:00Z",
+        "end_time": "2026-06-08T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 21,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-11T10:00:00Z",
+        "end_time": "2026-06-11T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 22,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-11T14:00:00Z",
+        "end_time": "2026-06-11T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 23,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-13T10:00:00Z",
+        "end_time": "2026-06-13T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 24,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-18T10:00:00Z",
+        "end_time": "2026-06-18T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 25,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-18T14:00:00Z",
+        "end_time": "2026-06-18T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 26,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-20T10:00:00Z",
+        "end_time": "2026-06-20T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 27,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-23T10:00:00Z",
+        "end_time": "2026-06-23T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 28,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-23T14:00:00Z",
+        "end_time": "2026-06-23T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 29,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-25T10:00:00Z",
+        "end_time": "2026-06-25T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 59,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-15T10:00:00Z",
+        "end_time": "2026-05-15T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 60,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-15T14:00:00Z",
+        "end_time": "2026-05-15T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 61,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-17T10:00:00Z",
+        "end_time": "2026-05-17T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 62,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-17T14:00:00Z",
+        "end_time": "2026-05-17T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 63,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-22T10:00:00Z",
+        "end_time": "2026-05-22T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 64,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-22T14:00:00Z",
+        "end_time": "2026-05-22T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 65,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-24T10:00:00Z",
+        "end_time": "2026-05-24T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 66,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-24T14:00:00Z",
+        "end_time": "2026-05-24T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 67,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-29T10:00:00Z",
+        "end_time": "2026-05-29T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 68,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-29T14:00:00Z",
+        "end_time": "2026-05-29T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 69,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-31T10:00:00Z",
+        "end_time": "2026-05-31T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 70,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-31T14:00:00Z",
+        "end_time": "2026-05-31T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 71,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-03T10:00:00Z",
+        "end_time": "2026-06-03T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 72,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-03T14:00:00Z",
+        "end_time": "2026-06-03T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 73,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-04T10:00:00Z",
+        "end_time": "2026-06-04T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 74,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-06T10:00:00Z",
+        "end_time": "2026-06-06T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 75,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-06T14:00:00Z",
+        "end_time": "2026-06-06T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 76,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-08T10:00:00Z",
+        "end_time": "2026-06-08T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 77,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-08T14:00:00Z",
+        "end_time": "2026-06-08T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 78,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-10T10:00:00Z",
+        "end_time": "2026-06-10T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 79,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-13T10:00:00Z",
+        "end_time": "2026-06-13T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 80,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-13T14:00:00Z",
+        "end_time": "2026-06-13T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 81,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-15T10:00:00Z",
+        "end_time": "2026-06-15T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 82,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-20T10:00:00Z",
+        "end_time": "2026-06-20T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 83,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-20T14:00:00Z",
+        "end_time": "2026-06-20T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 84,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-22T10:00:00Z",
+        "end_time": "2026-06-22T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 85,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-25T10:00:00Z",
+        "end_time": "2026-06-25T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 86,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-25T14:00:00Z",
+        "end_time": "2026-06-25T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 87,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-27T10:00:00Z",
+        "end_time": "2026-06-27T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 88,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-17T10:00:00Z",
+        "end_time": "2026-05-17T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 89,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-17T14:00:00Z",
+        "end_time": "2026-05-17T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 90,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-19T10:00:00Z",
+        "end_time": "2026-05-19T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 91,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-19T14:00:00Z",
+        "end_time": "2026-05-19T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 92,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-24T10:00:00Z",
+        "end_time": "2026-05-24T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 93,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-24T14:00:00Z",
+        "end_time": "2026-05-24T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 94,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-26T10:00:00Z",
+        "end_time": "2026-05-26T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 95,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-05-26T14:00:00Z",
+        "end_time": "2026-05-26T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 96,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-05-31T10:00:00Z",
+        "end_time": "2026-05-31T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 97,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-05-31T14:00:00Z",
+        "end_time": "2026-05-31T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 98,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-02T10:00:00Z",
+        "end_time": "2026-06-02T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 99,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-02T14:00:00Z",
+        "end_time": "2026-06-02T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 100,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-05T10:00:00Z",
+        "end_time": "2026-06-05T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 101,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-05T14:00:00Z",
+        "end_time": "2026-06-05T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 103,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-08T10:00:00Z",
+        "end_time": "2026-06-08T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 104,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-08T14:00:00Z",
+        "end_time": "2026-06-08T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 105,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-10T10:00:00Z",
+        "end_time": "2026-06-10T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 106,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-10T14:00:00Z",
+        "end_time": "2026-06-10T15:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 107,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-12T10:00:00Z",
+        "end_time": "2026-06-12T11:00:00Z",
+        "status": "booked"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 108,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-15T10:00:00Z",
+        "end_time": "2026-06-15T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 109,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-15T14:00:00Z",
+        "end_time": "2026-06-15T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 110,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-17T10:00:00Z",
+        "end_time": "2026-06-17T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 111,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-22T10:00:00Z",
+        "end_time": "2026-06-22T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 112,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-22T14:00:00Z",
+        "end_time": "2026-06-22T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 113,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-24T10:00:00Z",
+        "end_time": "2026-06-24T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 114,
+    "fields": {
+        "teacher": 4,
+        "start_time": "2026-06-27T10:00:00Z",
+        "end_time": "2026-06-27T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 115,
+    "fields": {
+        "teacher": 2,
+        "start_time": "2026-06-27T14:00:00Z",
+        "end_time": "2026-06-27T15:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.slot",
+    "pk": 116,
+    "fields": {
+        "teacher": 3,
+        "start_time": "2026-06-29T10:00:00Z",
+        "end_time": "2026-06-29T11:00:00Z",
+        "status": "available"
+    }
+},
+{
+    "model": "inventory.course",
+    "pk": 1,
+    "fields": {
+        "discipline": 1,
+        "title": "Математика базовий",
+        "description": null,
+        "total_lessons_course": 20,
+        "is_active": true,
+        "discount_milestones": {
+            "85": 5,
+            "90": 10,
+            "95": 15
+        }
+    }
+},
+{
+    "model": "inventory.course",
+    "pk": 2,
+    "fields": {
+        "discipline": 2,
+        "title": "Англійська для початківців",
+        "description": null,
+        "total_lessons_course": 20,
+        "is_active": true,
+        "discount_milestones": {
+            "85": 5,
+            "90": 10,
+            "95": 15
+        }
+    }
+},
+{
+    "model": "inventory.course",
+    "pk": 3,
+    "fields": {
+        "discipline": 3,
+        "title": "Python з нуля",
+        "description": null,
+        "total_lessons_course": 20,
+        "is_active": true,
+        "discount_milestones": {
+            "85": 5,
+            "90": 10,
+            "95": 15
+        }
+    }
+},
+{
+    "model": "inventory.coursecompletion",
+    "pk": 1,
+    "fields": {
+        "student": 5,
+        "course": 1,
+        "completed_lessons_count": 10,
+        "total_points": 92,
+        "earned_discount": 10,
+        "is_discount_used": false,
+        "completed_at": "2026-05-04T08:27:02.629Z"
+    }
+},
+{
+    "model": "inventory.coursecompletion",
+    "pk": 2,
+    "fields": {
+        "student": 6,
+        "course": 2,
+        "completed_lessons_count": 10,
+        "total_points": 96,
+        "earned_discount": 15,
+        "is_discount_used": false,
+        "completed_at": "2026-05-04T08:27:02.652Z"
+    }
+},
+{
+    "model": "inventory.coursecompletion",
+    "pk": 3,
+    "fields": {
+        "student": 7,
+        "course": 3,
+        "completed_lessons_count": 10,
+        "total_points": 87,
+        "earned_discount": 5,
+        "is_discount_used": false,
+        "completed_at": "2026-05-04T08:27:02.667Z"
+    }
+},
+{
+    "model": "inventory.package",
+    "pk": 1,
+    "fields": {
+        "student": 5,
+        "course": 1,
+        "discipline": 1,
+        "completed": null,
+        "total_lessons": 10,
+        "discount": "0.00",
+        "final_price": "2900.00",
+        "balance": 7,
+        "status": "active",
+        "purchased_at": "2026-06-03T08:27:02.310Z",
+        "low_balance_notified": false
+    }
+},
+{
+    "model": "inventory.package",
+    "pk": 2,
+    "fields": {
+        "student": 6,
+        "course": 2,
+        "discipline": 2,
+        "completed": null,
+        "total_lessons": 12,
+        "discount": "0.00",
+        "final_price": "3400.00",
+        "balance": 10,
+        "status": "active",
+        "purchased_at": "2026-06-03T08:27:02.314Z",
+        "low_balance_notified": false
+    }
+},
+{
+    "model": "inventory.package",
+    "pk": 3,
+    "fields": {
+        "student": 7,
+        "course": 3,
+        "discipline": 3,
+        "completed": null,
+        "total_lessons": 8,
+        "discount": "0.00",
+        "final_price": "2400.00",
+        "balance": 5,
+        "status": "active",
+        "purchased_at": "2026-06-03T08:27:02.318Z",
+        "low_balance_notified": false
+    }
+},
+{
+    "model": "inventory.package",
+    "pk": 4,
+    "fields": {
+        "student": 8,
+        "course": 1,
+        "discipline": 1,
+        "completed": null,
+        "total_lessons": 10,
+        "discount": "0.00",
+        "final_price": "2900.00",
+        "balance": 8,
+        "status": "active",
+        "purchased_at": "2026-06-03T08:27:02.322Z",
+        "low_balance_notified": false
+    }
+},
+{
+    "model": "inventory.package",
+    "pk": 5,
+    "fields": {
+        "student": 9,
+        "course": 2,
+        "discipline": 2,
+        "completed": null,
+        "total_lessons": 8,
+        "discount": "0.00",
+        "final_price": "2400.00",
+        "balance": 8,
+        "status": "available",
+        "purchased_at": "2026-06-03T08:27:02.326Z",
+        "low_balance_notified": false
+    }
+},
+{
+    "model": "inventory.packageplan",
+    "pk": 1,
+    "fields": {
+        "name": "Стартовий",
+        "total_lessons": 8,
+        "price": "2400.00",
+        "description": "",
+        "is_active": true,
+        "created_at": "2026-06-03T08:26:59.255Z"
+    }
+},
+{
+    "model": "inventory.packageplan",
+    "pk": 2,
+    "fields": {
+        "name": "Стандарт",
+        "total_lessons": 10,
+        "price": "2900.00",
+        "description": "",
+        "is_active": true,
+        "created_at": "2026-06-03T08:26:59.258Z"
+    }
+},
+{
+    "model": "inventory.packageplan",
+    "pk": 3,
+    "fields": {
+        "name": "Преміум",
+        "total_lessons": 12,
+        "price": "3400.00",
+        "description": "",
+        "is_active": true,
+        "created_at": "2026-06-03T08:26:59.261Z"
+    }
+},
+{
+    "model": "inventory.learningrequest",
+    "pk": 1,
+    "fields": {
+        "student": 8,
+        "package": 4,
+        "subject": "math",
+        "level": "Підготовка до НМТ/ЗНО",
+        "preferred_days": "",
+        "preferred_time": "",
+        "notes": "Хочу підтягнути алгебру перед іспитами",
+        "status": "pending",
+        "created_at": "2026-06-03T08:27:02.725Z"
+    }
+},
+{
+    "model": "inventory.learningrequest",
+    "pk": 2,
+    "fields": {
+        "student": 9,
+        "package": 5,
+        "subject": "english",
+        "level": "A1-B1",
+        "preferred_days": "",
+        "preferred_time": "",
+        "notes": "Починаю вивчення англійської з нуля",
+        "status": "pending",
+        "created_at": "2026-06-03T08:27:02.740Z"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 1,
+    "fields": {
+        "slot": 1,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 2,
+    "fields": {
+        "slot": 2,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 3,
+    "fields": {
+        "slot": 3,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 4,
+    "fields": {
+        "slot": 4,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 5,
+    "fields": {
+        "slot": 5,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 6,
+    "fields": {
+        "slot": 6,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 7,
+    "fields": {
+        "slot": 7,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "teacher_missed",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 8,
+    "fields": {
+        "slot": 8,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 9,
+    "fields": {
+        "slot": 9,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 10,
+    "fields": {
+        "slot": 10,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 11,
+    "fields": {
+        "slot": 11,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 12,
+    "fields": {
+        "slot": 12,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "student_missed",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 13,
+    "fields": {
+        "slot": 13,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 14,
+    "fields": {
+        "slot": 14,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 15,
+    "fields": {
+        "slot": 15,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 16,
+    "fields": {
+        "slot": 16,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 17,
+    "fields": {
+        "slot": 17,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 18,
+    "fields": {
+        "slot": 18,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 19,
+    "fields": {
+        "slot": 19,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": null
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 20,
+    "fields": {
+        "slot": 20,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": null
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 21,
+    "fields": {
+        "slot": 59,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 22,
+    "fields": {
+        "slot": 60,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 23,
+    "fields": {
+        "slot": 61,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 24,
+    "fields": {
+        "slot": 62,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 25,
+    "fields": {
+        "slot": 63,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 26,
+    "fields": {
+        "slot": 64,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 27,
+    "fields": {
+        "slot": 65,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "teacher_missed",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 28,
+    "fields": {
+        "slot": 66,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 29,
+    "fields": {
+        "slot": 67,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 30,
+    "fields": {
+        "slot": 68,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 31,
+    "fields": {
+        "slot": 69,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 32,
+    "fields": {
+        "slot": 70,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "student_missed",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 33,
+    "fields": {
+        "slot": 71,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 34,
+    "fields": {
+        "slot": 72,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 35,
+    "fields": {
+        "slot": 73,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 36,
+    "fields": {
+        "slot": 74,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 37,
+    "fields": {
+        "slot": 75,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 38,
+    "fields": {
+        "slot": 76,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 39,
+    "fields": {
+        "slot": 77,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": null
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 40,
+    "fields": {
+        "slot": 78,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": null
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 41,
+    "fields": {
+        "slot": 88,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 42,
+    "fields": {
+        "slot": 89,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 43,
+    "fields": {
+        "slot": 90,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 44,
+    "fields": {
+        "slot": 91,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 45,
+    "fields": {
+        "slot": 92,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 46,
+    "fields": {
+        "slot": 93,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 47,
+    "fields": {
+        "slot": 94,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "teacher_missed",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 48,
+    "fields": {
+        "slot": 95,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 49,
+    "fields": {
+        "slot": 96,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 50,
+    "fields": {
+        "slot": 97,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 51,
+    "fields": {
+        "slot": 98,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 52,
+    "fields": {
+        "slot": 99,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "student_missed",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 53,
+    "fields": {
+        "slot": 100,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 54,
+    "fields": {
+        "slot": 101,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "conducted",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 55,
+    "fields": {
+        "slot": 103,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 56,
+    "fields": {
+        "slot": 104,
+        "student": 6,
+        "package": 2,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 57,
+    "fields": {
+        "slot": 105,
+        "student": 7,
+        "package": 3,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": "https://meet.google.com/demo-link"
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 58,
+    "fields": {
+        "slot": 106,
+        "student": 8,
+        "package": 4,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": null
+    }
+},
+{
+    "model": "inventory.lesson",
+    "pk": 59,
+    "fields": {
+        "slot": 107,
+        "student": 5,
+        "package": 1,
+        "curriculum_lesson": null,
+        "status": "scheduled",
+        "meeting_link": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 1,
+    "fields": {
+        "lesson": 1,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #1: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-14T08:27:02.329Z",
+        "reviewed_at": "2026-06-02T10:27:02.329Z",
+        "grade": 10,
+        "homework_grade": 10,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 2,
+    "fields": {
+        "lesson": 2,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #2: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-14T08:27:02.329Z",
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 3,
+    "fields": {
+        "lesson": 3,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #3: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 7,
+        "homework_grade": null,
+        "activity_grade": 6,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 4,
+    "fields": {
+        "lesson": 4,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #4: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-16T08:27:02.329Z",
+        "reviewed_at": "2026-06-02T13:27:02.329Z",
+        "grade": 9,
+        "homework_grade": 10,
+        "activity_grade": 5,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 5,
+    "fields": {
+        "lesson": 5,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #5: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-21T08:27:02.329Z",
+        "reviewed_at": null,
+        "grade": 7,
+        "homework_grade": null,
+        "activity_grade": 5,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 6,
+    "fields": {
+        "lesson": 6,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #6: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 7,
+    "fields": {
+        "lesson": 8,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #8: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-23T08:27:02.329Z",
+        "reviewed_at": null,
+        "grade": 6,
+        "homework_grade": null,
+        "activity_grade": 7,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 8,
+    "fields": {
+        "lesson": 9,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #9: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 8,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 9,
+    "fields": {
+        "lesson": 10,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #10: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-28T08:27:02.329Z",
+        "reviewed_at": "2026-06-02T13:27:02.329Z",
+        "grade": 6,
+        "homework_grade": 7,
+        "activity_grade": 6,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 10,
+    "fields": {
+        "lesson": 11,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #11: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-30T08:27:02.329Z",
+        "reviewed_at": null,
+        "grade": 8,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 11,
+    "fields": {
+        "lesson": 13,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #13: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-06-02T08:27:02.329Z",
+        "reviewed_at": "2026-06-03T05:27:02.329Z",
+        "grade": 6,
+        "homework_grade": 10,
+        "activity_grade": 6,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 12,
+    "fields": {
+        "lesson": 14,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #14: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-06-02T08:27:02.329Z",
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 10,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 13,
+    "fields": {
+        "lesson": 15,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #15: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 10,
+        "homework_grade": null,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 14,
+    "fields": {
+        "lesson": 21,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #1: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-16T16:52:25.092Z",
+        "reviewed_at": "2026-06-04T17:52:25.092Z",
+        "grade": 6,
+        "homework_grade": 6,
+        "activity_grade": 5,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 15,
+    "fields": {
+        "lesson": 22,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #2: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-16T16:52:25.092Z",
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 16,
+    "fields": {
+        "lesson": 23,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #3: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 6,
+        "homework_grade": null,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 17,
+    "fields": {
+        "lesson": 24,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #4: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-18T16:52:25.092Z",
+        "reviewed_at": "2026-06-05T01:52:25.092Z",
+        "grade": 6,
+        "homework_grade": 5,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 18,
+    "fields": {
+        "lesson": 25,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #5: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-23T16:52:25.092Z",
+        "reviewed_at": null,
+        "grade": 10,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 19,
+    "fields": {
+        "lesson": 26,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #6: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 6,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 20,
+    "fields": {
+        "lesson": 28,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #8: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-25T16:52:25.092Z",
+        "reviewed_at": null,
+        "grade": 10,
+        "homework_grade": null,
+        "activity_grade": 5,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 21,
+    "fields": {
+        "lesson": 29,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #9: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 7,
+        "homework_grade": null,
+        "activity_grade": 7,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 22,
+    "fields": {
+        "lesson": 30,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #10: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-30T16:52:25.092Z",
+        "reviewed_at": "2026-06-04T16:52:25.092Z",
+        "grade": 6,
+        "homework_grade": 7,
+        "activity_grade": 6,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 23,
+    "fields": {
+        "lesson": 31,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #11: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-06-01T16:52:25.092Z",
+        "reviewed_at": null,
+        "grade": 8,
+        "homework_grade": null,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 24,
+    "fields": {
+        "lesson": 33,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #13: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-06-04T16:52:25.092Z",
+        "reviewed_at": "2026-06-04T23:52:25.092Z",
+        "grade": 7,
+        "homework_grade": 8,
+        "activity_grade": 10,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 25,
+    "fields": {
+        "lesson": 34,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #14: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-06-04T16:52:25.092Z",
+        "reviewed_at": null,
+        "grade": 8,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 26,
+    "fields": {
+        "lesson": 35,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #15: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 10,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 27,
+    "fields": {
+        "lesson": 41,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #1: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-18T12:33:29.897Z",
+        "reviewed_at": "2026-06-07T08:33:29.897Z",
+        "grade": 10,
+        "homework_grade": 5,
+        "activity_grade": 10,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 28,
+    "fields": {
+        "lesson": 42,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #2: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-18T12:33:29.897Z",
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 29,
+    "fields": {
+        "lesson": 43,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #3: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 7,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 30,
+    "fields": {
+        "lesson": 44,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #4: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-05-20T12:33:29.897Z",
+        "reviewed_at": "2026-06-07T02:33:29.897Z",
+        "grade": 7,
+        "homework_grade": 9,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 31,
+    "fields": {
+        "lesson": 45,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #5: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-25T12:33:29.897Z",
+        "reviewed_at": null,
+        "grade": 6,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 32,
+    "fields": {
+        "lesson": 46,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #6: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 10,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 33,
+    "fields": {
+        "lesson": 48,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #8: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-05-27T12:33:29.897Z",
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 34,
+    "fields": {
+        "lesson": 49,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #9: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "assigned",
+        "homework_submitted_at": null,
+        "reviewed_at": null,
+        "grade": 10,
+        "homework_grade": null,
+        "activity_grade": 5,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 35,
+    "fields": {
+        "lesson": 50,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #10: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-06-01T12:33:29.897Z",
+        "reviewed_at": "2026-06-07T01:33:29.897Z",
+        "grade": 8,
+        "homework_grade": 5,
+        "activity_grade": 6,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 36,
+    "fields": {
+        "lesson": 51,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #11: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-06-03T12:33:29.897Z",
+        "reviewed_at": null,
+        "grade": 9,
+        "homework_grade": null,
+        "activity_grade": 9,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 37,
+    "fields": {
+        "lesson": 53,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #13: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "reviewed",
+        "homework_submitted_at": "2026-06-06T12:33:29.897Z",
+        "reviewed_at": "2026-06-06T21:33:29.897Z",
+        "grade": 8,
+        "homework_grade": 6,
+        "activity_grade": 8,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.journalrecord",
+    "pk": 38,
+    "fields": {
+        "lesson": 54,
+        "is_present": true,
+        "teacher_homework_task": {
+            "description": "Завдання #14: виконати вправи"
+        },
+        "homework_answer_url": null,
+        "homework_file_url": null,
+        "lesson_topic": null,
+        "homework_status": "submitted",
+        "homework_submitted_at": "2026-06-06T12:33:29.897Z",
+        "reviewed_at": null,
+        "grade": 10,
+        "homework_grade": null,
+        "activity_grade": 7,
+        "teacher_notes": null
+    }
+},
+{
+    "model": "inventory.complaint",
+    "pk": 1,
+    "fields": {
+        "student": 7,
+        "lesson": 7,
+        "reason": "Викладач не з'явився на урок без попередження",
+        "status": "pending",
+        "created_at": "2026-06-03T08:27:02.690Z",
+        "reviewed_at": null
+    }
+},
+{
+    "model": "inventory.complaint",
+    "pk": 2,
+    "fields": {
+        "student": 5,
+        "lesson": 1,
+        "reason": "Урок тривав лише 20 хвилин замість 60",
+        "status": "reviewed",
+        "created_at": "2026-06-03T08:27:02.706Z",
+        "reviewed_at": "2026-05-29T08:27:02.701Z"
+    }
+},
+{
+    "model": "inventory.complaint",
+    "pk": 3,
+    "fields": {
+        "student": 7,
+        "lesson": 27,
+        "reason": "Викладач не з'явився на урок без попередження",
+        "status": "pending",
+        "created_at": "2026-06-05T16:52:25.257Z",
+        "reviewed_at": null
+    }
+},
+{
+    "model": "inventory.complaint",
+    "pk": 4,
+    "fields": {
+        "student": 5,
+        "lesson": 21,
+        "reason": "Урок тривав лише 20 хвилин замість 60",
+        "status": "reviewed",
+        "created_at": "2026-06-05T16:52:25.261Z",
+        "reviewed_at": "2026-05-31T16:52:25.259Z"
+    }
+},
+{
+    "model": "inventory.complaint",
+    "pk": 5,
+    "fields": {
+        "student": 7,
+        "lesson": 47,
+        "reason": "Викладач не з'явився на урок без попередження",
+        "status": "pending",
+        "created_at": "2026-06-07T12:33:30.042Z",
+        "reviewed_at": null
+    }
+},
+{
+    "model": "inventory.complaint",
+    "pk": 6,
+    "fields": {
+        "student": 5,
+        "lesson": 41,
+        "reason": "Урок тривав лише 20 хвилин замість 60",
+        "status": "reviewed",
+        "created_at": "2026-06-07T12:33:30.047Z",
+        "reviewed_at": "2026-06-02T12:33:30.046Z"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 1,
+    "fields": {
+        "name": "Дошкільнята"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 2,
+    "fields": {
+        "name": "Дорослі (Business)"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 3,
+    "fields": {
+        "name": "B2"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 4,
+    "fields": {
+        "name": "С1-С2"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 5,
+    "fields": {
+        "name": "Підготовка до НМТ/ЗНО"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 6,
+    "fields": {
+        "name": "B1"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 7,
+    "fields": {
+        "name": "C2"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 8,
+    "fields": {
+        "name": "B1-B2"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 9,
+    "fields": {
+        "name": "A1-B1"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 10,
+    "fields": {
+        "name": "A1"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 11,
+    "fields": {
+        "name": "1-4 клас"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 12,
+    "fields": {
+        "name": "5-11 клас"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 13,
+    "fields": {
+        "name": "B2-C1"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 14,
+    "fields": {
+        "name": "A2"
+    }
+},
+{
+    "model": "users.studentlevel",
+    "pk": 15,
+    "fields": {
+        "name": "C1"
+    }
+},
+{
+    "model": "users.teacherlevel",
+    "pk": 1,
+    "fields": {
+        "name": "Junior"
+    }
+},
+{
+    "model": "users.teacherlevel",
+    "pk": 2,
+    "fields": {
+        "name": "Middle"
+    }
+},
+{
+    "model": "users.teacherlevel",
+    "pk": 3,
+    "fields": {
+        "name": "Senior"
+    }
+},
+{
+    "model": "users.role",
+    "pk": 1,
+    "fields": {
+        "name": "Student"
+    }
+},
+{
+    "model": "users.role",
+    "pk": 2,
+    "fields": {
+        "name": "Teacher"
+    }
+},
+{
+    "model": "users.role",
+    "pk": 3,
+    "fields": {
+        "name": "Manager"
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$KrM1YL2bQrvK8wrEtP1Qxefl47Sui9YB5iHGpxM3ITXxqFbHnfhDe",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "manager",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:26:59.291Z",
+        "email": "manager@learnyx.com",
+        "role_obj": 3,
+        "first_name": "Олена",
+        "last_name": "Петрівна",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$qNjkwtCr2CEQo7KYnk7Rju21DbL.iJctMB/ZK3GKhHhiYWxIJ9oDi",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "teacher1",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:26:59.623Z",
+        "email": "teacher1@learnyx.com",
+        "role_obj": 2,
+        "first_name": "Іван",
+        "last_name": "Коваль",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$JxtyMlIZlTW7NtCzVXiFIu.MB5puqoRv82kTUTK.WUAWDI8qx02gm",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "teacher2",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:26:59.920Z",
+        "email": "teacher2@learnyx.com",
+        "role_obj": 2,
+        "first_name": "Марія",
+        "last_name": "Шевченко",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$NhrBpP63y9e.esqiRI4My.RQ.baysktmW5kZVG0dbNBIylscKEWb6",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "teacher3",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:27:00.222Z",
+        "email": "teacher3@learnyx.com",
+        "role_obj": 2,
+        "first_name": "Олег",
+        "last_name": "Бондаренко",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$TS3V11V3s0fznpyxilY.Wehq09OnqZe5OCxiVnBLViWr4io56ARbO",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "student1",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:27:00.580Z",
+        "email": "student1@learnyx.com",
+        "role_obj": 1,
+        "first_name": "Андрій",
+        "last_name": "Мельник",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$58Q4aPpNTlBMCPK9VNbShuaOd6oiyZa8GNzBcpGyXf9ePk3eNcHui",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "student2",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:27:01.019Z",
+        "email": "student2@learnyx.com",
+        "role_obj": 1,
+        "first_name": "Катерина",
+        "last_name": "Іванова",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$rJkA.USxwduz6Hib6oxuOuUMBr.lPOcnYKGeC7UQfHvj3S2oQ.fo.",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "student3",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:27:01.365Z",
+        "email": "student3@learnyx.com",
+        "role_obj": 1,
+        "first_name": "Дмитро",
+        "last_name": "Сидоренко",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$hTneIUG1VvjkqHnyB2zSGeAVVBUNKlWy09HhRL2NLPyAOUrnNuTcu",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "student4",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:27:01.667Z",
+        "email": "student4@learnyx.com",
+        "role_obj": 1,
+        "first_name": "Оксана",
+        "last_name": "Ткаченко",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "fields": {
+        "password": "bcrypt_sha256$$2b$12$pdmk4ybhmrJAGjFykMuSPO/Epx37iW1Sby7.eP3HB6YNTbk0t1tjC",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "student5",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2026-06-03T08:27:01.992Z",
+        "email": "student5@learnyx.com",
+        "role_obj": 1,
+        "first_name": "Максим",
+        "last_name": "Лисенко",
+        "father_name": null,
+        "phone": null,
+        "nickname": null,
+        "photo": null,
+        "is_approved": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.student",
+    "pk": 5,
+    "fields": {
+        "money_balance": "5000.00"
+    }
+},
+{
+    "model": "users.student",
+    "pk": 6,
+    "fields": {
+        "money_balance": "8000.00"
+    }
+},
+{
+    "model": "users.student",
+    "pk": 7,
+    "fields": {
+        "money_balance": "3000.00"
+    }
+},
+{
+    "model": "users.student",
+    "pk": 8,
+    "fields": {
+        "money_balance": "6000.00"
+    }
+},
+{
+    "model": "users.student",
+    "pk": 9,
+    "fields": {
+        "money_balance": "2000.00"
+    }
+},
+{
+    "model": "users.studentdisciplinelevel",
+    "pk": 1,
+    "fields": {
+        "student": 5,
+        "discipline": 1,
+        "level": 5
+    }
+},
+{
+    "model": "users.studentdisciplinelevel",
+    "pk": 2,
+    "fields": {
+        "student": 6,
+        "discipline": 2,
+        "level": 8
+    }
+},
+{
+    "model": "users.studentdisciplinelevel",
+    "pk": 3,
+    "fields": {
+        "student": 7,
+        "discipline": 3,
+        "level": 10
+    }
+},
+{
+    "model": "users.studentdisciplinelevel",
+    "pk": 4,
+    "fields": {
+        "student": 8,
+        "discipline": 1,
+        "level": 12
+    }
+},
+{
+    "model": "users.studentdisciplinelevel",
+    "pk": 5,
+    "fields": {
+        "student": 9,
+        "discipline": 2,
+        "level": 9
+    }
+},
+{
+    "model": "users.manager",
+    "pk": 1,
+    "fields": {
+        "is_active": true
+    }
+},
+{
+    "model": "inventory.teacher",
+    "pk": 2,
+    "fields": {
+        "discipline": 1,
+        "level": 3,
+        "bio": null,
+        "salary": "500.00"
+    }
+},
+{
+    "model": "inventory.teacher",
+    "pk": 3,
+    "fields": {
+        "discipline": 2,
+        "level": 3,
+        "bio": null,
+        "salary": "500.00"
+    }
+},
+{
+    "model": "inventory.teacher",
+    "pk": 4,
+    "fields": {
+        "discipline": 3,
+        "level": 3,
+        "bio": null,
+        "salary": "500.00"
+    }
+}
+]

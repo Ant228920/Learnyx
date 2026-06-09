@@ -33,16 +33,8 @@ class Command(BaseCommand):
         for name in ['Student', 'Teacher', 'Manager']:
             Role.objects.get_or_create(name=name)
 
-        # ОНОВЛЕНО: Нова структура рівнів знань
-        general_levels = [
-            'A1', 'A2', 'B1', 'B2', 'C1', 'C2',
-            '1-4 клас', '5-11 клас', 'Дошкільнята',
-            'Підготовка до НМТ/ЗНО', 'Дорослі (Business)'
-        ]
-        english_levels = ['A1-B1', 'B1-B2', 'B2-C1', 'С1-С2']
-
-        all_levels = list(set(general_levels + english_levels))
-        for name in all_levels:
+        for name in ['Beginner', 'Elementary', 'Pre-Intermediate',
+                     'Intermediate', 'Upper-Intermediate', 'Advanced']:
             StudentLevel.objects.get_or_create(name=name)
 
         for name in ['Junior', 'Middle', 'Senior']:
@@ -82,19 +74,13 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------ users
     def _create_users(self):
         from inventory.models import Teacher
-        from users.models import Manager, Role, Student, StudentLevel, TeacherLevel, User, StudentDisciplineLevel
+        from users.models import Manager, Role, Student, StudentLevel, TeacherLevel, User
 
         sr = Role.objects.get(name='Student')
         tr = Role.objects.get(name='Teacher')
         mr = Role.objects.get(name='Manager')
-
-        # ОНОВЛЕНО: Отримуємо нові рівні для прив'язки
-        lv_math = StudentLevel.objects.get(name='Підготовка до НМТ/ЗНО')
-        lv_math_basic = StudentLevel.objects.get(name='5-11 клас')
-        lv_eng_mid = StudentLevel.objects.get(name='B1-B2')
-        lv_eng_beg = StudentLevel.objects.get(name='A1-B1')
-        lv_prog = StudentLevel.objects.get(name='A1')
-
+        lv_mid = StudentLevel.objects.get(name='Intermediate')
+        lv_beg = StudentLevel.objects.get(name='Beginner')
         tlv = TeacherLevel.objects.get(name='Senior')
 
         # Manager
@@ -129,16 +115,16 @@ class Command(BaseCommand):
             )
             self.teachers.append(t)
 
-        # Students (ОНОВЛЕНО: Прибрано `level` з моделі Student, використовуємо StudentDisciplineLevel)
+        # Students
         students_spec = [
-            ('student1@learnyx.com', 'student1', 'Андрій',   'Мельник',   Decimal('5000'), self.discs[0], lv_math),
-            ('student2@learnyx.com', 'student2', 'Катерина', 'Іванова',   Decimal('8000'), self.discs[1], lv_eng_mid),
-            ('student3@learnyx.com', 'student3', 'Дмитро',   'Сидоренко', Decimal('3000'), self.discs[2], lv_prog),
-            ('student4@learnyx.com', 'student4', 'Оксана',   'Ткаченко',  Decimal('6000'), self.discs[0], lv_math_basic),
-            ('student5@learnyx.com', 'student5', 'Максим',   'Лисенко',   Decimal('2000'), self.discs[1], lv_eng_beg),
+            ('student1@learnyx.com', 'student1', 'Андрій',   'Мельник',   lv_mid, Decimal('5000')),
+            ('student2@learnyx.com', 'student2', 'Катерина', 'Іванова',   lv_mid, Decimal('8000')),
+            ('student3@learnyx.com', 'student3', 'Дмитро',   'Сидоренко', lv_beg, Decimal('3000')),
+            ('student4@learnyx.com', 'student4', 'Оксана',   'Ткаченко',  lv_beg, Decimal('6000')),
+            ('student5@learnyx.com', 'student5', 'Максим',   'Лисенко',   lv_mid, Decimal('2000')),
         ]
         self.students = []
-        for email, uname, fn, ln, balance, disc, level_obj in students_spec:
+        for email, uname, fn, ln, level, balance in students_spec:
             u, _ = User.objects.get_or_create(
                 email=email,
                 defaults={'username': uname, 'first_name': fn, 'last_name': ln,
@@ -146,20 +132,10 @@ class Command(BaseCommand):
             )
             u.set_password('Student1234!')
             u.save()
-
-            # Створюємо студента тільки з балансом
             s, _ = Student.objects.get_or_create(
                 user=u,
-                defaults={'money_balance': balance},
+                defaults={'level': level, 'money_balance': balance},
             )
-
-            # Прив'язуємо предмет та рівень через нову таблицю
-            StudentDisciplineLevel.objects.get_or_create(
-                student=s,
-                discipline=disc,
-                defaults={'level': level_obj}
-            )
-
             self.students.append(s)
 
         self.stdout.write('  Users: 1 manager, 3 teachers, 5 students')
@@ -169,6 +145,7 @@ class Command(BaseCommand):
         from inventory.models import Package
 
         cfg = [
+            # (student_idx, course_idx, total, balance, price, status)
             (0, 0, 10,  7, Decimal('2900'), 'active'),
             (1, 1, 12, 10, Decimal('3400'), 'active'),
             (2, 2,  8,  5, Decimal('2400'), 'active'),
@@ -204,6 +181,7 @@ class Command(BaseCommand):
             d = now + timedelta(days=days)
             return d.replace(hour=hour, minute=0, second=0, microsecond=0)
 
+        # (days_from_now, hour) — each unique per teacher rotation
         past_schedule = [
             (-21, 10), (-21, 14),
             (-19, 10), (-19, 14),
@@ -229,6 +207,7 @@ class Command(BaseCommand):
         self.conducted_lessons = []
         self.missed_lesson = None
 
+        # Past slots → lessons (conducted / missed)
         for i, (days, hour) in enumerate(past_schedule):
             teacher = self.teachers[i % 3]
             si = i % 4
@@ -286,6 +265,7 @@ class Command(BaseCommand):
             elif lesson_status == Lesson.Status.TEACHER_MISSED:
                 self.missed_lesson = lesson
 
+        # Future slots → scheduled lessons + free slots
         for i, (days, hour) in enumerate(future_schedule):
             teacher = self.teachers[i % 3]
             si = i % 4
@@ -338,6 +318,7 @@ class Command(BaseCommand):
     def _create_complaints(self):
         from inventory.models import Complaint
 
+        # Complaint on teacher_missed lesson (pending)
         if self.missed_lesson:
             Complaint.objects.get_or_create(
                 lesson=self.missed_lesson, student=self.missed_lesson.student,
@@ -347,6 +328,7 @@ class Command(BaseCommand):
                 },
             )
 
+        # Complaint on first conducted lesson (reviewed)
         if self.conducted_lessons:
             first = self.conducted_lessons[0]
             Complaint.objects.get_or_create(
@@ -368,7 +350,7 @@ class Command(BaseCommand):
             student=self.students[3], subject='math',
             defaults={
                 'package': self.packages[3],
-                'level': 'Підготовка до НМТ/ЗНО', # ОНОВЛЕНО
+                'level': 'Intermediate',
                 'notes': 'Хочу підтягнути алгебру перед іспитами',
                 'status': 'pending',
             },
@@ -377,7 +359,7 @@ class Command(BaseCommand):
             student=self.students[4], subject='english',
             defaults={
                 'package': self.packages[4],
-                'level': 'A1-B1', # ОНОВЛЕНО
+                'level': 'Beginner',
                 'notes': 'Починаю вивчення англійської з нуля',
                 'status': 'pending',
             },

@@ -36,14 +36,11 @@ from api.serializers import (
     StudentListSerializer,
     AvailableStudentSerializer,
     AssignLessonSerializer,
-    HomeworkSerializer,
     HomeworkGradeSerializer,
-    GradeEntrySerializer,
     LessonArchiveSerializer,
     PackagePlanSerializer,
     StudentAvailablePackageSerializer,
     ManagerPackageSerializer,
-    TeacherListSerializer,
     LearningRequestSerializer,
     LearningRequestCreateSerializer,
     ReviewSerializer,
@@ -55,7 +52,7 @@ from api.serializers import (
     HomeworkDetailSerializer,
     HomeworkSubmitSerializer,
 )
-from users.models import User, Role, Student, Manager, Review, StudentLevel
+from users.models import User, Role, Student, Manager, Review
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
 from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
@@ -451,7 +448,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
                 )
 
-                if package.balance < 2:
+                if package.balance <= 2:
                     low_balance_package = package
 
                 if package.status == 'completed':
@@ -970,13 +967,13 @@ class StudentDashboardView(APIView):
         )
         today_lessons = [
             {
-                'lesson_id': l.pk,
-                'start_time': l.slot.start_time,
-                'end_time': l.slot.end_time,
-                'meeting_link': l.meeting_link,
-                'teacher': f'{l.slot.teacher.user.first_name} {l.slot.teacher.user.last_name}'.strip(),
+                'lesson_id': lesson.pk,
+                'start_time': lesson.slot.start_time,
+                'end_time': lesson.slot.end_time,
+                'meeting_link': lesson.meeting_link,
+                'teacher': f'{lesson.slot.teacher.user.first_name} {lesson.slot.teacher.user.last_name}'.strip(),
             }
-            for l in today_qs
+            for lesson in today_qs
         ]
 
         # --- bonus progress for the active package ---
@@ -1031,8 +1028,8 @@ class TeacherDashboardView(APIView):
         )
         # One query for all lessons on those slots
         lessons_by_slot = {
-            l.slot_id: l
-            for l in Lesson.objects
+            lesson.slot_id: lesson
+            for lesson in Lesson.objects
             .filter(slot__in=today_slots)
             .select_related('student__user', 'curriculum_lesson')
         }
