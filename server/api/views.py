@@ -688,6 +688,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
         record.save()
 
+
         http_status = status.HTTP_201_CREATED if (created or homework_was_empty) else status.HTTP_200_OK
         return Response(JournalRecordSerializer(record).data, status=http_status)
 
