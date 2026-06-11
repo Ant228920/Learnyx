@@ -67,6 +67,7 @@ urlpatterns = [
     # ── Complaints
     path('v1/complaints/', api.views.ComplaintListCreateView.as_view(), name='complaint-list'),
     path('v1/complaints/<int:pk>/', api.views.ComplaintDetailView.as_view(), name='complaint-detail'),
+    path('v1/lessons/<int:pk>/complaint/', api.views.LessonComplaintView.as_view(), name='lesson-complaint'),
 
     # ── Lesson materials
     path('v1/lessons/<int:lesson_id>/materials/', api.views.LessonMaterialView.as_view(), name='lesson-materials'),

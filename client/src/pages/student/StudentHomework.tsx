@@ -8,12 +8,6 @@ type FilterTab = 'Всі' | 'Нові';
 
 const now = new Date();
 
-function getFilename(url: string): string {
-  const parts = url.split('/');
-  const last = parts[parts.length - 1];
-  return last && last.trim() !== '' ? last : 'Файл завдання';
-}
-
 export default function StudentHomework() {
   const { homeworks, loading, error, refetch } = useStudentHomework();
   const [tab, setTab] = useState<FilterTab>('Всі');
@@ -152,20 +146,22 @@ export default function StudentHomework() {
                     !expired && !done ? 'cursor-pointer hover:shadow-md' : 'opacity-60',
                   ].join(' ')}
                 >
-                  {/* Subject badge */}
+                  {/* Subject badge — only shown when subject is known */}
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#1f8cf91a] rounded-lg">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                        stroke={expired || done ? '#9095a1' : '#1f8cf9'} strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                      </svg>
-                      <span className={`font-inter font-bold text-[10px] tracking-[0.60px] ${
-                        expired || done ? 'text-[#9095a1]' : 'text-[#1f8cf9]'
-                      }`}>
-                        {hw.subject}
+                    {hw.subject && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#1f8cf91a] rounded-lg">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                          stroke={expired || done ? '#9095a1' : '#1f8cf9'} strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <span className={`font-inter font-bold text-[10px] tracking-[0.60px] ${
+                          expired || done ? 'text-[#9095a1]' : 'text-[#1f8cf9]'
+                        }`}>
+                          {hw.subject}
+                        </span>
                       </span>
-                    </span>
+                    )}
                     {hw.urgent && !expired && !done && (
                       <span className="px-2.5 py-0.5 bg-red-500 rounded-full font-inter font-bold text-white text-[10px]">
                         Термінове

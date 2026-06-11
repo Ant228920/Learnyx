@@ -68,7 +68,7 @@ class DropboxStorage(Storage):
             else:
                 shared = self.client.sharing_create_shared_link_with_settings(full)
                 link = shared.url
-            return link.replace('&dl=0', '&dl=1').replace('?dl=0', '?dl=1')
+            return link  # keep ?dl=0 for preview; frontend converts as needed
         except ApiError:
             return ''
 
@@ -122,7 +122,7 @@ class DropboxStorage(Storage):
                 links = dbx.sharing_list_shared_links(path=unique_path, direct_only=True)
                 url = links.links[0].url if links.links else ''
 
-            return url.replace('?dl=0', '?dl=1')
+            return url  # keep ?dl=0 — frontend converts to direct URL for viewing
 
         except Exception as e:
             logger.error(f'Dropbox upload error: {e}')

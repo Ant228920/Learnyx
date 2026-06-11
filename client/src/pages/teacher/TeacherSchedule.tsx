@@ -33,8 +33,7 @@ export default function TeacherSchedule() {
   const [cancelSlot, setCancelSlot] = useState<SlotItem | null>(null);
   const [freeFrom, setFreeFrom] = useState('08:30');
   const [freeTo, setFreeTo] = useState('09:30');
-  const [repeatWeekly, setRepeatWeekly] = useState(false);
-  const [repeatWeeks, setRepeatWeeks] = useState(4);
+  const [repeatWeekly, setRepeatWeekly] = useState(true);
   const [cancelError, setCancelError] = useState('');
 
   const today = new Date();
@@ -80,8 +79,12 @@ export default function TeacherSchedule() {
   const handleAddFreeSlot = async () => {
     if (!dayModal) return;
     const pad = (n: number) => String(n).padStart(2, '0');
-    const weeksCount = repeatWeekly ? repeatWeeks : 1;
     const now = new Date();
+    let weeksCount = 1;
+    if (repeatWeekly) {
+      const endOfYear = new Date(dayModal.getFullYear(), 11, 31);
+      weeksCount = Math.max(1, Math.ceil((endOfYear.getTime() - dayModal.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1);
+    }
     try {
       for (let w = 0; w < weeksCount; w++) {
         const slotDate = new Date(dayModal);
@@ -145,12 +148,17 @@ export default function TeacherSchedule() {
                 {slots.length > 0 && (
                   <span className="text-[10px] font-inter font-bold text-[#1f8cf9] bg-[#1f8cf91a] rounded-full px-1.5 w-fit">{slots.length}</span>
                 )}
-                {slots.map(s => (
-                  <div key={s.id} className={`flex items-center gap-1 px-2 py-0.5 rounded-lg ${s.is_booked ? 'bg-[#fff0e0]' : 'bg-[#e0faea]'}`}>
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={s.is_booked ? '#f5a83d' : '#26d962'} strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    <span className={`font-inter text-[10px] font-medium truncate ${s.is_booked ? 'text-[#f5a83d]' : 'text-[#1a7bd9]'}`}>{s.time}</span>
-                  </div>
-                ))}
+                {slots.map(s => {
+                  const conducted = ['conducted', 'student_missed', 'teacher_missed'].includes(s.lesson_status ?? '');
+                  return (
+                    <div key={s.id} className={`flex flex-col px-2 py-1 rounded-lg ${conducted ? 'bg-[#f0f0f0] opacity-60' : s.is_booked ? 'bg-[#e8f4fd]' : 'bg-[#e0faea]'}`}>
+                      <span className={`font-inter text-[10px] font-semibold truncate ${conducted ? 'text-[#9095a1]' : s.is_booked ? 'text-[#1f8cf9]' : 'text-[#1a7bd9]'}`}>{s.time}</span>
+                      <span className={`font-inter text-[9px] leading-tight ${conducted ? 'text-[#9095a1]' : s.is_booked ? 'text-[#565d6d]' : 'text-[#26d962]'}`}>
+                        {conducted ? 'Проведено' : s.is_booked ? 'Заплановано' : 'Вільний'}
+                      </span>
+                    </div>
+                  );
+                })}
                 {slots.length === 0 && (
                   <span className="font-inter text-[#9095a1] text-[10px] mt-2">+ Додати слот</span>
                 )}
@@ -192,22 +200,29 @@ export default function TeacherSchedule() {
                 <p className="font-inter font-bold text-[#565d6d] text-xs tracking-[0.60px] uppercase">Слоти на цей день</p>
                 <span className="w-6 h-6 bg-[#1f8cf9] rounded-full flex items-center justify-center font-inter font-bold text-white text-[10px]">{dayModalSlots.length}</span>
               </div>
-              {dayModalSlots.map(slot => (
-                <div key={slot.id} className="flex items-center justify-between p-3 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
-                  <div className="flex items-center gap-2">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    <span className="font-inter font-semibold text-slate-800 text-sm">{slot.time}</span>
-                    {slot.is_booked && <span className="text-[10px] font-inter text-[#f5a83d]">(заброньовано)</span>}
+              {dayModalSlots.map(slot => {
+                const conducted = ['conducted', 'student_missed', 'teacher_missed'].includes(slot.lesson_status ?? '');
+                return (
+                <div key={slot.id} className={`flex items-center justify-between p-3 rounded-xl border ${conducted ? 'bg-[#f8f9fb] border-[#dee1e6] opacity-60' : slot.is_booked ? 'bg-[#e8f4fd] border-[#1f8cf9]/30' : 'bg-[#f8f9fb] border-[#dee1e6]'}`}>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={conducted ? '#9095a1' : slot.is_booked ? '#1f8cf9' : '#565d6d'} strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                      <span className="font-inter font-semibold text-slate-800 text-sm">{slot.time}</span>
+                    </div>
+                    <span className={`font-inter text-[10px] ml-5 ${conducted ? 'text-[#9095a1]' : slot.is_booked ? 'text-[#1f8cf9]' : 'text-[#9095a1]'}`}>
+                      {conducted ? 'Заняття вже проведено' : slot.is_booked ? (slot.lesson_student_name ? `Заняття: ${slot.lesson_student_name}` : 'Заняття заплановано') : 'Вільний слот'}
+                    </span>
                   </div>
-                  {slot.is_booked ? (
+                  {!conducted && (slot.is_booked ? (
                     <button type="button" onClick={() => void handleCancelLesson(slot)}
                       className="font-inter text-red-500 hover:text-red-600 text-xs underline">Скасувати</button>
                   ) : (
                     <button type="button" onClick={() => { setCancelSlot(slot); setDayModal(null); }}
                       className="font-inter text-[#e64c4c] text-xs hover:underline">Видалити</button>
-                  )}
+                  ))}
                 </div>
-              ))}
+                );
+              })}
               {cancelError && <p className="font-inter text-red-500 text-xs">{cancelError}</p>}
             </div>
 
@@ -233,31 +248,21 @@ export default function TeacherSchedule() {
                     className="w-full border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]" />
                 </div>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer mb-1">
+              <label className="flex items-center gap-2 cursor-pointer mb-3">
                 <input
                   type="checkbox"
                   checked={repeatWeekly}
                   onChange={e => setRepeatWeekly(e.target.checked)}
                   className="w-4 h-4 accent-[#1f8cf9]"
                 />
-                <span className="font-inter text-sm text-slate-800">Повторювати щотижня</span>
+                <span className="font-inter text-sm text-slate-800">
+                  Повторювати щотижня до кінця року
+                </span>
               </label>
-              {repeatWeekly && (
-                <select
-                  value={repeatWeeks}
-                  onChange={e => setRepeatWeeks(Number(e.target.value))}
-                  aria-label="Кількість тижнів повторення"
-                  className="w-full border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white mb-1 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-                >
-                  <option value={4}>4 тижні</option>
-                  <option value={8}>8 тижнів</option>
-                  <option value={12}>12 тижнів</option>
-                </select>
-              )}
               <button type="button" onClick={() => void handleAddFreeSlot()}
                 className="w-full py-3 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                {repeatWeekly ? `Додати на ${repeatWeeks} тижні` : 'Додати вільний час'}
+                {repeatWeekly ? 'Додати до кінця року' : 'Додати вільний час'}
               </button>
             </div>
           </div>

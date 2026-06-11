@@ -44,7 +44,7 @@ export function useStudentHomework() {
         .map(j => ({
           id: j.id,
           lessonId: j.lesson,
-          subject: '—',
+          subject: '',
           title: taskText(j.teacher_homework_task as unknown),
           description: taskText(j.teacher_homework_task as unknown),
           deadline: formatDeadline(j.start_time),
@@ -55,7 +55,7 @@ export function useStudentHomework() {
           })(),
           urgent: !j.homework_answer_url && isUrgentDeadline(j.start_time),
           answerUrl: j.homework_answer_url || undefined,
-          fileUrl: (j as Record<string, unknown>).homework_file_url as string | undefined || undefined,
+          fileUrl: j.homework_file_url ?? undefined,
           homeworkStatus: j.homework_status ?? 'assigned',
         }));
       setHomeworks(tasks);

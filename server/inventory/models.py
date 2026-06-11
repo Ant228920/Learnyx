@@ -357,6 +357,8 @@ class LessonMaterial(models.Model):
 class Complaint(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
+        ACCEPTED = 'accepted', 'Accepted'
+        REJECTED = 'rejected', 'Rejected'
         REVIEWED = 'reviewed', 'Reviewed'
 
     student = models.ForeignKey(Student, on_delete=models.PROTECT, related_name='complaints')

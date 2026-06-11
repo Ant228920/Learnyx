@@ -62,9 +62,28 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
 
 
 class SlotSerializer(serializers.ModelSerializer):
+    lesson_status = serializers.SerializerMethodField()
+    lesson_student_name = serializers.SerializerMethodField()
+
+    def get_lesson_status(self, obj):
+        try:
+            return obj.lesson.status
+        except Exception:
+            return None
+
+    def get_lesson_student_name(self, obj):
+        try:
+            lesson = obj.lesson
+            if lesson.status == 'scheduled' and lesson.student:
+                u = lesson.student.user
+                return f'{u.first_name} {u.last_name}'.strip() or u.email
+        except Exception:
+            pass
+        return None
+
     class Meta:
         model = Slot
-        fields = ['id', 'teacher', 'start_time', 'end_time', 'status']
+        fields = ['id', 'teacher', 'start_time', 'end_time', 'status', 'lesson_status', 'lesson_student_name']
         read_only_fields = ['id', 'teacher', 'status']
 
     def validate(self, data):
@@ -206,8 +225,8 @@ class JournalRecordSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'lesson']
 
     def validate_activity_grade(self, value):
-        if value is not None and not (1 <= value <= 10):
-            raise serializers.ValidationError('activity_grade must be between 1 and 10.')
+        if value is not None and not (0 <= value <= 10):
+            raise serializers.ValidationError('activity_grade must be between 0 and 10.')
         return value
 
     def validate_homework_grade(self, value):

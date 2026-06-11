@@ -108,13 +108,22 @@ export default function StudentSchedule() {
                 {lessons.length > 0 && (
                   <span className="font-inter font-bold text-[#1f8cf9] text-[10px]">{lessons.length} {lessons.length === 1 ? 'заняття' : 'занять'}</span>
                 )}
-                {lessons.map(lesson => (
-                  <button key={lesson.id} type="button" onClick={() => setCancelTarget(lesson)}
-                    className="flex items-center gap-1 px-2 py-1 bg-[#1f8cf91a] rounded-lg hover:bg-[#1f8cf933] transition-colors text-left w-full">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    <span className="font-inter text-[#1f8cf9] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
-                  </button>
-                ))}
+                {lessons.map(lesson => {
+                  const past = ['conducted', 'student_missed', 'teacher_missed', 'canceled_advance'].includes(lesson.status ?? '');
+                  return past ? (
+                    <div key={lesson.id}
+                      className="flex flex-col px-2 py-1 bg-[#f0f0f0] rounded-lg opacity-60">
+                      <span className="font-inter text-[#9095a1] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
+                      <span className="font-inter text-[9px] text-[#9095a1] leading-tight">Проведено</span>
+                    </div>
+                  ) : (
+                    <button key={lesson.id} type="button" onClick={() => setCancelTarget(lesson)}
+                      className="flex items-center gap-1 px-2 py-1 bg-[#1f8cf91a] rounded-lg hover:bg-[#1f8cf933] transition-colors text-left w-full">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                      <span className="font-inter text-[#1f8cf9] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
+                    </button>
+                  );
+                })}
                 {lessons.length === 0 && (
                   <span className="font-inter text-[#9095a1] text-[10px] mt-2">Занять немає</span>
                 )}

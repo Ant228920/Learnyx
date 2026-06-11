@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../app/providers';
 import MainLayout from '../components/layout/MainLayout';
 import HomePage from '../pages/HomePage';
+import NotFound from '../pages/NotFound';
 
 // Student
 import StudentDashboard from '../pages/student/StudentDashboard';
@@ -34,12 +35,6 @@ function roleDashboard(role: string): string {
   if (r === 'teacher') return '/teacher';
   if (r === 'manager' || r === 'admin') return '/manager';
   return '/';
-}
-
-function RoleRedirect() {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/" replace />;
-  return <Navigate to={roleDashboard(user.role)} replace />;
 }
 
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
@@ -93,8 +88,8 @@ export default function AppRouter() {
           <Route path="settings" element={<ProtectedRoute allowedRoles={M}><ManagerSettings /></ProtectedRoute>} />
         </Route>
 
-        {/* Fallback — authenticated users go to their dashboard, others to homepage */}
-        <Route path="*" element={<RoleRedirect />} />
+        {/* Fallback — unknown paths show 404 with smart "go home" navigation */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );
