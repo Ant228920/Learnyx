@@ -118,11 +118,15 @@ export interface JournalRecord {
   grade: number | null;
   teacher_homework_task: unknown;
   homework_answer_url: string | null;
+  homework_file_url?: string | null;
   teacher_notes: string | null;
   start_time?: string;
   lesson_status?: string;
+  lesson_topic?: string | null;
   homework_status?: string;   // 'assigned' | 'submitted' | 'reviewed'
   student_name?: string;      // returned by JournalListSerializer
+  subject_name?: string | null;
+  next_lesson_date?: string | null;
 }
 
 export interface StudentDashboard {
@@ -159,6 +163,7 @@ export interface TeacherDashboard {
     meeting_link: string | null;
     lesson_status: string | null;
     can_start: boolean;
+    has_rejected_complaint?: boolean;
   }>;
   stats: {
     total_students: number;
@@ -203,6 +208,12 @@ export function extractErrorMessage(error: unknown): string {
 
     if (!data) return 'Немає відповіді від сервера.';
 
+    // Strip Python ErrorDetail repr from any extracted string
+    const cleanMsg = (raw: string): string => {
+      const m = raw.match(/ErrorDetail\(string='([^']+)'/);
+      return m ? m[1] : raw.replace(/^ErrorDetail\(string="([^"]+)"/, '$1');
+    };
+
     const FIELD_TRANSLATIONS: Record<string, string> = {
       email: 'Email',
       password: 'Пароль',
@@ -236,20 +247,23 @@ export function extractErrorMessage(error: unknown): string {
       'Expected a Response': 'Помилка сервера. Зверніться до адміністратора.',
       'NoneType': 'Помилка сервера. Спробуйте пізніше.',
       'AssertionError': 'Помилка сервера. Спробуйте пізніше.',
+      'activity_grade must be between 1 and 10.': 'Оцінка за урок має бути від 1 до 10.',
+      'activity_grade must be between 0 and 10.': 'Оцінка за урок має бути від 0 до 10.',
     };
 
     for (const key of ['message', 'detail', 'error']) {
       const val = data[key];
       if (typeof val === 'string' && val.length < 200) {
+        const cleaned = cleanMsg(val);
         for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
-          if (val.includes(eng)) return ukr;
+          if (cleaned.includes(eng)) return ukr;
         }
-        return val;
+        return cleaned;
       }
     }
 
     if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
-      const msg = String(data.non_field_errors[0]);
+      const msg = cleanMsg(String(data.non_field_errors[0]));
       for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
         if (msg.includes(eng)) return ukr;
       }
@@ -260,11 +274,13 @@ export function extractErrorMessage(error: unknown): string {
       if (field === 'non_field_errors') continue;
       const fieldName = FIELD_TRANSLATIONS[field] ?? field;
       const msgArr = Array.isArray(msgs) ? msgs : [msgs];
-      const rawMsg = String(msgArr[0]);
+      const rawMsg = cleanMsg(String(msgArr[0]));
       let translatedMsg = rawMsg;
       for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
         if (rawMsg.includes(eng)) { translatedMsg = ukr; break; }
       }
+      // Already a complete Ukrainian sentence — return as-is (no "FieldName: " prefix)
+      if (/[а-яА-ЯіІїЇєЄ]/.test(translatedMsg) && translatedMsg.endsWith('.')) return translatedMsg;
       if (fieldName) return `${fieldName}: ${translatedMsg}`;
       return translatedMsg;
     }

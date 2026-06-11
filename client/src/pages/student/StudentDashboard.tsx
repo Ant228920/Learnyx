@@ -13,6 +13,10 @@ export default function StudentDashboard() {
   const [complaintSent, setComplaintSent] = useState(false);
   const [joinError, setJoinError] = useState('');
   const [complainSent, setComplainSent] = useState<number | null>(null);
+  const [complaintModal, setComplaintModal] = useState<{ lessonId: number; teacherName: string } | null>(null);
+  const [complaintSending, setComplaintSending] = useState(false);
+  const [complaintSuccess, setComplaintSuccess] = useState('');
+  const [complaintError, setComplaintError] = useState('');
 
   useEffect(() => {
     studentApi.getDashboard()
@@ -178,11 +182,18 @@ export default function StudentDashboard() {
                         <p className="font-inter font-medium text-[#171a1f] text-base flex-1">{lesson.teacher}</p>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           {action === 'join' ? (
-                            <button type="button"
-                              onClick={() => handleJoinLesson(lesson.meeting_link)}
-                              className="px-4 py-1.5 bg-[#1f8cf9] rounded-md font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
-                              Приєднатися до уроку
-                            </button>
+                            <>
+                              <button type="button"
+                                onClick={() => handleJoinLesson(lesson.meeting_link)}
+                                className="px-4 py-1.5 bg-[#1f8cf9] rounded-md font-inter font-semibold text-white text-sm hover:bg-blue-600 transition-colors">
+                                Приєднатися до уроку
+                              </button>
+                              <button type="button"
+                                onClick={() => setComplaintModal({ lessonId: lesson.lesson_id ?? 0, teacherName: lesson.teacher })}
+                                className="flex items-center gap-1.5 px-4 py-1.5 border border-red-300 text-red-500 font-inter font-semibold text-sm rounded-md hover:bg-red-50 transition-colors">
+                                Поскаржитись
+                              </button>
+                            </>
                           ) : action === 'complain' ? (
                             alreadyComplained ? (
                               <span className="px-4 py-1.5 bg-orange-50 rounded-md font-inter font-semibold text-orange-500 text-sm">
@@ -254,6 +265,49 @@ export default function StudentDashboard() {
             <p className="font-inter text-sm text-[#565d6d] text-center">Ми розглянемо вашу скаргу та повідомимо про результат.</p>
             <button onClick={() => setComplaintSent(false)}
               className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">OK</button>
+          </div>
+        </div>
+      )}
+
+      {complaintModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) { setComplaintModal(null); setComplaintError(''); setComplaintSuccess(''); } }}
+          role="dialog" aria-modal="true">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <h3 className="font-inter font-bold text-[#171a1f] text-xl mb-4">Подати скаргу</h3>
+            <p className="font-inter text-[#565d6d] text-sm mb-6">
+              Викладач <strong>{complaintModal.teacherName}</strong> не з'явився на урок? Подайте скаргу — менеджер розгляне її та вживе заходів.
+            </p>
+            {complaintError && <p className="text-red-500 text-sm mb-4">{complaintError}</p>}
+            {complaintSuccess && <p className="text-green-600 text-sm mb-4">{complaintSuccess}</p>}
+            <div className="flex gap-3">
+              <button type="button"
+                onClick={() => { setComplaintModal(null); setComplaintError(''); setComplaintSuccess(''); }}
+                className="flex-1 py-3 border border-[#dee1e6] rounded-2xl font-inter font-semibold text-sm text-[#565d6d] hover:bg-[#f4f4f6] transition-colors">
+                Скасувати
+              </button>
+              <button type="button"
+                disabled={complaintSending}
+                onClick={async () => {
+                  setComplaintSending(true);
+                  setComplaintError('');
+                  try {
+                    await apiClient.post(`/lessons/${complaintModal.lessonId}/complaint/`, {
+                      reason: 'teacher_missed',
+                      description: 'Викладач не з\'явився на урок',
+                    });
+                    setComplaintSuccess('Скаргу подано. Менеджер розгляне її найближчим часом.');
+                    setTimeout(() => { setComplaintModal(null); setComplaintSuccess(''); }, 2000);
+                  } catch (err) {
+                    setComplaintError(extractErrorMessage(err));
+                  } finally {
+                    setComplaintSending(false);
+                  }
+                }}
+                className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-inter font-semibold text-sm hover:bg-red-600 disabled:opacity-50 transition-colors">
+                {complaintSending ? 'Відправляємо...' : 'Подати скаргу'}
+              </button>
+            </div>
           </div>
         </div>
       )}

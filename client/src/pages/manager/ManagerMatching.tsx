@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useManagerLearningRequests, useManagerMatching } from '../../features/manager/matching';
 import ManagerLayout from './ManagerLayout';
 import { apiClient, extractErrorMessage } from '../../services/api';
+import type { LearningRequestItem } from '../../services/api';
 
 interface Slot {
   id: number;
@@ -30,11 +31,6 @@ const LEVELS_ENGLISH = ['A1-B1 рівень', 'B2-C2 рівень'];
 const LEVELS_OTHER = ['1-4 клас', '5-11 клас'];
 const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
 const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
-const MANAGER_TIME_OPTIONS = Array.from({ length: 27 }, (_, i) => {
-  const total = 8 * 60 + i * 30;
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-});
-
 function getLevels(subject: string): string[] {
   if (subject === 'Англійська мова') return LEVELS_ENGLISH;
   if (!subject) return [...LEVELS_ENGLISH, ...LEVELS_OTHER];
@@ -56,11 +52,13 @@ function getKyivComponents(isoString: string): { dayOfWeek: number; hours: numbe
 }
 
 function getTeacherSubject(t: Record<string, unknown>): string {
-  return ((t.discipline_name ?? t.discipline ?? t.subject ?? '') as string).toLowerCase().trim();
+  return String(
+    t.discipline_name ?? t.discipline ?? t.subject ?? t.subject_name ?? ''
+  ).toLowerCase().trim();
 }
 
 function getTeacherLevel(t: Record<string, unknown>): string {
-  return ((t.level_name ?? t.level ?? '') as string).toLowerCase().trim();
+  return String(t.level_name ?? t.level ?? '').toLowerCase().trim();
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -84,22 +82,10 @@ const IconX = () => (
 );
 
 export default function ManagerMatching() {
-  const { students: rawStudents, teachers: rawTeachers, loading, error } = useManagerMatching();
+  const { students: rawStudents, loading, error } = useManagerMatching();
   const { requests, loading: reqLoading, updateStatus } = useManagerLearningRequests();
 
   const studentOptions = rawStudents.map(s => `${s.first_name} ${s.last_name}`.trim() || s.email);
-  const allTeacherCards: Teacher[] = rawTeachers.map((t, i) => {
-    const r = t as Record<string, unknown>;
-    const disc = (r.discipline as string | null) ?? (r.discipline_name as string | null) ?? '';
-    const lvl = (r.level as string | null) ?? (r.level_name as string | null) ?? '';
-    return {
-      id: (r.user_id as number) ?? t.id,
-      name: `${t.first_name} ${t.last_name}`.trim() || t.email,
-      discipline: disc,
-      level: lvl,
-      avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
-    };
-  });
 
   const [student, setStudent] = useState('');
   const [subject, setSubject] = useState('');
@@ -112,9 +98,6 @@ export default function ManagerMatching() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LearningRequestItem | null>(null);
-  const [managerDays, setManagerDays] = useState<string[]>([]);
-  const [managerTimeFrom, setManagerTimeFrom] = useState('08:00');
-  const [managerTimeTo, setManagerTimeTo] = useState('12:00');
   const [successCount, setSuccessCount] = useState(0);
   const [filterErrors, setFilterErrors] = useState<string[]>([]);
 
@@ -149,151 +132,101 @@ export default function ManagerMatching() {
     if (!student) errors.push('Оберіть учня');
     if (!subject) errors.push('Оберіть предмет');
     if (!level) errors.push('Оберіть рівень');
-    if (slots.length === 0) errors.push('Додайте хоча б один вільний слот учня');
-    slots.forEach((s, i) => {
-      if (!s.day) errors.push(`Слот ${i + 1}: оберіть день`);
-      if (!s.from) errors.push(`Слот ${i + 1}: вкажіть час`);
-    });
-    if (errors.length > 0) {
-      setFilterErrors(errors);
-      return;
-    }
+    if (slots.length === 0) errors.push('Додайте хоча б один вільний слот учня з днем та часом');
+    if (errors.length > 0) { setFilterErrors(errors); return; }
+
     setFilterErrors([]);
     setSearching(true);
     setAssignError('');
+    setTeachers([]);
+
     try {
-      const [teachersRes, slotsRes] = await Promise.all([
-        apiClient.get('/teachers/'),
-        apiClient.get('/slots/available/'),
-      ]);
+      const res = await apiClient.get('/teachers/');
+      const data = res.data as { results?: unknown[] } | unknown[];
+      const raw = (Array.isArray(data) ? data : ((data as { results?: unknown[] }).results ?? [])) as Array<Record<string, unknown>>;
 
-      const raw = (Array.isArray(teachersRes.data) ? teachersRes.data : []) as Array<Record<string, unknown>>;
-      const allAvailableSlots = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<Record<string, unknown>>;
-
-      console.log('[ManagerMatching] teachers from API:', raw.length, raw.slice(0, 2));
-      console.log('[ManagerMatching] slots from API:', allAvailableSlots.length, allAvailableSlots.slice(0, 2));
-      console.log('[ManagerMatching] student slots requested:', slots);
-
-      // ── Subject filter (soft: teachers with no discipline are included with warning) ────
+      // Soft subject filter — if teacher has no discipline, include them anyway
       const reqSubject = subject.toLowerCase().trim();
       const subjectFiltered = raw.filter(t => {
         const disc = getTeacherSubject(t);
-        if (!disc) {
-          console.log(`[filter] teacher ${t.user_id} has no discipline — included (soft)`);
-          return true; // no discipline set — include
-        }
-        const match = disc === reqSubject || disc.includes(reqSubject) || reqSubject.includes(disc);
-        if (!match) console.log(`[filter] teacher ${t.user_id} subject "${disc}" ≠ "${reqSubject}" — excluded`);
-        return match;
+        if (!disc) return true; // no discipline set — include
+        return disc.includes(reqSubject) || reqSubject.includes(disc) || disc === reqSubject;
       });
 
-      // ── Level filter (if teacher has level set, it must match) ────────────────
+      // Soft level filter — if teacher has no level, include them anyway
       const reqLevel = level.toLowerCase().trim();
       const levelFiltered = subjectFiltered.filter(t => {
         const lvl = getTeacherLevel(t);
-        if (!lvl) return true; // teacher without level — include
-        const match = lvl === reqLevel || lvl.includes(reqLevel) || reqLevel.includes(lvl);
-        if (!match) console.log(`[filter] teacher ${t.user_id} level "${lvl}" ≠ "${reqLevel}" — excluded`);
-        return match;
+        if (!lvl) return true; // no level set — include
+        return lvl.includes(reqLevel) || reqLevel.includes(lvl) || lvl === reqLevel;
       });
 
-      console.log('[ManagerMatching] after subject+level filter:', levelFiltered.length);
+      // Optional slot-time filter — only applied when student slots are provided
+      let finalSource = levelFiltered;
+      if (slots.length > 0) {
+        const slotsRes = await apiClient.get('/slots/', { params: { status: 'available' } });
+        const allSlots = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<Record<string, unknown>>;
 
-      // ── Group available slots by teacher user_id ──────────────────────────────
-      const slotsByTeacher: Record<number, Array<{ start_time: string }>> = {};
-      for (const s of allAvailableSlots) {
-        // Handle both nested {teacher: {user_id}} and flat {teacher_id}
-        const teacherObj = s.teacher as Record<string, unknown> | null;
-        const tid = (typeof teacherObj === 'object' && teacherObj !== null
-          ? (teacherObj.user_id ?? teacherObj.id)
-          : (s.teacher_id ?? s.teacher)) as number | undefined;
-        if (tid != null) {
-          if (!slotsByTeacher[tid]) slotsByTeacher[tid] = [];
-          slotsByTeacher[tid].push({ start_time: s.start_time as string });
+        console.log('[Matching] raw slots count:', allSlots.length);
+        if (allSlots.length > 0) {
+          console.log('[Matching] first slot:', JSON.stringify(allSlots[0]));
         }
-      }
 
-      // Debug: log slot breakdown for first teacher
-      if (levelFiltered.length > 0) {
-        const firstId = levelFiltered[0].user_id as number;
-        const tSlots = slotsByTeacher[firstId] ?? [];
-        console.log(`[ManagerMatching] teacher ${firstId} has ${tSlots.length} available slots`);
-        tSlots.slice(0, 3).forEach(ts => {
-          const k = getKyivComponents(ts.start_time);
-          console.log(`  slot: ${ts.start_time} → Kyiv day=${k.dayOfWeek} ${k.hours}:${String(k.minutes).padStart(2,'0')}`);
-        });
-      }
+        const slotsByTeacher: Record<number, Array<{ start_time: string }>> = {};
+        for (const s of allSlots) {
+          let tid: number | undefined;
+          if (typeof s.teacher === 'object' && s.teacher !== null) {
+            const obj = s.teacher as Record<string, unknown>;
+            tid = Number(obj.user_id ?? obj.id) || undefined;
+          } else if (s.teacher_id != null) {
+            tid = Number(s.teacher_id);
+          } else if (s.teacher != null) {
+            tid = Number(s.teacher);
+          }
+          if (tid != null) {
+            if (!slotsByTeacher[tid]) slotsByTeacher[tid] = [];
+            slotsByTeacher[tid].push({ start_time: s.start_time as string });
+          }
+        }
 
-      // ── Strict slot filter: EVERY student slot must match a teacher slot ──────
-      const finalSource = slots.length > 0
-        ? levelFiltered.filter(t => {
-            const tid = t.user_id as number;
-            const teacherSlots = slotsByTeacher[tid] ?? [];
-            if (teacherSlots.length === 0) {
-              console.log(`[filter] teacher ${tid} has no available slots`);
-              return false;
-            }
+        console.log('[Matching] slotsByTeacher keys:', Object.keys(slotsByTeacher));
+        console.log('[Matching] levelFiltered teacher IDs:', levelFiltered.map(t => t.user_id));
 
-            return slots.every(reqSlot => {
-              if (!reqSlot.day || !reqSlot.from) return false;
-
-              const reqDayNum = DAY_MAP[reqSlot.day];
-              if (reqDayNum === undefined) {
-                console.warn(`[filter] unknown day: "${reqSlot.day}"`);
-                return false;
-              }
-
-              const [fromH, fromM] = reqSlot.from.split(':').map(Number);
-              const reqFromMin = fromH * 60 + fromM;
-              const reqToMin = reqSlot.to
-                ? (() => { const [h, m] = reqSlot.to.split(':').map(Number); return h * 60 + m; })()
-                : reqFromMin + 60;
-
-              const matched = teacherSlots.some(ts => {
-                const k = getKyivComponents(ts.start_time);
-                const slotMin = k.hours * 60 + k.minutes;
-                const dayOk = k.dayOfWeek === reqDayNum;
-                const timeOk = slotMin >= reqFromMin && slotMin < reqToMin;
-                console.log(
-                  `  [slot check] teacher ${tid} slot ${ts.start_time}` +
-                  ` → day ${k.dayOfWeek} vs req ${reqDayNum} dayOk=${dayOk}` +
-                  ` time ${k.hours}:${k.minutes} (${slotMin}) vs [${reqFromMin},${reqToMin}) timeOk=${timeOk}`
-                );
-                return dayOk && timeOk;
-              });
-
-              if (!matched) console.log(`[filter] teacher ${tid} has no slot for ${reqSlot.day} ${reqSlot.from}`);
-              return matched;
+        const withSlots = levelFiltered.filter(t => {
+          const tid = Number(t.user_id ?? t.id);
+          const teacherSlots = slotsByTeacher[tid] ?? [];
+          if (teacherSlots.length === 0) return false;
+          return slots.every(reqSlot => {
+            if (!reqSlot.day || !reqSlot.from) return true;
+            const reqDayNum = DAY_MAP[reqSlot.day];
+            if (reqDayNum === undefined) return true;
+            const [fromH, fromM] = reqSlot.from.split(':').map(Number);
+            const reqFromMin = fromH * 60 + fromM;
+            const reqToMin = reqSlot.to
+              ? (() => { const [h, m] = reqSlot.to.split(':').map(Number); return h * 60 + m; })()
+              : reqFromMin + 60;
+            return teacherSlots.some(ts => {
+              const k = getKyivComponents(ts.start_time);
+              return k.dayOfWeek === reqDayNum && (k.hours * 60 + k.minutes) >= reqFromMin && (k.hours * 60 + k.minutes) < reqToMin;
             });
-          })
-        : levelFiltered;
-
-      console.log('[ManagerMatching] final results:', finalSource.length);
+          });
+        });
+        // Show only teachers with a matching available slot at the requested time
+        finalSource = withSlots;
+      }
 
       const cards: Teacher[] = finalSource.map((t, i) => ({
         id: t.user_id as number,
-        name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim() || (t.email as string),
-        discipline: getTeacherSubject(t),
-        level: getTeacherLevel(t),
+        name: `${String(t.first_name ?? '')} ${String(t.last_name ?? '')}`.trim() || String(t.email ?? ''),
+        discipline: getTeacherSubject(t) || subject,
+        level: getTeacherLevel(t) || level,
         avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
       }));
 
-      if (cards.length === 0 && raw.length > 0) {
-        // Fallback: show all teachers with a notice
-        const fallbackCards: Teacher[] = raw.map((t, i) => ({
-          id: t.user_id as number,
-          name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim() || (t.email as string),
-          discipline: getTeacherSubject(t) || 'Предмет не вказано',
-          level: getTeacherLevel(t) || 'Рівень не вказано',
-          avatarBg: AVATAR_COLORS[i % AVATAR_COLORS.length],
-        }));
-        setTeachers(fallbackCards);
-        setSearched(true);
-        setFilterErrors(['Точного збігу не знайдено — показано всіх доступних викладачів.']);
-      } else {
-        setTeachers(cards);
-        setSearched(true);
-        setFilterErrors([]);
+      setTeachers(cards);
+      setSearched(true);
+      if (cards.length === 0) {
+        setFilterErrors([`Викладачів з предмету "${subject}" не знайдено.`]);
       }
     } catch (err) {
       setFilterErrors([extractErrorMessage(err)]);
@@ -350,7 +283,7 @@ export default function ManagerMatching() {
       let slotsToBook = slotsData.filter(ts => {
         const dayName = new Date(ts.start_time).toLocaleDateString('uk-UA', { weekday: 'long' });
         const slotTime = ts.start_time.slice(11, 16);
-        const dayOk = reqDays.length === 0 || reqDays.some(d => dayName.toLowerCase().includes(d.toLowerCase()));
+        const dayOk = reqDays.length === 0 || reqDays.some((d: string) => dayName.toLowerCase().includes(d.toLowerCase()));
         const timeOk = slotTime >= reqTimeFrom && slotTime < reqTimeTo;
         return dayOk && timeOk;
       });

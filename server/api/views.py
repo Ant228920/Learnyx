@@ -52,8 +52,8 @@ from api.serializers import (
     HomeworkDetailSerializer,
     HomeworkSubmitSerializer,
 )
-from users.models import User, Role, Student, Manager, Review
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
+from users.models import User, Role, Student, Manager, Review, TeacherLevel
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial, Discipline
 from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
@@ -164,7 +164,17 @@ class ApproveRegistrationRequestView(APIView):
                         ]:
                             Package.objects.create(student=student_obj, course=course, **pkg_data)
                 elif reg_request.role.lower() == 'teacher':
-                    Teacher.objects.get_or_create(user=user)
+                    teacher, _ = Teacher.objects.get_or_create(user=user)
+                    if reg_request.subject:
+                        discipline = Discipline.objects.filter(name__iexact=reg_request.subject).first()
+                        if discipline:
+                            teacher.discipline = discipline
+                    if reg_request.level:
+                        teacher_level = TeacherLevel.objects.filter(name__iexact=reg_request.level).first()
+                        if teacher_level:
+                            teacher.level = teacher_level
+                    if teacher.discipline_id or teacher.level_id:
+                        teacher.save()
                 elif reg_request.role.lower() == 'manager':
                     Manager.objects.create(user=user)
 
@@ -475,7 +485,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         """US7: Teacher fills in a JournalRecord for a lesson (create or update)."""
         lesson = get_object_or_404(Lesson, pk=pk)
         existing = JournalRecord.objects.filter(lesson=lesson).first()
-        serializer = JournalRecordSerializer(existing, data=request.data, partial=bool(existing))
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        # Force activity_grade=0 when student/teacher missed — serializer only allows 0–10
+        if not data.get('is_present', True):
+            data['activity_grade'] = 0
+        serializer = JournalRecordSerializer(existing, data=data, partial=bool(existing))
         serializer.is_valid(raise_exception=True)
         journal = serializer.save(lesson=lesson)
 
@@ -510,11 +524,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=False, methods=['get'], url_path='upcoming')
     def upcoming(self, request):
-        """US10: Return the authenticated student's future lessons ordered by start time."""
+        """US10: Return the authenticated student's future scheduled lessons."""
         student = get_object_or_404(Student, user=request.user)
         qs = (
             Lesson.objects
-            .filter(student=student, slot__start_time__gt=timezone.now())
+            .filter(student=student, status='scheduled', slot__start_time__gt=timezone.now())
             .select_related('slot')
             .order_by('slot__start_time')
         )
@@ -672,14 +686,6 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             hw_file = storage.upload(hw_file, filename, '/learnyx/tasks')
         if hw_file:
             record.homework_file_url = hw_file
-
-        # Student's answer file (base64 → Dropbox)
-        answer_url = data.get('homework_answer_url', '')
-        answer_filename = data.get('answer_filename', 'answer.pdf')
-        if answer_url and answer_url.startswith('data:'):
-            answer_url = storage.upload(answer_url, answer_filename, '/learnyx/homework')
-        if answer_url:
-            record.homework_answer_url = answer_url
 
         # Homework task text
         task = data.get('teacher_homework_task')
@@ -1042,6 +1048,11 @@ class TeacherDashboardView(APIView):
             # can_start: within the 10-minute window before start, or lesson already ongoing
             can_start = delta_seconds <= 600
 
+            has_rejected = (
+                Complaint.objects.filter(lesson=lesson, status='rejected').exists()
+                if lesson else False
+            )
+
             today_lessons.append({
                 'slot_id': slot.pk,
                 'lesson_id': lesson.pk if lesson else None,
@@ -1055,6 +1066,7 @@ class TeacherDashboardView(APIView):
                 'meeting_link': lesson.meeting_link if lesson else None,
                 'lesson_status': lesson.status if lesson else None,
                 'can_start': can_start,
+                'has_rejected_complaint': has_rejected,
             })
 
         # --- stats ---
@@ -1595,51 +1607,197 @@ class LessonMaterialView(APIView):
 
 
 class ComplaintListCreateView(APIView):
-    """LEAR-266: Student submits a complaint; Manager lists all complaints."""
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsStudent()]
-        return [IsManager()]
+    """LEAR-266: Manager lists all complaints; others see their own. Student creates via LessonComplaintView."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = (
-            Complaint.objects
-            .select_related('student__user', 'lesson__slot__teacher__user')
-            .all()
-        )
+        role = getattr(getattr(request.user, 'role_obj', None), 'name', '').lower()
+
+        qs = Complaint.objects.select_related(
+            'student__user',
+            'lesson__slot__teacher__user',
+            'lesson__slot',
+        ).order_by('-created_at')
+
+        if role not in ('manager', 'admin'):
+            # Students and teachers only see their own filed complaints
+            try:
+                student = Student.objects.get(user=request.user)
+                qs = qs.filter(student=student)
+            except Student.DoesNotExist:
+                qs = qs.none()
+
         status_filter = request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
-        return Response(ComplaintListSerializer(qs, many=True).data)
 
-    def post(self, request):
-        serializer = ComplaintCreateSerializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        student = get_object_or_404(Student, user=request.user)
-        complaint = serializer.save(student=student)
-        return Response(
-            ComplaintListSerializer(complaint).data,
-            status=status.HTTP_201_CREATED,
-        )
+        data = []
+        for c in qs:
+            lesson = c.lesson
+            slot = lesson.slot if lesson else None
+
+            teacher_name = '—'
+            try:
+                if slot and slot.teacher and slot.teacher.user:
+                    u = slot.teacher.user
+                    teacher_name = f'{u.first_name} {u.last_name}'.strip() or u.email
+            except Exception:
+                pass
+
+            student_user = c.student.user
+            student_name = f'{student_user.first_name} {student_user.last_name}'.strip() or student_user.email
+
+            lesson_date = '—'
+            try:
+                if slot and slot.start_time:
+                    lesson_date = slot.start_time.strftime('%d.%m.%Y %H:%M')
+            except Exception:
+                pass
+
+            # Reason field stores "reason_key: description" or just "reason_key"
+            raw_reason = c.reason or ''
+            if ':' in raw_reason:
+                reason_key = raw_reason.split(':')[0].strip()
+                description = raw_reason.split(':', 1)[1].strip()
+            else:
+                reason_key = raw_reason
+                description = ''
+
+            data.append({
+                'id': c.id,
+                'lesson_id': lesson.pk if lesson else None,
+                'lesson_date': lesson_date,
+                'teacher_name': teacher_name,
+                'student_name': student_name,
+                'filed_by_name': student_name,
+                'reason': reason_key,
+                'description': description,
+                'status': c.status,
+                'created_at': c.created_at.isoformat(),
+                'reviewed_at': c.reviewed_at.isoformat() if c.reviewed_at else None,
+            })
+
+        return Response(data)
 
 
 class ComplaintDetailView(APIView):
-    """LEAR-266: Manager updates complaint status; sets reviewed_at automatically."""
+    """LEAR-266: Manager resolves a complaint — accept applies business logic, reject resets lesson."""
     permission_classes = [IsManager]
 
     def patch(self, request, pk):
         complaint = get_object_or_404(
-            Complaint.objects.select_related('student__user', 'lesson__slot__teacher__user'),
+            Complaint.objects.select_related('student__user', 'lesson__slot__teacher__user', 'lesson__student'),
             pk=pk,
         )
-        serializer = ComplaintStatusSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        complaint.status = serializer.validated_data['status']
-        if complaint.status == Complaint.Status.REVIEWED:
-            complaint.reviewed_at = timezone.now()
+
+        decision = request.data.get('status')
+        if decision not in ('accepted', 'rejected', 'reviewed'):
+            return Response({'detail': 'Невірний статус.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        complaint.status = decision
+        complaint.reviewed_at = timezone.now()
         complaint.save()
-        return Response(ComplaintListSerializer(complaint).data)
+
+        lesson = complaint.lesson
+        reason = (complaint.reason or '').split(':')[0].strip()
+
+        if decision == 'accepted':
+            if reason == 'teacher_missed':
+                # Teacher failed to appear — mark lesson, student keeps package balance
+                if lesson.status not in {'conducted', 'teacher_missed', 'canceled_advance'}:
+                    lesson.status = 'teacher_missed'
+                    lesson.save(update_fields=['status'])
+                # Record financial penalty transaction for teacher
+                try:
+                    from inventory.models import Transaction
+                    Transaction.objects.create(
+                        teacher=lesson.slot.teacher,
+                        lesson=lesson,
+                        title='Штраф за пропущений урок',
+                        amount=250,
+                        is_penalty=True,
+                    )
+                except Exception as e:
+                    logger.warning(f'Failed to create penalty transaction for complaint {pk}: {e}')
+                return Response({'message': 'Скаргу прийнято. Урок позначено як пропущений викладачем.'})
+
+            else:
+                # student_missed or other — deduct from student package
+                if lesson.status not in {'conducted', 'student_missed', 'canceled_advance', 'teacher_missed'}:
+                    lesson.status = 'student_missed'
+                    lesson.save(update_fields=['status'])
+                try:
+                    pkg = Package.objects.select_for_update().filter(
+                        student=lesson.student, status='active'
+                    ).first()
+                    if pkg and pkg.balance > 0:
+                        pkg.balance -= 1
+                        if pkg.balance == 0:
+                            pkg.status = 'completed'
+                        pkg.save()
+                        if pkg.balance <= 2:
+                            notify_manager_low_balance(pkg)
+                except Exception as e:
+                    logger.warning(f'Could not deduct lesson balance for complaint {pk}: {e}')
+                    pass
+                try:
+                    record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
+                    if record.activity_grade is None:
+                        record.activity_grade = 0
+                        record.save(update_fields=['activity_grade'])
+                except Exception:
+                    pass
+                return Response({'message': 'Скаргу прийнято. Урок списано з балансу учня.'})
+
+        elif decision == 'rejected':
+            # Complaint invalid — reset lesson so teacher can grade it
+            if lesson.status not in {'conducted', 'canceled_advance'}:
+                lesson.status = 'scheduled'
+                lesson.save(update_fields=['status'])
+            # Clear any auto-set zero grade so teacher fills it properly
+            try:
+                record = JournalRecord.objects.filter(lesson=lesson).first()
+                if record and record.activity_grade == 0:
+                    record.activity_grade = None
+                    record.save(update_fields=['activity_grade'])
+            except Exception:
+                pass
+            return Response({
+                'message': 'Скаргу відхилено. Викладач має виставити оцінку за урок.',
+                'requires_teacher_action': True,
+            })
+
+        return Response({'message': 'Оновлено.'})
+
+
+class LessonComplaintView(APIView):
+    """Student files a complaint for a specific lesson via lesson ID."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        lesson = get_object_or_404(Lesson, pk=pk)
+        reason = request.data.get('reason', 'teacher_missed')
+        description = request.data.get('description', '')
+        full_reason = f'{reason}: {description}'.strip(': ') if description else reason
+
+        # Block duplicate pending complaints (allow re-filing after rejection/acceptance)
+        existing_pending = Complaint.objects.filter(lesson=lesson, status='pending').first()
+        if existing_pending:
+            return Response({'message': 'Скаргу вже подано. Очікуйте рішення менеджера.'})
+
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            # Teacher filing a complaint — associate with the lesson's student
+            student = lesson.student
+
+        Complaint.objects.create(
+            student=student,
+            lesson=lesson,
+            reason=full_reason,
+        )
+
+        return Response({'message': 'Скаргу подано успішно. Менеджер розгляне її найближчим часом.'})
 
 
 class HomeworkDetailView(APIView):

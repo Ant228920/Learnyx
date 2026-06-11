@@ -110,8 +110,8 @@ export default function StudentLayout({ children }: Props) {
                 @{user?.firstName?.toLowerCase()}_student
               </span>
             </div>
-            <div className="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-[#f4f4f6]">
-              <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+            <div className="relative w-10 h-10 rounded-full bg-[#1f8cf9] flex items-center justify-center flex-shrink-0">
+              <span className="font-inter font-bold text-white text-sm">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
               <div className="absolute right-0 bottom-0 w-2.5 h-2.5 bg-[#26d962] rounded-full border-2 border-white" />
             </div>
           </div>
@@ -149,8 +149,8 @@ export default function StudentLayout({ children }: Props) {
               className="absolute top-4 right-4 text-[#9095a1] hover:text-slate-900">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
-            <div className="w-20 h-20 rounded-full bg-[#1f8cf91a] flex items-center justify-center">
-              <span className="font-poppins font-bold text-[#1f8cf9] text-2xl">
+            <div className="w-20 h-20 rounded-full bg-[#1f8cf9] flex items-center justify-center">
+              <span className="font-poppins font-bold text-white text-2xl">
                 {(user?.firstName?.[0] ?? '') + (user?.lastName?.[0] ?? '')}
               </span>
             </div>

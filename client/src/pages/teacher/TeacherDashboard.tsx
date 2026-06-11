@@ -8,12 +8,11 @@ import type { TeacherDashboard as DashboardData } from '../../services/api';
 
 interface UploadedFile { id: number; name: string; size: string; type: string; url?: string; }
 
-type LessonStatus = 'conducted' | 'student_missed' | 'teacher_missed';
+type LessonStatus = 'conducted' | 'student_missed';
 
 const LESSON_STATUS_OPTIONS: { value: LessonStatus; label: string }[] = [
-  { value: 'conducted',     label: 'Урок проведено' },
+  { value: 'conducted',      label: 'Урок проведено' },
   { value: 'student_missed', label: 'Учень не з\'явився' },
-  { value: 'teacher_missed', label: 'Вчитель не з\'явився' },
 ];
 
 const FileIcon = ({ type }: { type: string }) => {
@@ -60,7 +59,14 @@ export default function TeacherDashboard() {
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState('');
   const [gradedIds, setGradedIds] = useState<number[]>([]);
-  const [startedLessons, setStartedLessons] = useState<Set<number>>(new Set());
+  const [startedLessons, setStartedLessons] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem('started_lessons');
+      return saved ? new Set(JSON.parse(saved) as number[]) : new Set<number>();
+    } catch {
+      return new Set<number>();
+    }
+  });
   const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +85,12 @@ export default function TeacherDashboard() {
   }, []);
 
   const fetchDashboard = () => teacherApi.getDashboard().then(setData).catch(() => {});
+
+  useEffect(() => {
+    if (!gradeSuccess) return;
+    const t = setTimeout(() => setGradeSuccess(''), 5000);
+    return () => clearTimeout(t);
+  }, [gradeSuccess]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,7 +148,11 @@ export default function TeacherDashboard() {
     }
     window.open(lesson.meeting_link, '_blank', 'noopener,noreferrer');
     if (lesson.lesson_id) {
-      setStartedLessons(prev => new Set([...prev, lesson.lesson_id!]));
+      setStartedLessons(prev => {
+        const next = new Set([...prev, lesson.lesson_id!]);
+        localStorage.setItem('started_lessons', JSON.stringify(Array.from(next)));
+        return next;
+      });
     }
   };
 
@@ -144,24 +160,62 @@ export default function TeacherDashboard() {
 
   const handleGradeSubmit = async () => {
     if (!gradeModal?.lesson_id) return;
+
+    // Validation — all fields required
+    const validationErrors: string[] = [];
+
+    if (!gradeForm.lessonTopic.trim()) {
+      validationErrors.push('Введіть тему уроку');
+    }
+
+    if (gradeForm.lessonStatus === 'conducted') {
+      if (!gradeForm.activityGrade || gradeForm.activityGrade === 0) {
+        validationErrors.push('Виставте оцінку за урок (від 1 до 10)');
+      }
+      if (!gradeForm.homeworkTopic.trim()) {
+        validationErrors.push('Введіть тему домашнього завдання');
+      }
+      if (!gradeForm.homeworkFile) {
+        validationErrors.push('Завантажте файл домашнього завдання');
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      setGradeError(validationErrors.join('. '));
+      return;
+    }
+
     setGrading(true);
     setGradeError('');
     const lessonId = gradeModal.lesson_id;
-    const conducted = gradeForm.lessonStatus === 'conducted';
 
     try {
+      if (gradeForm.lessonStatus === 'student_missed') {
+        // Student absent — file complaint for manager to resolve
+        await apiClient.post(`/lessons/${lessonId}/complaint/`, {
+          reason: 'student_missed',
+          description: 'Учень не з\'явився на урок',
+        });
+        setGradeModal(null);
+        resetGradeForm();
+        setGradeSuccess('Скаргу подано менеджеру. Очікуйте рішення.');
+        void fetchDashboard();
+        return;
+      }
+
+      // ── Conducted lesson ──
       // 1. Evaluate — record attendance + activity grade
       await apiClient.post(`/lessons/${lessonId}/evaluate/`, {
-        is_present: conducted,
-        activity_grade: conducted ? gradeForm.activityGrade : 0,
+        is_present: true,
+        activity_grade: gradeForm.activityGrade,
         lesson_topic: gradeForm.lessonTopic.trim() || undefined,
       });
 
-      // 2. Set lesson status
-      await teacherApi.setLessonStatus(lessonId, gradeForm.lessonStatus);
+      // 2. Set lesson status to conducted
+      await teacherApi.setLessonStatus(lessonId, 'conducted');
 
       // 3. Upload homework task + optional file (converted to base64 → Dropbox)
-      if (conducted && (gradeForm.homeworkTopic.trim() || gradeForm.homeworkFile)) {
+      if (gradeForm.homeworkTopic.trim() || gradeForm.homeworkFile) {
         let fileData = '';
         let filename = '';
         if (gradeForm.homeworkFile) {
@@ -212,6 +266,10 @@ export default function TeacherDashboard() {
   };
 
   const displayedFiles = showAllFiles ? files : files.slice(0, 3);
+  // Only show lessons that are still scheduled — hide conducted / missed / cancelled
+  const scheduledLessons = (data?.today_lessons ?? []).filter(
+    l => !l.lesson_status || l.lesson_status === 'scheduled'
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -248,7 +306,7 @@ export default function TeacherDashboard() {
               },
               {
                 label: 'Всього уроків',
-                value: data?.today_lessons.length ?? '—',
+                value: scheduledLessons.length,
                 sub: 'Сьогодні у графіку',
                 icon: (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
@@ -293,7 +351,7 @@ export default function TeacherDashboard() {
               <div>
                 <h2 className="font-poppins font-bold text-slate-900 text-xl">Уроки на сьогодні</h2>
                 <p className="font-inter text-[#565d6d] text-sm mt-0.5">
-                  {data?.today_lessons.length ?? 0} запланованих занять
+                  {scheduledLessons.length} запланованих занять
                 </p>
               </div>
               <span className="px-3 py-1.5 bg-[#1f8cf91a] rounded-xl font-inter font-bold text-[#1f8cf9] text-xs">
@@ -312,16 +370,24 @@ export default function TeacherDashboard() {
               <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
                 <p className="font-inter text-red-600 text-sm">{apiError}</p>
               </div>
-            ) : data?.today_lessons && data.today_lessons.length > 0 ? (
+            ) : scheduledLessons.length > 0 ? (
               <div className="bg-white rounded-2xl border border-[#dee1e6] overflow-hidden">
-                {data.today_lessons.map((lesson, i) => {
+                {scheduledLessons.map((lesson, i) => {
                   const graded = gradedIds.includes(lesson.lesson_id ?? -1);
                   const started = lesson.lesson_id ? startedLessons.has(lesson.lesson_id) : false;
                   return (
                     <div
                       key={lesson.slot_id}
-                      className={`flex items-center gap-6 px-6 py-5 ${i > 0 ? 'border-t border-[#dee1e6]' : ''}`}
+                      className={`flex flex-col px-6 py-5 ${i > 0 ? 'border-t border-[#dee1e6]' : ''}`}
                     >
+                      {lesson.has_rejected_complaint && (
+                        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-xl mb-3">
+                          <p className="font-inter text-red-600 text-xs font-medium">
+                            Скаргу відхилено. Будь ласка, виставте оцінку за урок.
+                          </p>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-6">
                       <span className="font-inter font-bold text-slate-900 text-sm w-28 flex-shrink-0">
                         {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
                       </span>
@@ -350,9 +416,12 @@ export default function TeacherDashboard() {
                               </button>
                             ) : started ? (
                               <>
-                                <button type="button" disabled
-                                  className="px-4 py-2 bg-gray-200 text-gray-500 rounded-xl font-inter text-sm cursor-not-allowed">
-                                  Урок розпочато
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(lesson.meeting_link!, '_blank', 'noopener,noreferrer')}
+                                  className="px-4 py-2 border border-[#1f8cf9] text-[#1f8cf9] rounded-xl font-inter text-sm hover:bg-blue-50 transition-colors"
+                                >
+                                  Приєднатись до уроку
                                 </button>
                                 <button
                                   type="button"
@@ -373,6 +442,7 @@ export default function TeacherDashboard() {
                             )}
                           </>
                         ) : null}
+                      </div>
                       </div>
                     </div>
                   );
@@ -490,6 +560,13 @@ export default function TeacherDashboard() {
           )}
         </aside>
       </div>
+
+      {/* ── Success toast ──────────────────────────────────────────────────────── */}
+      {gradeSuccess && (
+        <div className="fixed top-6 right-6 z-50 bg-green-500 text-white px-6 py-4 rounded-2xl font-inter font-semibold text-sm shadow-lg animate-fade-in">
+          {gradeSuccess}
+        </div>
+      )}
 
       {/* ── Grade Modal ───────────────────────────────────────────────────────── */}
       {gradeModal && (
@@ -658,6 +735,14 @@ export default function TeacherDashboard() {
               </>
             )}
 
+            {gradeForm.lessonStatus === 'student_missed' && (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-2xl">
+                <p className="font-inter text-orange-700 text-sm">
+                  Скаргу буде надіслано менеджеру. Якщо менеджер підтвердить — учню автоматично поставиться 0 за урок. Якщо відхилить — вам потрібно буде виставити оцінку.
+                </p>
+              </div>
+            )}
+
             {gradeError && (
               <p className="font-inter text-red-600 text-sm bg-red-50 border border-red-100 rounded-xl px-3 py-2">
                 {gradeError}
@@ -671,11 +756,9 @@ export default function TeacherDashboard() {
               disabled={grading}
               className="py-3 w-full bg-[#1f8cf9] rounded-2xl font-inter font-medium text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
             >
-              {grading
-                ? 'Зберігаємо...'
-                : gradeForm.lessonStatus !== 'conducted'
-                  ? 'Позначити відсутність'
-                  : 'Підтвердити оцінку'}
+              {gradeForm.lessonStatus === 'student_missed'
+                ? (grading ? 'Відправляємо...' : 'Подати скаргу')
+                : (grading ? 'Зберігаємо...' : 'Підтвердити оцінку')}
             </button>
           </div>
         </div>
