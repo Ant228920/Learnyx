@@ -90,10 +90,9 @@ export default function AppRouter() {
             <Route path="settings" element={<ProtectedRoute allowedRoles={M}><ManagerSettings /></ProtectedRoute>} />
           </Route>
 
-          {/* Fallback — unknown paths show 404 with smart "go home" navigation */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </ErrorBoundary>
+        {/* Fallback — unknown paths show 404 with smart "go home" navigation */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </BrowserRouter>
   );
 }

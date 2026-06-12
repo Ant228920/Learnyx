@@ -98,7 +98,7 @@ export default function TeacherHomework() {
           topic: task,
           subject: j.subject_name ?? '—',
           deadline: formatDate(j.start_time),
-          nextLessonDate: formatDeadline(j.next_lesson_date),
+          nextLessonDate: formatDate(j.next_lesson_date ?? undefined),
           status: j.homework_grade != null ? 'ПЕРЕВІРЕНО' : 'НЕ ПЕРЕВІРЕНО',
           homeworkGrade: j.homework_grade,
           teacherNotes: j.teacher_notes,

@@ -127,37 +127,19 @@ export default function StudentSchedule() {
                   <span className="font-inter font-bold text-[#1f8cf9] text-[10px]">{lessons.length} {lessons.length === 1 ? 'заняття' : 'занять'}</span>
                 )}
                 {lessons.map(lesson => {
-                  const isConducted = ['conducted', 'student_missed', 'teacher_missed'].includes(lesson.status ?? '');
-                  const isCancelled = lesson.status === 'canceled_advance';
-
-                  if (isConducted) {
-                    return (
-                      <div key={lesson.id}
-                        className="flex flex-col px-2 py-1 bg-[#f0f0f0] rounded-lg opacity-60">
-                        <span className="font-inter text-[#9095a1] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
-                        <span className="font-inter text-[9px] text-[#9095a1] leading-tight">Урок проведено</span>
-                      </div>
-                    );
-                  }
-
-                  if (isCancelled) {
-                    return (
-                      <div key={lesson.id}
-                        className="flex flex-col px-2 py-1 bg-[#f0f0f0] border border-[#dee1e6] rounded-lg opacity-60">
-                        <span className="font-inter text-[#9095a1] text-[10px] font-medium truncate line-through">{lesson.timeLabel}</span>
-                        <span className="font-inter text-[9px] text-[#9095a1] leading-tight">Скасовано</span>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={lesson.id} className="flex items-center gap-1 px-2 py-1 bg-[#1f8cf91a] rounded-lg w-full">
-                      <button type="button" onClick={() => setCancelTarget(lesson)}
-                        className="flex items-center gap-1 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2" className="flex-shrink-0"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                        <span className="font-inter text-[#1f8cf9] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
-                      </button>
+                  const past = ['conducted', 'student_missed', 'teacher_missed', 'canceled_advance'].includes(lesson.status ?? '');
+                  return past ? (
+                    <div key={lesson.id}
+                      className="flex flex-col px-2 py-1 bg-[#f0f0f0] rounded-lg opacity-60">
+                      <span className="font-inter text-[#9095a1] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
+                      <span className="font-inter text-[9px] text-[#9095a1] leading-tight">Проведено</span>
                     </div>
+                  ) : (
+                    <button key={lesson.id} type="button" onClick={() => setCancelTarget(lesson)}
+                      className="flex items-center gap-1 px-2 py-1 bg-[#1f8cf91a] rounded-lg hover:bg-[#1f8cf933] transition-colors text-left w-full">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                      <span className="font-inter text-[#1f8cf9] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
+                    </button>
                   );
                 })}
                 {lessons.length === 0 && (

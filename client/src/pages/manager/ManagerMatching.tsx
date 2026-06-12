@@ -167,6 +167,11 @@ export default function ManagerMatching() {
         const slotsRes = await apiClient.get('/slots/', { params: { status: 'available' } });
         const allSlots = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<Record<string, unknown>>;
 
+        console.log('[Matching] raw slots count:', allSlots.length);
+        if (allSlots.length > 0) {
+          console.log('[Matching] first slot:', JSON.stringify(allSlots[0]));
+        }
+
         const slotsByTeacher: Record<number, Array<{ start_time: string }>> = {};
         for (const s of allSlots) {
           let tid: number | undefined;
@@ -183,6 +188,9 @@ export default function ManagerMatching() {
             slotsByTeacher[tid].push({ start_time: s.start_time as string });
           }
         }
+
+        console.log('[Matching] slotsByTeacher keys:', Object.keys(slotsByTeacher));
+        console.log('[Matching] levelFiltered teacher IDs:', levelFiltered.map(t => t.user_id));
 
         const withSlots = levelFiltered.filter(t => {
           const tid = Number(t.user_id ?? t.id);
