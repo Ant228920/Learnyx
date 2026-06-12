@@ -254,6 +254,10 @@ export default function TeacherDashboard() {
       setLinkError('Немає заброньованого уроку для цього слоту.');
       return;
     }
+    if (!link.startsWith('http://') && !link.startsWith('https://')) {
+      setLinkError('Посилання має починатись з https://');
+      return;
+    }
     setLinkError('');
     try {
       await teacherApi.setMeetingLink(linkLessonId, link);
@@ -598,7 +602,7 @@ export default function TeacherDashboard() {
                 {gradeModal.student_name ?? 'Учень'}
               </p>
               <p className="font-inter text-[#565d6d] text-xs mt-0.5">
-                {new Date(gradeModal.start_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })} —{' '}
+                {formatTime(gradeModal.start_time)} —{' '}
                 {gradeModal.topic ?? 'Заняття'}
               </p>
             </div>
@@ -827,7 +831,7 @@ export default function TeacherDashboard() {
                 type="url"
                 value={link}
                 onChange={e => { setLink(e.target.value); setLinkError(''); }}
-                placeholder="https://meet.google.com/..."
+                placeholder="https://meet.google.com/xxx-xxxx-xxx"
                 aria-label="Посилання на урок"
                 className="w-full border border-[#dee1e6] rounded-xl pl-10 pr-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
               />

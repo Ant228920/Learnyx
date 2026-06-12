@@ -289,28 +289,31 @@ export default function ManagerMatching() {
       });
       if (slotsToBook.length === 0) slotsToBook = [slotsData[0]];
 
-      // 5. Book all matching slots, skip conflicts
-      let bookedCount = 0;
+      // 5. Book the first matching slot — the backend fills the rest of the
+      // package's balance from the teacher's other available slots in the same call.
+      let lessonsCount = 0;
       for (const slotToBook of slotsToBook) {
         try {
-          await apiClient.post('/lessons/assign/', {
+          const res = await apiClient.post('/lessons/assign/', {
             slot: slotToBook.id,
             student: selectedStudentObj.id,
             package: studentPackage.id,
           });
-          bookedCount++;
+          const data = res.data as { lessons_count?: number };
+          lessonsCount = data.lessons_count ?? 1;
+          break;
         } catch {
-          // Skip — slot already booked or student conflict at this time
+          // Skip — slot already booked or student conflict at this time, try the next one
         }
       }
 
-      if (bookedCount === 0) {
+      if (lessonsCount === 0) {
         setAssignError('Не вдалося призначити жодного заняття. Всі підходящі слоти вже зайняті або конфліктують.');
         setAssignLoading(false);
         return;
       }
 
-      setSuccessCount(bookedCount);
+      setSuccessCount(lessonsCount);
       setSuccessTeacher(teacher.name);
       setTeachers([]);
       setSearched(false);

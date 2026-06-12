@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 from rest_framework import serializers
 from api.models import RegistrationRequest
@@ -39,6 +40,11 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
         if email and RegistrationRequest.objects.filter(email=email).exclude(status='rejected').exists():
             raise serializers.ValidationError(
                 {'email': 'Заявка з такою поштою вже існує.'}
+            )
+
+        if phone and RegistrationRequest.objects.filter(phone=phone).exclude(status='rejected').exists():
+            raise serializers.ValidationError(
+                {'phone': 'Цей номер телефону вже використовується.'}
             )
 
         phone = data.get('phone', '')
@@ -202,17 +208,17 @@ class JournalRecordSerializer(serializers.ModelSerializer):
 
     def get_next_lesson_date(self, obj):
         try:
-            from inventory.models import Lesson as _Lesson
-            next_l = _Lesson.objects.filter(
+            current_start = obj.lesson.slot.start_time
+            next_l = Lesson.objects.filter(
                 student=obj.lesson.student,
-                slot__start_time__gt=obj.lesson.slot.start_time,
+                slot__start_time__gt=current_start,
                 status='scheduled',
             ).order_by('slot__start_time').first()
             if next_l and next_l.slot:
                 return next_l.slot.start_time.isoformat()
+            return (current_start + timedelta(days=7)).isoformat()
         except Exception:
-            pass
-        return None
+            return None
 
     class Meta:
         model = JournalRecord
@@ -220,7 +226,7 @@ class JournalRecordSerializer(serializers.ModelSerializer):
             'id', 'lesson', 'is_present', 'activity_grade',
             'teacher_homework_task', 'homework_answer_url', 'homework_file_url',
             'homework_grade', 'teacher_notes', 'homework_status', 'lesson_topic',
-            'lesson_date', 'subject_name', 'next_lesson_date',
+            'lesson_date', 'subject_name', 'next_lesson_date', 'homework_overdue',
         ]
         read_only_fields = ['id', 'lesson']
 
@@ -253,6 +259,7 @@ class LessonWithSlotSerializer(serializers.ModelSerializer):
 class StudentListSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
+    father_name = serializers.CharField(source='user.father_name', allow_null=True, default=None)
     email = serializers.EmailField(source='user.email')
     phone = serializers.CharField(source='user.phone', allow_null=True, default=None)
     telegram_nickname = serializers.CharField(source='user.nickname', allow_null=True, default=None)
@@ -279,7 +286,7 @@ class StudentListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['user_id', 'first_name', 'last_name', 'email', 'phone', 'telegram_nickname',
+        fields = ['user_id', 'first_name', 'last_name', 'father_name', 'email', 'phone', 'telegram_nickname',
                   'level', 'subject', 'level_name', 'lessons_balance', 'total_lessons']
 
 
@@ -290,10 +297,17 @@ class JournalListSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     subject_name = serializers.SerializerMethodField()
     next_lesson_date = serializers.SerializerMethodField()
+    package_status = serializers.SerializerMethodField()
 
     def get_student_name(self, obj):
         u = obj.lesson.student.user
         return f'{u.first_name} {u.last_name}'.strip() or u.email
+
+    def get_package_status(self, obj):
+        try:
+            return obj.lesson.package.status
+        except Exception:
+            return None
 
     def get_subject_name(self, obj):
         try:
@@ -312,17 +326,17 @@ class JournalListSerializer(serializers.ModelSerializer):
 
     def get_next_lesson_date(self, obj):
         try:
-            from inventory.models import Lesson as _Lesson
-            next_l = _Lesson.objects.filter(
+            current_start = obj.lesson.slot.start_time
+            next_l = Lesson.objects.filter(
                 student=obj.lesson.student,
-                slot__start_time__gt=obj.lesson.slot.start_time,
+                slot__start_time__gt=current_start,
                 status='scheduled',
             ).order_by('slot__start_time').first()
             if next_l and next_l.slot:
                 return next_l.slot.start_time.isoformat()
+            return (current_start + timedelta(days=7)).isoformat()
         except Exception:
-            pass
-        return None
+            return None
 
     class Meta:
         model = JournalRecord
@@ -331,7 +345,8 @@ class JournalListSerializer(serializers.ModelSerializer):
             'is_present', 'activity_grade', 'homework_grade',
             'teacher_homework_task', 'homework_answer_url', 'homework_file_url',
             'teacher_notes', 'homework_status', 'student_name',
-            'lesson_topic', 'subject_name', 'next_lesson_date',
+            'lesson_topic', 'subject_name', 'next_lesson_date', 'homework_overdue',
+            'package_status',
         ]
 
 
@@ -414,7 +429,7 @@ class HomeworkSerializer(serializers.Serializer):
 
 class HomeworkGradeSerializer(serializers.Serializer):
     homework_grade = serializers.IntegerField(
-        min_value=1,
+        min_value=0,
         max_value=10,
         error_messages={
             'required': 'Ви не оцінили виконання домашнього завдання',

@@ -10,8 +10,6 @@ const NAV_ITEMS = [
   { label: 'Оцінки',            path: '/dashboard/grades' },
 ];
 
-const FOOTER_LINKS = ['Політика конфіденційності', 'Допомога', 'Про проект'];
-
 const IconLogo = () => (
   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
     <path d="M11 3L19 7.5V14.5L11 19L3 14.5V7.5L11 3Z" fill="white" />
@@ -124,17 +122,10 @@ export default function StudentLayout({ children }: Props) {
 
         {/* Footer */}
         <footer className="px-16 py-6 bg-white border-t border-[#dee1e6]">
-          <div className="max-w-[1440px] mx-auto flex items-center justify-between">
+          <div className="max-w-[1440px] mx-auto flex items-center">
             <p className="font-inter font-medium text-[#565d6d] text-xs">
-              © 2024 LearnYX Ecosystem. Усі права захищені.
+              © 2026 LearnYX Ecosystem. Усі права захищені.
             </p>
-            <nav aria-label="Нижня навігація" className="flex items-center gap-6">
-              {FOOTER_LINKS.map((link) => (
-                <a key={link} href="#" className="font-inter font-bold text-[#565d6d] text-xs hover:text-slate-900 transition-colors">
-                  {link}
-                </a>
-              ))}
-            </nav>
           </div>
         </footer>
       </div>

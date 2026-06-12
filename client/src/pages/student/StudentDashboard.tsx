@@ -32,36 +32,6 @@ export default function StudentDashboard() {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 
-  const handleJoinLesson = (meetingLink: string | null) => {
-    if (meetingLink) {
-      window.open(meetingLink, '_blank', 'noopener,noreferrer');
-    } else {
-      setJoinError('Викладач ще не додав посилання на урок. Очікуйте повідомлення.');
-    }
-  };
-
-  const getLessonAction = (lesson: DashboardData['today_lessons'][0]) => {
-    if (lesson.meeting_link) return 'join';
-    const startTime = new Date(lesson.start_time);
-    const now = new Date();
-    const minutesUntilStart = (startTime.getTime() - now.getTime()) / (1000 * 60);
-    if (minutesUntilStart <= 15 && minutesUntilStart > -60) return 'complain';
-    return 'waiting';
-  };
-
-  const handleComplain = async (lesson: DashboardData['today_lessons'][0]) => {
-    try {
-      await apiClient.post('/user-requests/', {
-        title: `Вчитель не розпочав урок вчасно. Урок ID: ${lesson.lesson_id ?? ''}`,
-        status: 'new',
-      });
-      setComplainSent(lesson.lesson_id ?? null);
-      alert('Скаргу надіслано менеджеру. Урок не буде списано з абонементу.');
-    } catch (err) {
-      alert(extractErrorMessage(err));
-    }
-  };
-
   return (
     <StudentLayout>
       <div className="max-w-[1200px] mx-auto flex flex-col gap-8">
@@ -130,20 +100,21 @@ export default function StudentDashboard() {
                     aria-label={`Бонусний прогрес: ${data?.bonus_progress?.success_pct ?? 0}%`}
                     title={`Бонусний прогрес: ${data?.bonus_progress?.success_pct ?? 0}%`}
                     className="h-3 bg-[#f4f4f6] rounded-md overflow-hidden">
-                    <div className={
-                        `h-full bg-[#1f8cf9] transition-all rounded-md ${
-                          (data?.bonus_progress?.success_pct ?? 0) === 0 ? 'w-0' :
-                          (data?.bonus_progress?.success_pct ?? 0) < 86 ? 'w-1/4' :
-                          (data?.bonus_progress?.success_pct ?? 0) < 91 ? 'w-1/2' :
-                          (data?.bonus_progress?.success_pct ?? 0) < 96 ? 'w-3/4' : 'w-full'
-                        }`
-                      } />
+                    <div
+                      className="h-full bg-[#1f8cf9] transition-all rounded-md"
+                      style={{ width: `${Math.min(data?.bonus_progress?.success_pct ?? 0, 100)}%` }}
+                    />
                   </div>
                   <div className="flex justify-between">
                     {['5%', '10%', '15%'].map(v => (
                       <span key={v} className="font-inter font-bold text-xs text-[#565d6d]">{v}</span>
                     ))}
                   </div>
+                  <p className="font-inter font-medium text-xs text-[#171a1f]">
+                    {data?.bonus_progress
+                      ? `${data.bonus_progress.earned_points} / ${data.bonus_progress.max_points} балів → ${data.bonus_progress.bonus_pct}% бонус`
+                      : 'Немає активного абонементу'}
+                  </p>
                   <p className="font-inter text-[10px] text-[#9095a1]">
                     {data?.available_cashback_pct
                       ? `Доступний кешбек: ${data.available_cashback_pct}%`
@@ -168,8 +139,7 @@ export default function StudentDashboard() {
               {data?.today_lessons && data.today_lessons.length > 0 ? (
                 <div className="bg-white rounded-2xl border border-[#dee1e6] shadow-[0px_1px_2.5px_#171a1f12] overflow-hidden">
                   {data.today_lessons.map((lesson, i) => {
-                    const action = getLessonAction(lesson);
-                    const alreadyComplained = complainSent === lesson.lesson_id;
+                    const hasMeetingLink = !!lesson.meeting_link && lesson.meeting_link.trim() !== '';
                     return (
                       <article key={lesson.lesson_id}
                         className={`flex items-center justify-between gap-6 px-6 py-5 ${i > 0 ? 'border-t border-[#dee1e6]' : ''}`}>
@@ -204,11 +174,12 @@ export default function StudentDashboard() {
                                 className="px-4 py-1.5 bg-orange-500 rounded-md font-inter font-semibold text-white text-sm hover:bg-orange-600 transition-colors">
                                 Поскаржитись
                               </button>
-                            )
+                            </>
                           ) : (
-                            <span className="px-3 py-1.5 bg-gray-100 rounded-md font-inter font-semibold text-gray-400 text-sm">
-                              Очікуйте посилання
-                            </span>
+                            <button type="button" disabled
+                              className="px-3 py-1.5 bg-gray-100 rounded-md font-inter font-semibold text-gray-400 text-sm cursor-not-allowed">
+                              Очікуйте посилання від викладача
+                            </button>
                           )}
                         </div>
                       </article>
@@ -226,45 +197,45 @@ export default function StudentDashboard() {
       </div>
 
       {/* Complaint Modal */}
-      {complaintOpen && !complaintSent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) setComplaintOpen(false); }}
+      {complaintModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) { setComplaintModal(null); setComplaintError(''); setComplaintSuccess(''); } }}
           role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl animate-fade-in p-6 flex flex-col gap-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#1f8cf91a] flex items-center justify-center">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                </div>
-                <h2 className="font-poppins font-bold text-slate-900 text-xl">Поскаржити</h2>
-              </div>
-              <button type="button" onClick={() => setComplaintOpen(false)} aria-label="Закрити" title="Закрити"
-                className="text-[#9095a1] hover:text-slate-600">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <h3 className="font-inter font-bold text-[#171a1f] text-xl mb-4">Подати скаргу</h3>
+            <p className="font-inter text-[#565d6d] text-sm mb-6">
+              Викладач <strong>{complaintModal.teacherName}</strong> не з'явився на урок? Подайте скаргу — менеджер розгляне її та вживе заходів.
+            </p>
+            {complaintError && <p className="text-red-500 text-sm mb-4">{complaintError}</p>}
+            {complaintSuccess && <p className="text-green-600 text-sm mb-4">{complaintSuccess}</p>}
+            <div className="flex gap-3">
+              <button type="button"
+                onClick={() => { setComplaintModal(null); setComplaintError(''); setComplaintSuccess(''); }}
+                className="flex-1 py-3 border border-[#dee1e6] rounded-2xl font-inter font-semibold text-sm text-[#565d6d] hover:bg-[#f4f4f6] transition-colors">
+                Скасувати
+              </button>
+              <button type="button"
+                disabled={complaintSending}
+                onClick={async () => {
+                  setComplaintSending(true);
+                  setComplaintError('');
+                  try {
+                    await apiClient.post(`/lessons/${complaintModal.lessonId}/complaint/`, {
+                      reason: 'teacher_missed',
+                      description: 'Викладач не з\'явився на урок',
+                    });
+                    setComplaintSuccess('Скаргу подано. Менеджер розгляне її найближчим часом.');
+                    setTimeout(() => { setComplaintModal(null); setComplaintSuccess(''); }, 2000);
+                  } catch (err) {
+                    setComplaintError(extractErrorMessage(err));
+                  } finally {
+                    setComplaintSending(false);
+                  }
+                }}
+                className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-inter font-semibold text-sm hover:bg-red-600 disabled:opacity-50 transition-colors">
+                {complaintSending ? 'Відправляємо...' : 'Подати скаргу'}
               </button>
             </div>
-            <p className="font-inter text-[#565d6d] text-sm leading-6">
-              Надішліть скаргу про відсутність викладача на занятті. Ми перевіримо інформацію та вживемо необхідних заходів.
-            </p>
-            <button type="button" onClick={() => { setComplaintSent(true); setComplaintOpen(false); }}
-              className="w-full py-3 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm hover:bg-blue-600 transition-colors">
-              Відправити
-            </button>
-          </div>
-        </div>
-      )}
-
-      {complaintSent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setComplaintSent(false)} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-xs mx-4 flex flex-col items-center gap-4 shadow-2xl animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-[#1f8cf9]">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-            </div>
-            <h2 className="font-poppins font-bold text-xl text-slate-900">Скаргу відправлено!</h2>
-            <p className="font-inter text-sm text-[#565d6d] text-center">Ми розглянемо вашу скаргу та повідомимо про результат.</p>
-            <button onClick={() => setComplaintSent(false)}
-              className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">OK</button>
           </div>
         </div>
       )}

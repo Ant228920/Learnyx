@@ -3,6 +3,7 @@ import TeacherLayout from './TeacherLayout';
 import { apiClient, teacherApi, extractErrorMessage } from '../../services/api';
 import type { JournalRecord } from '../../services/api';
 import { showError, showSuccess } from '../../utils/toast';
+import { formatDeadline } from '../../utils/date';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -341,7 +342,7 @@ export default function TeacherHomework() {
                         <line x1="3" y1="10" x2="21" y2="10" />
                       </svg>
                       <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">
-                        {row.nextLessonDate !== '—' ? row.nextLessonDate : row.deadline}
+                        {row.nextLessonDate !== 'Не визначено' ? row.nextLessonDate : row.deadline}
                       </span>
                     </div>
 
@@ -389,7 +390,7 @@ export default function TeacherHomework() {
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
                       <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                     </svg>
-                    <span className="font-inter text-slate-800 text-sm">До {selected.nextLessonDate !== '—' ? selected.nextLessonDate : selected.deadline}</span>
+                    <span className="font-inter text-slate-800 text-sm">До {selected.nextLessonDate !== 'Не визначено' ? selected.nextLessonDate : selected.deadline}</span>
                   </div>
                 </div>
 

@@ -315,6 +315,7 @@ class JournalRecord(models.Model):
     )
     homework_submitted_at = models.DateTimeField(null=True, blank=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    homework_overdue = models.BooleanField(default=False)
 
     grade = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(10)],
@@ -370,7 +371,6 @@ class Complaint(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = ('student', 'lesson')
 
     def __str__(self):
         return f'Complaint #{self.pk}: {self.student} on lesson {self.lesson_id} ({self.status})'

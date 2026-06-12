@@ -110,8 +110,15 @@ class DropboxStorage(Storage):
                 encoded = file_data
 
             file_bytes = base64.b64decode(encoded)
-            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'pdf'
-            unique_path = f"{folder}/{uuid.uuid4().hex}.{ext}"
+
+            allowed_extensions = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            if ext not in allowed_extensions:
+                ext = 'pdf'
+            # Dropbox sharing endpoints reject multi-segment folder paths for
+            # share-link creation — flatten to a single segment under root.
+            safe_folder = folder.strip('/').replace('/', '_')
+            unique_path = f"/{safe_folder}/{uuid.uuid4().hex}.{ext}"
 
             dbx.files_upload(file_bytes, unique_path, mode=WriteMode.overwrite)
 

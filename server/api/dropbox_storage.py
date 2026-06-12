@@ -67,7 +67,9 @@ def upload_file(file, dropbox_path: str) -> str:
 
 
 def upload_lesson_material(lesson_id: int, file, notify_email: str = None) -> str:
-    folder = f"{LEARNYX_ROOT}/lessons/{lesson_id}/materials"
+    # Dropbox sharing endpoints reject multi-segment folder paths for share-link
+    # creation — flatten to a single segment under root.
+    folder = f"{LEARNYX_ROOT}_lessons_{lesson_id}_materials"
     path = f"{folder}/{file.name}"
     ensure_folder(folder)
     url = upload_file(file, path)
@@ -77,7 +79,9 @@ def upload_lesson_material(lesson_id: int, file, notify_email: str = None) -> st
 
 
 def upload_homework_file(lesson_id: int, student_id: int, file, notify_email: str = None) -> str:
-    folder = f"{LEARNYX_ROOT}/lessons/{lesson_id}/homework"
+    # Dropbox sharing endpoints reject multi-segment folder paths for share-link
+    # creation — flatten to a single segment under root.
+    folder = f"{LEARNYX_ROOT}_lessons_{lesson_id}_homework"
     path = f"{folder}/{student_id}_{file.name}"
     ensure_folder(folder)
     url = upload_file(file, path)
