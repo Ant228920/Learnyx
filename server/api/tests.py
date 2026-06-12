@@ -365,6 +365,38 @@ class LessonEvaluateIntegrationTest(TestCase):
         })
         self.assertEqual(resp.status_code, 403)
 
+    def test_evaluate_on_scheduled_lesson_marks_conducted(self):
+        """US7: grading a 'scheduled' lesson auto-transitions it to 'conducted'
+        and applies the same side effects as PATCH /status (slot freed,
+        package balance deducted)."""
+        package = _make_package(self.student, balance=5)
+        start = timezone.now() - timezone.timedelta(hours=1)
+        slot = Slot.objects.create(
+            teacher=self.teacher,
+            start_time=start,
+            end_time=start + timezone.timedelta(hours=1),
+            status='booked',
+        )
+        lesson = Lesson.objects.create(
+            slot=slot, student=self.student, package=package, status='scheduled',
+        )
+
+        self.client.force_authenticate(user=self.teacher_user)
+        resp = self.client.post(f'/api/v1/lessons/{lesson.pk}/evaluate/', {
+            'is_present': True,
+            'activity_grade': 8,
+        })
+        self.assertEqual(resp.status_code, 201)
+
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.status, 'conducted')
+
+        slot.refresh_from_db()
+        self.assertEqual(slot.status, 'available')
+
+        package.refresh_from_db()
+        self.assertEqual(package.balance, 4)
+
 
 # ---------------------------------------------------------------------------
 # Transaction rollback tests — verify atomicity guarantees
@@ -454,9 +486,10 @@ class CompletionBonusRollbackTest(TestCase):
             package=self.package,
             status='scheduled',
         )
-        # grade=9 → success_pct = round(9/10*100, 4) = 90.0 % → hits the 90 % tier
-        # → earned_discount = 10 % ≠ 0 → update_or_create is reached
-        JournalRecord.objects.create(lesson=self.lesson, activity_grade=9)
+        # total_lessons=1 → max_points=20; activity_grade=9 + homework_grade=10 = 19
+        # → success_pct = 95.0 % → hits the 90 % tier → earned_discount = 15 % ≠ 0
+        # → update_or_create is reached
+        JournalRecord.objects.create(lesson=self.lesson, activity_grade=9, homework_grade=10)
 
     def test_course_completion_failure_rolls_back_full_chain(self):
         """

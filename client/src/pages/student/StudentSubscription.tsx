@@ -152,26 +152,6 @@ export default function StudentSubscription() {
           </div>
         </div>
 
-        {/* Bonus banner */}
-        {bonusDiscountPct > 0 && (
-          <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border bg-[#e0faea] border-[#1a7bd9]">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a7bd9" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <span className="font-inter font-medium text-sm text-[#1a7bd9]">
-              У вас є бонусна знижка {bonusDiscountPct}% на наступний абонемент
-            </span>
-          </div>
-        )}
-        {!bonusDiscountPct && activePackage && activePackage.balance > 0 && (
-          <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border bg-[#f8f9fb] border-[#dee1e6]">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9095a1" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <span className="font-inter font-medium text-sm text-[#565d6d]">Завершіть курс для отримання бонусу</span>
-          </div>
-        )}
-
         {/* Subscription plan cards */}
         <div className="flex flex-col gap-6">
           <div className="text-center">
@@ -180,24 +160,26 @@ export default function StudentSubscription() {
           </div>
 
           {/* Bonus selector */}
-          <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-[#dee1e6]">
-            <span className="font-inter font-medium text-slate-800 text-sm flex-shrink-0">Бонусна знижка:</span>
+          <div className="p-4 bg-white rounded-2xl border border-[#dee1e6]">
             {bonusDiscountPct > 0 ? (
-              <select
-                value={selectedBonus}
-                aria-label="Оберіть бонусну знижку"
-                onChange={e => setSelectedBonus(Number(e.target.value))}
-                className="border border-[#dee1e6] rounded-xl px-3 py-2 font-inter text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
-              >
-                <option value={0}>Без знижки</option>
-                {bonusDiscountPct >= 5  && <option value={5}>5% знижка</option>}
-                {bonusDiscountPct >= 10 && <option value={10}>10% знижка</option>}
-                {bonusDiscountPct >= 15 && <option value={15}>15% знижка</option>}
-              </select>
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-inter font-medium text-sm text-[#1a7bd9]">
+                  У вас є бонус {Math.min(bonusDiscountPct, 15)}% знижки!
+                </span>
+                <label className="flex items-center gap-2 font-inter text-sm text-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedBonus > 0}
+                    onChange={e => setSelectedBonus(e.target.checked ? Math.min(bonusDiscountPct, 15) : 0)}
+                    className="w-4 h-4 accent-[#1f8cf9]"
+                  />
+                  Застосувати бонус {Math.min(bonusDiscountPct, 15)}%
+                </label>
+              </div>
             ) : (
-              <span className="font-inter text-[#9095a1] text-sm">
-                У вас ще немає бонусів. Виконуйте домашні завдання вчасно для накопичення бонусів.
-              </span>
+              <p className="font-inter text-[#9095a1] text-sm">
+                У вас немає бонусів. Виконуйте домашні завдання вчасно для отримання знижки.
+              </p>
             )}
           </div>
           </div>

@@ -19,7 +19,7 @@ export function useStudentGrades() {
       const journal = await studentApi.getJournal();
       const result: GradeRecord[] = [];
       journal.forEach(j => {
-        const r = j as Record<string, unknown>;
+        const r = j as unknown as Record<string, unknown>;
         const subjectName = (r.subject_name as string | null) || null;
         const lessonTopic = (r.lesson_topic as string | null) || null;
         const hwTask = typeof j.teacher_homework_task === 'string'

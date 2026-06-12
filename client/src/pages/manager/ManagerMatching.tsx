@@ -167,11 +167,6 @@ export default function ManagerMatching() {
         const slotsRes = await apiClient.get('/slots/', { params: { status: 'available' } });
         const allSlots = (Array.isArray(slotsRes.data) ? slotsRes.data : []) as Array<Record<string, unknown>>;
 
-        console.log('[Matching] raw slots count:', allSlots.length);
-        if (allSlots.length > 0) {
-          console.log('[Matching] first slot:', JSON.stringify(allSlots[0]));
-        }
-
         const slotsByTeacher: Record<number, Array<{ start_time: string }>> = {};
         for (const s of allSlots) {
           let tid: number | undefined;
@@ -188,9 +183,6 @@ export default function ManagerMatching() {
             slotsByTeacher[tid].push({ start_time: s.start_time as string });
           }
         }
-
-        console.log('[Matching] slotsByTeacher keys:', Object.keys(slotsByTeacher));
-        console.log('[Matching] levelFiltered teacher IDs:', levelFiltered.map(t => t.user_id));
 
         const withSlots = levelFiltered.filter(t => {
           const tid = Number(t.user_id ?? t.id);
@@ -289,28 +281,31 @@ export default function ManagerMatching() {
       });
       if (slotsToBook.length === 0) slotsToBook = [slotsData[0]];
 
-      // 5. Book all matching slots, skip conflicts
-      let bookedCount = 0;
+      // 5. Book the first matching slot — the backend fills the rest of the
+      // package's balance from the teacher's other available slots in the same call.
+      let lessonsCount = 0;
       for (const slotToBook of slotsToBook) {
         try {
-          await apiClient.post('/lessons/assign/', {
+          const res = await apiClient.post('/lessons/assign/', {
             slot: slotToBook.id,
             student: selectedStudentObj.id,
             package: studentPackage.id,
           });
-          bookedCount++;
+          const data = res.data as { lessons_count?: number };
+          lessonsCount = data.lessons_count ?? 1;
+          break;
         } catch {
-          // Skip — slot already booked or student conflict at this time
+          // Skip — slot already booked or student conflict at this time, try the next one
         }
       }
 
-      if (bookedCount === 0) {
+      if (lessonsCount === 0) {
         setAssignError('Не вдалося призначити жодного заняття. Всі підходящі слоти вже зайняті або конфліктують.');
         setAssignLoading(false);
         return;
       }
 
-      setSuccessCount(bookedCount);
+      setSuccessCount(lessonsCount);
       setSuccessTeacher(teacher.name);
       setTeachers([]);
       setSearched(false);

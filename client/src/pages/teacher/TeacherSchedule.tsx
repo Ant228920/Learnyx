@@ -7,6 +7,10 @@ import { apiClient, extractErrorMessage } from '../../services/api';
 const DAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 const MONTH_SHORT = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
 
+// Conducted/missed lessons only make sense for past days — hide them from the
+// current/upcoming view, show them dimmed when browsing a past week.
+const HIDDEN_FROM_UPCOMING = ['conducted', 'student_missed', 'teacher_missed'];
+
 function getMonday(d: Date): Date {
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
@@ -35,6 +39,7 @@ export default function TeacherSchedule() {
   const [freeTo, setFreeTo] = useState('09:30');
   const [repeatWeekly, setRepeatWeekly] = useState(true);
   const [cancelError, setCancelError] = useState('');
+  const [cancellingLesson, setCancellingLesson] = useState<number | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -47,12 +52,27 @@ export default function TeacherSchedule() {
 
   const weekLabel = `${weekDays[0].getDate()} ${MONTH_SHORT[weekDays[0].getMonth()]} — ${weekDays[6].getDate()} ${MONTH_SHORT[weekDays[6].getMonth()]} ${weekDays[6].getFullYear()}`;
 
-  const slotsByWeekDay = weekDays.map(day => ({
-    date: day,
-    slots: allSlots.filter(s => isSameDay(new Date(s.start_time), day)),
-  }));
+  const slotsByWeekDay = weekDays.map(day => {
+    const isPast = day < today;
+    return {
+      date: day,
+      slots: allSlots.filter(s => {
+        if (!isSameDay(new Date(s.start_time), day)) return false;
+        if (!isPast && HIDDEN_FROM_UPCOMING.includes(s.lesson_status ?? '')) return false;
+        return true;
+      }),
+    };
+  });
 
-  const dayModalSlots = dayModal ? allSlots.filter(s => isSameDay(new Date(s.start_time), dayModal)) : [];
+  const weekHasSlots = slotsByWeekDay.some(d => d.slots.length > 0);
+
+  const dayModalSlots = dayModal
+    ? allSlots.filter(s => {
+        if (!isSameDay(new Date(s.start_time), dayModal)) return false;
+        if (!(dayModal < today) && HIDDEN_FROM_UPCOMING.includes(s.lesson_status ?? '')) return false;
+        return true;
+      })
+    : [];
 
   const prevWeek = () => setWeekStart(d => { const n = new Date(d); n.setDate(d.getDate() - 7); return n; });
   const nextWeek = () => setWeekStart(d => { const n = new Date(d); n.setDate(d.getDate() + 7); return n; });
@@ -61,18 +81,16 @@ export default function TeacherSchedule() {
   if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
-  const handleCancelLesson = async (slot: SlotItem) => {
-    if (!confirm('Скасувати це заняття?')) return;
+  const handleCancelLesson = async (lessonId: number) => {
     setCancelError('');
+    setCancellingLesson(lessonId);
     try {
-      const lessonsRes = await apiClient.get(`/lessons/?slot_id=${slot.id}`);
-      const raw = lessonsRes.data as { results?: unknown[] } | unknown[];
-      const lessons = (Array.isArray(raw) ? raw : (raw as { results?: unknown[] }).results ?? []) as Array<{ id: number }>;
-      if (lessons.length > 0) await apiClient.patch(`/lessons/${lessons[0].id}/cancel/`);
-      await deleteSlot(slot.id);
+      await apiClient.patch(`/lessons/${lessonId}/cancel/`);
       void refetch();
     } catch (err) {
       setCancelError(extractErrorMessage(err));
+    } finally {
+      setCancellingLesson(null);
     }
   };
 
@@ -121,6 +139,13 @@ export default function TeacherSchedule() {
           </div>
         </div>
 
+        {/* Empty state */}
+        {weekHasSlots === false && (
+          <div className="bg-[#f0f7ff] border border-[#dee1e6] rounded-2xl px-6 py-4 font-inter text-sm text-[#565d6d]">
+            У вас немає запланованих слотів на цьому тижні. Натисніть «+ Додати слот» щоб додати час занять.
+          </div>
+        )}
+
         {/* Weekly grid */}
         <div className="bg-white rounded-2xl border border-[#dee1e6] overflow-hidden">
           {/* Day headers */}
@@ -149,7 +174,7 @@ export default function TeacherSchedule() {
                   <span className="text-[10px] font-inter font-bold text-[#1f8cf9] bg-[#1f8cf91a] rounded-full px-1.5 w-fit">{slots.length}</span>
                 )}
                 {slots.map(s => {
-                  const conducted = ['conducted', 'student_missed', 'teacher_missed'].includes(s.lesson_status ?? '');
+                  const conducted = HIDDEN_FROM_UPCOMING.includes(s.lesson_status ?? '');
                   return (
                     <div key={s.id} className={`flex flex-col px-2 py-1 rounded-lg ${conducted ? 'bg-[#f0f0f0] opacity-60' : s.is_booked ? 'bg-[#e8f4fd]' : 'bg-[#e0faea]'}`}>
                       <span className={`font-inter text-[10px] font-semibold truncate ${conducted ? 'text-[#9095a1]' : s.is_booked ? 'text-[#1f8cf9]' : 'text-[#1a7bd9]'}`}>{s.time}</span>
@@ -167,17 +192,6 @@ export default function TeacherSchedule() {
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#f5a83d]" />
-            <span className="font-inter text-[#565d6d] text-xs">Заброньовані слоти</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#26d962]" />
-            <span className="font-inter text-[#565d6d] text-xs">Вільні години</span>
-          </div>
-        </div>
       </div>
 
       {/* Day Modal */}
@@ -201,7 +215,7 @@ export default function TeacherSchedule() {
                 <span className="w-6 h-6 bg-[#1f8cf9] rounded-full flex items-center justify-center font-inter font-bold text-white text-[10px]">{dayModalSlots.length}</span>
               </div>
               {dayModalSlots.map(slot => {
-                const conducted = ['conducted', 'student_missed', 'teacher_missed'].includes(slot.lesson_status ?? '');
+                const conducted = HIDDEN_FROM_UPCOMING.includes(slot.lesson_status ?? '');
                 return (
                 <div key={slot.id} className={`flex items-center justify-between p-3 rounded-xl border ${conducted ? 'bg-[#f8f9fb] border-[#dee1e6] opacity-60' : slot.is_booked ? 'bg-[#e8f4fd] border-[#1f8cf9]/30' : 'bg-[#f8f9fb] border-[#dee1e6]'}`}>
                   <div className="flex flex-col gap-0.5">
@@ -214,8 +228,13 @@ export default function TeacherSchedule() {
                     </span>
                   </div>
                   {!conducted && (slot.is_booked ? (
-                    <button type="button" onClick={() => void handleCancelLesson(slot)}
-                      className="font-inter text-red-500 hover:text-red-600 text-xs underline">Скасувати</button>
+                    slot.lesson_id != null && (
+                      <button type="button" onClick={() => void handleCancelLesson(slot.lesson_id as number)}
+                        disabled={cancellingLesson === slot.lesson_id}
+                        className="font-inter text-red-500 hover:text-red-600 text-xs underline disabled:opacity-50">
+                        {cancellingLesson === slot.lesson_id ? 'Скасування...' : 'Скасувати'}
+                      </button>
+                    )
                   ) : (
                     <button type="button" onClick={() => { setCancelSlot(slot); setDayModal(null); }}
                       className="font-inter text-[#e64c4c] text-xs hover:underline">Видалити</button>

@@ -204,17 +204,16 @@ export default function TeacherDashboard() {
       }
 
       // ── Conducted lesson ──
-      // 1. Evaluate — record attendance + activity grade
+      // 1. Evaluate — record attendance + activity grade.
+      //    The backend auto-transitions the lesson to 'conducted' (frees the
+      //    slot, deducts package balance, awards cashback on completion).
       await apiClient.post(`/lessons/${lessonId}/evaluate/`, {
         is_present: true,
         activity_grade: gradeForm.activityGrade,
         lesson_topic: gradeForm.lessonTopic.trim() || undefined,
       });
 
-      // 2. Set lesson status to conducted
-      await teacherApi.setLessonStatus(lessonId, 'conducted');
-
-      // 3. Upload homework task + optional file (converted to base64 → Dropbox)
+      // 2. Upload homework task + optional file (converted to base64 → Dropbox)
       if (gradeForm.homeworkTopic.trim() || gradeForm.homeworkFile) {
         let fileData = '';
         let filename = '';
@@ -252,6 +251,10 @@ export default function TeacherDashboard() {
     if (!link) return;
     if (!linkLessonId) {
       setLinkError('Немає заброньованого уроку для цього слоту.');
+      return;
+    }
+    if (!link.startsWith('http://') && !link.startsWith('https://')) {
+      setLinkError('Посилання має починатись з https://');
       return;
     }
     setLinkError('');
@@ -598,7 +601,7 @@ export default function TeacherDashboard() {
                 {gradeModal.student_name ?? 'Учень'}
               </p>
               <p className="font-inter text-[#565d6d] text-xs mt-0.5">
-                {new Date(gradeModal.start_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })} —{' '}
+                {formatTime(gradeModal.start_time)} —{' '}
                 {gradeModal.topic ?? 'Заняття'}
               </p>
             </div>
@@ -827,7 +830,7 @@ export default function TeacherDashboard() {
                 type="url"
                 value={link}
                 onChange={e => { setLink(e.target.value); setLinkError(''); }}
-                placeholder="https://meet.google.com/..."
+                placeholder="https://meet.google.com/xxx-xxxx-xxx"
                 aria-label="Посилання на урок"
                 className="w-full border border-[#dee1e6] rounded-xl pl-10 pr-4 py-3 font-inter text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1f8cf9]"
               />

@@ -10,4 +10,5 @@ export interface StudentHomeworkTask {
   answerUrl?: string;  // student's submitted answer URL (homework_answer_url)
   fileUrl?: string;    // teacher's reference file URL (homework_file_url)
   homeworkStatus: string; // 'assigned' | 'submitted' | 'reviewed'
+  overdue: boolean;    // true if teacher graded 0 for a missed submission — can no longer submit
 }

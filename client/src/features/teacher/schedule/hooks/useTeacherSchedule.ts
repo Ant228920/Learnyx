@@ -19,7 +19,7 @@ export function useTeacherSchedule() {
 
   const buildItems = useCallback((rawSlots: Awaited<ReturnType<typeof teacherApi.getSlots>>) => {
     const items: SlotItem[] = rawSlots.map(s => {
-      const r = s as Record<string, unknown>;
+      const r = s as unknown as Record<string, unknown>;
       return {
         id: s.id,
         time: `${formatTime(s.start_time)} - ${formatTime(s.end_time)}`,
@@ -28,6 +28,7 @@ export function useTeacherSchedule() {
         end_time: s.end_time,
         lesson_status: (r.lesson_status as string | null) ?? null,
         lesson_student_name: (r.lesson_student_name as string | null) ?? null,
+        lesson_id: (r.lesson_id as number | null) ?? null,
       };
     });
     const map: SlotsByDay = {};

@@ -37,7 +37,6 @@ export function useManagerReports() {
       const arr: Record<string, unknown>[] = Array.isArray(raw) ? raw : ((raw as { results?: unknown[] })?.results ?? []);
       setLessons(arr.map((item, i) => mapLesson(item, i)));
     } catch (e) {
-      console.error('Reports error:', e);
       setError(extractErrorMessage(e));
     } finally {
       setLoading(false);

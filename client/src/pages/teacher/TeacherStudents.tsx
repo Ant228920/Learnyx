@@ -104,18 +104,12 @@ export default function TeacherStudents() {
               </div>
             </div>
             <div className="p-6 flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-poppins font-bold text-slate-900 text-lg">{fullName(profileStudent)}</h3>
-                <span className={`px-2.5 py-1 rounded-full font-inter font-bold text-xs ${isActive(profileStudent) ? 'bg-[#e0faea] text-[#1a7bd9]' : 'bg-gray-100 text-[#9095a1]'}`}>
-                  {isActive(profileStudent) ? 'Активний' : 'Неактивний'}
-                </span>
-              </div>
+              <h3 className="font-poppins font-bold text-slate-900 text-lg">{fullName(profileStudent)}</h3>
               {[
-                { label: 'ПРЕДМЕТ', value: profileStudent.subject || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg> },
-                { label: 'РІВЕНЬ', value: profileStudent.level || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg> },
+                { label: 'ПО БАТЬКОВІ', value: profileStudent.father_name || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg> },
                 { label: 'EMAIL', value: profileStudent.email, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg> },
                 { label: 'ТЕЛЕФОН', value: profileStudent.phone || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6.29 6.29l1.83-1.83a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg> },
-                { label: 'ЗАЛИШОК ЗАНЯТЬ', value: (profileStudent.total_lessons ?? 0) > 0 ? `${profileStudent.lessons_balance} з ${profileStudent.total_lessons}` : String(profileStudent.lessons_balance ?? 0), icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg> },
+                { label: 'TELEGRAM', value: profileStudent.telegram_nickname || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7z" /></svg> },
               ].filter(f => f.value !== null).map(f => (
                 <div key={f.label} className="flex flex-col gap-1 pb-3 border-b border-[#f4f4f6] last:border-0 last:pb-0">
                   <span className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[1px] uppercase">{f.label}</span>
