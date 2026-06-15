@@ -713,8 +713,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         """LEAR-182: Teacher or Manager assigns a student to a slot (atomic).
 
         Books the requested slot, then fills the rest of the package's
-        remaining balance with the teacher's next available slots that match
-        the student's requested day/time windows (student_slots), so the
+        remaining balance with the teacher's next available slots so the
         whole package gets a schedule in one go.
         """
         serializer = AssignLessonSerializer(data=request.data)
@@ -724,6 +723,20 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         student = serializer.validated_data['student']
         curriculum_lesson = serializer.validated_data.get('curriculum_lesson')
         student_slots = request.data.get('student_slots', [])
+
+        # Idempotency: a retried assign call (e.g. the frontend re-submitting
+        # after the first call already filled the package) should report what
+        # is already scheduled instead of failing on an already-booked slot.
+        existing = Lesson.objects.filter(
+            student=student,
+            slot__teacher_id=slot.teacher_id,
+            status='scheduled',
+        ).count()
+        if existing > 0:
+            return Response({
+                'message': f'Учню вже призначено {existing} занять з цим викладачем.',
+                'lessons_count': existing,
+            }, status=status.HTTP_200_OK)
 
         # Idempotency: a retried assign call (e.g. the frontend re-submitting
         # after the first call already filled the package) should report what
@@ -817,17 +830,14 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             created_lessons.append(book_lesson(slot))
 
             # Fill the rest of the package balance with the teacher's next available slots
-            # that match the student's requested day/time windows (if provided).
             remaining = package.balance - 1
             if remaining > 0:
-                candidate_slots = Slot.objects.filter(
-                    teacher_id=slot.teacher_id, status='available', start_time__gt=timezone.now(),
-                ).exclude(pk=slot.pk).order_by('start_time')
-
-                if student_slots:
-                    candidate_slots = [s for s in candidate_slots if slot_matches_request(s, student_slots)]
-
-                extra_slot_ids = [s.pk for s in candidate_slots][:remaining]
+                extra_slot_ids = (
+                    Slot.objects.filter(teacher_id=slot.teacher_id, status='available', start_time__gt=timezone.now())
+                    .exclude(pk=slot.pk)
+                    .order_by('start_time')
+                    .values_list('pk', flat=True)[:remaining]
+                )
                 for extra_slot_id in extra_slot_ids:
                     extra_slot = Slot.objects.select_for_update().get(pk=extra_slot_id)
                     if extra_slot.status != 'available':
