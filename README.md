@@ -31,6 +31,12 @@
 > **Ключові ролі:** `Student` · `Teacher` · `Manager`
 
 ## 📸 Інтерфейс платформи
+## Hero Pages
+
+| Hero Pages| 
+|:---:|
+| <img width="1901" height="972" alt="Знімок екрана 2026-06-15 170818" src="https://github.com/user-attachments/assets/d26f44d9-cfc4-4b36-9b00-0c3bef718f9e" />
+| |
 
 ### 👨‍🎓 Кабінет студента
 
