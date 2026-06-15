@@ -10,6 +10,7 @@ interface ComplaintItem {
   teacher_name: string;
   student_name: string;
   filed_by_name: string;
+  filed_by_role: string;
   reason: string;
   description: string;
   status: string;
@@ -42,6 +43,28 @@ function reasonLabel(reason: string): string {
   if (reason === 'teacher_missed') return 'Викладач не з\'явився на урок';
   if (reason === 'student_missed') return 'Учень не з\'явився на урок';
   return reason;
+}
+
+function getComplaintInfo(complaint: ComplaintItem): { title: string; description: string; consequence: string } {
+  if (complaint.reason === 'teacher_missed') {
+    return {
+      title: 'Скарга від учня',
+      description: `Учень ${complaint.student_name} скаржиться, що викладач ${complaint.teacher_name} не з'явився на урок.`,
+      consequence: 'При прийнятті: викладачу нараховується штраф. Заняття зберігається в абонементі учня.',
+    };
+  }
+  if (complaint.reason === 'student_missed') {
+    return {
+      title: 'Скарга від викладача',
+      description: `Викладач ${complaint.teacher_name} скаржиться, що учень ${complaint.student_name} не з'явився на урок.`,
+      consequence: 'При прийнятті: з абонементу учня списується 1 заняття. Оцінка 0 виставляється автоматично.',
+    };
+  }
+  return {
+    title: 'Скарга',
+    description: `Скарга від ${complaint.filed_by_name}`,
+    consequence: '',
+  };
 }
 
 const IconBook = () => (
@@ -249,8 +272,8 @@ export default function ManagerReports() {
           onClick={e => { if (e.target === e.currentTarget) { setComplaintModal(null); setComplaintActionMsg(''); } }}
           role="dialog" aria-modal="true">
           <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-inter font-bold text-[#171a1f] text-xl">Скарга</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-inter font-bold text-[#171a1f] text-xl">{getComplaintInfo(complaintModal).title}</h3>
               <button type="button" onClick={() => { setComplaintModal(null); setComplaintActionMsg(''); }}
                 className="text-[#9095a1] hover:text-slate-600">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -258,6 +281,8 @@ export default function ManagerReports() {
                 </svg>
               </button>
             </div>
+
+            <p className="font-inter text-[#565d6d] text-sm mb-4">{getComplaintInfo(complaintModal).description}</p>
 
             <div className="flex flex-col gap-3 mb-6">
               {[
@@ -287,6 +312,12 @@ export default function ManagerReports() {
                 ); })()}
               </div>
             </div>
+
+            {complaintModal.status === 'pending' && getComplaintInfo(complaintModal).consequence && (
+              <p className="font-inter text-sm text-amber-600 bg-amber-50 p-3 rounded-xl mb-4">
+                {getComplaintInfo(complaintModal).consequence}
+              </p>
+            )}
 
             {complaintActionMsg && (
               <p className={`font-inter text-sm mb-4 ${complaintActionMsg.includes('Помилка') ? 'text-red-500' : 'text-green-600'}`}>

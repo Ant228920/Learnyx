@@ -54,8 +54,8 @@ from api.serializers import (
     HomeworkSubmitSerializer,
 )
 from users.models import User, Role, Student, Manager, Review, TeacherLevel
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial, Discipline
-from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial, Discipline, Transaction
+from api.services import calculate_cashback, calculate_bonus_progress, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
 
@@ -1642,9 +1642,11 @@ class TeacherFinancesView(APIView):
 
     def get(self, request):
         teacher = get_object_or_404(Teacher, user=request.user)
+        # 'student_missed' is included here because the teacher still gets paid
+        # when the student doesn't show up (see ComplaintDetailView.patch).
         lessons = Lesson.objects.filter(
             slot__teacher=teacher,
-            status='conducted',
+            status__in=['conducted', 'student_missed'],
         ).select_related('slot', 'student__user').order_by('-slot__start_time')
 
         transactions = []
@@ -1662,7 +1664,7 @@ class TeacherFinancesView(APIView):
                     f"{lesson.student.user.first_name} {lesson.student.user.last_name}".strip()
                     or lesson.student.user.email
                 ),
-                'title': 'Проведений урок',
+                'title': 'Проведений урок' if lesson.status == 'conducted' else "Урок (учень не з'явився, оплата викладачу)",
                 'amount': 250,
                 'is_penalty': False,
                 'status': 'paid',
@@ -1927,13 +1929,23 @@ class ComplaintListCreateView(APIView):
                 reason_key = raw_reason
                 description = ''
 
+            # Complaint.student is always the lesson's student — derive who actually
+            # filed from the reason: 'teacher_missed' = student filed, 'student_missed' = teacher filed
+            if reason_key == 'student_missed':
+                filed_by_name = teacher_name
+                filed_by_role = 'teacher'
+            else:
+                filed_by_name = student_name
+                filed_by_role = 'student'
+
             data.append({
                 'id': c.id,
                 'lesson_id': lesson.pk if lesson else None,
                 'lesson_date': lesson_date,
                 'teacher_name': teacher_name,
                 'student_name': student_name,
-                'filed_by_name': student_name,
+                'filed_by_name': filed_by_name,
+                'filed_by_role': filed_by_role,
                 'reason': reason_key,
                 'description': description,
                 'status': c.status,
@@ -1973,7 +1985,6 @@ class ComplaintDetailView(APIView):
                     lesson.save(update_fields=['status'])
                 # Record financial penalty transaction for teacher
                 try:
-                    from inventory.models import Transaction
                     Transaction.objects.create(
                         teacher=lesson.slot.teacher,
                         lesson=lesson,
@@ -1986,7 +1997,9 @@ class ComplaintDetailView(APIView):
                 return Response({'message': 'Скаргу прийнято. Урок позначено як пропущений викладачем.'})
 
             else:
-                # student_missed or other — deduct from student package
+                # student_missed or other — deduct from student package.
+                # Setting status='student_missed' also makes TeacherFinancesView
+                # count this lesson as paid (250) for the teacher.
                 if lesson.status not in {'conducted', 'student_missed', 'canceled_advance', 'teacher_missed'}:
                     lesson.status = 'student_missed'
                     lesson.save(update_fields=['status'])
@@ -2040,7 +2053,20 @@ class LessonComplaintView(APIView):
 
     def post(self, request, pk):
         lesson = get_object_or_404(Lesson, pk=pk)
-        reason = request.data.get('reason', 'teacher_missed')
+
+        role = ''
+        if hasattr(request.user, 'role_obj') and request.user.role_obj:
+            role = request.user.role_obj.name.lower()
+
+        if role == 'student':
+            # Student files a complaint about the teacher not showing up
+            reason = 'teacher_missed'
+        elif role == 'teacher':
+            # Teacher files a complaint about the student not showing up
+            reason = 'student_missed'
+        else:
+            reason = request.data.get('reason', 'teacher_missed')
+
         description = request.data.get('description', '')
         full_reason = f'{reason}: {description}'.strip(': ') if description else reason
 
