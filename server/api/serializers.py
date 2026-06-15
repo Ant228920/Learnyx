@@ -70,6 +70,7 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
 class SlotSerializer(serializers.ModelSerializer):
     lesson_status = serializers.SerializerMethodField()
     lesson_student_name = serializers.SerializerMethodField()
+    lesson_id = serializers.SerializerMethodField()
 
     def get_lesson_status(self, obj):
         try:
@@ -87,9 +88,15 @@ class SlotSerializer(serializers.ModelSerializer):
             pass
         return None
 
+    def get_lesson_id(self, obj):
+        try:
+            return obj.lesson.id
+        except Exception:
+            return None
+
     class Meta:
         model = Slot
-        fields = ['id', 'teacher', 'start_time', 'end_time', 'status', 'lesson_status', 'lesson_student_name']
+        fields = ['id', 'teacher', 'start_time', 'end_time', 'status', 'lesson_status', 'lesson_student_name', 'lesson_id']
         read_only_fields = ['id', 'teacher', 'status']
 
     def validate(self, data):

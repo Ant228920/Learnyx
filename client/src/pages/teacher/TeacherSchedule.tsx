@@ -228,8 +228,12 @@ export default function TeacherSchedule() {
                     </span>
                   </div>
                   {!conducted && (slot.is_booked ? (
-                    <button type="button" onClick={() => void handleCancelLesson(slot)}
-                      className="font-inter text-red-500 hover:text-red-600 text-xs underline">Скасувати</button>
+                    <button type="button"
+                      onClick={() => { if (slot.lesson_id != null) void handleCancelLesson(slot.lesson_id); }}
+                      disabled={cancellingLesson === slot.lesson_id}
+                      className={`font-inter text-red-500 hover:text-red-600 text-xs underline ${cancellingLesson === slot.lesson_id ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      {cancellingLesson === slot.lesson_id ? 'Скасування...' : 'Скасувати'}
+                    </button>
                   ) : (
                     <button type="button" onClick={() => { setCancelSlot(slot); setDayModal(null); }}
                       className="font-inter text-[#e64c4c] text-xs hover:underline">Видалити</button>
