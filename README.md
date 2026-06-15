@@ -31,6 +31,12 @@
 > **Ключові ролі:** `Student` · `Teacher` · `Manager`
 
 ## 📸 Інтерфейс платформи
+## Hero Pages
+
+| Hero Pages| 
+|:---:|
+| <img width="1901" height="972" alt="Знімок екрана 2026-06-15 170818" src="https://github.com/user-attachments/assets/d26f44d9-cfc4-4b36-9b00-0c3bef718f9e" />
+| |
 
 ### 👨‍🎓 Кабінет студента
 
@@ -282,19 +288,6 @@ python manage.py runserver
 ```
 
 > 🌐 Сервер запуститься на **`http://127.0.0.1:8000/`**
-
----
-
-## 🔑 Demo Credentials
-
-> Доступні після запуску `docker compose up` та застосування seed-даних.
-
-| Роль | Email                          | Пароль           |
-|------|--------------------------------|------------------|
-| Manager | manager@learnyx.com            | Manager1234!     |
-| Teacher | teacher(1,2,3)@learnyx.com     | Teacher1234!     |
-| Student | student(1,2,3,4,5)@learnyx.com | Student1234!     |
-| Admin (Django) | admin@learnyx.com              | adminpassword123 |
 
 ---
 
