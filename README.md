@@ -31,6 +31,12 @@
 > **Ключові ролі:** `Student` · `Teacher` · `Manager`
 
 ## 📸 Інтерфейс платформи
+## Hero Pages
+
+| Hero Pages| 
+|:---:|
+| ![Student Dashboard](docs/screenshots/04-student-dashboard.png) | ![Student Schedule](docs/screenshots/05-student-schedule.png) |
+| |
 
 ### 👨‍🎓 Кабінет студента
 
