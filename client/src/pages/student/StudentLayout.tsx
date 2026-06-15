@@ -10,8 +10,6 @@ const NAV_ITEMS = [
   { label: 'Оцінки',            path: '/dashboard/grades' },
 ];
 
-const FOOTER_LINKS = ['Політика конфіденційності', 'Допомога', 'Про проект'];
-
 const IconLogo = () => (
   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
     <path d="M11 3L19 7.5V14.5L11 19L3 14.5V7.5L11 3Z" fill="white" />
@@ -110,8 +108,8 @@ export default function StudentLayout({ children }: Props) {
                 @{user?.firstName?.toLowerCase()}_student
               </span>
             </div>
-            <div className="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-[#f4f4f6]">
-              <span className="font-inter font-bold text-[#1f8cf9] text-sm">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+            <div className="relative w-10 h-10 rounded-full bg-[#1f8cf9] flex items-center justify-center flex-shrink-0">
+              <span className="font-inter font-bold text-white text-sm">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
               <div className="absolute right-0 bottom-0 w-2.5 h-2.5 bg-[#26d962] rounded-full border-2 border-white" />
             </div>
           </div>
@@ -124,17 +122,10 @@ export default function StudentLayout({ children }: Props) {
 
         {/* Footer */}
         <footer className="px-16 py-6 bg-white border-t border-[#dee1e6]">
-          <div className="max-w-[1440px] mx-auto flex items-center justify-between">
+          <div className="max-w-[1440px] mx-auto flex items-center">
             <p className="font-inter font-medium text-[#565d6d] text-xs">
-              © 2024 LearnYX Ecosystem. Усі права захищені.
+              © 2026 LearnYX Ecosystem. Усі права захищені.
             </p>
-            <nav aria-label="Нижня навігація" className="flex items-center gap-6">
-              {FOOTER_LINKS.map((link) => (
-                <a key={link} href="#" className="font-inter font-bold text-[#565d6d] text-xs hover:text-slate-900 transition-colors">
-                  {link}
-                </a>
-              ))}
-            </nav>
           </div>
         </footer>
       </div>
@@ -149,8 +140,8 @@ export default function StudentLayout({ children }: Props) {
               className="absolute top-4 right-4 text-[#9095a1] hover:text-slate-900">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
-            <div className="w-20 h-20 rounded-full bg-[#1f8cf91a] flex items-center justify-center">
-              <span className="font-poppins font-bold text-[#1f8cf9] text-2xl">
+            <div className="w-20 h-20 rounded-full bg-[#1f8cf9] flex items-center justify-center">
+              <span className="font-poppins font-bold text-white text-2xl">
                 {(user?.firstName?.[0] ?? '') + (user?.lastName?.[0] ?? '')}
               </span>
             </div>

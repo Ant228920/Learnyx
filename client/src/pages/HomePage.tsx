@@ -10,9 +10,6 @@ const subjects = [
 
 const stats = ['500+ ВИКЛАДАЧІВ', '10,000+ УЧНІВ', '15+ МОВ НАВЧАННЯ'];
 
-
-const footerLinks = ['Конфіденційність', 'Умови використання', 'Допомога'];
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ReviewItem = { name: string; role: string; text: string; avatar: string };
@@ -314,11 +311,6 @@ export default function HomePage() {
               </svg>
               <span className="font-bold text-[#1f8cf9] text-base leading-6" style={{ fontFamily: "'Poppins', sans-serif" }}>LearNYX</span>
             </a>
-            <nav aria-label="Навігація в підвалі" className="flex items-center gap-6">
-              {footerLinks.map((link) => (
-                <a key={link} href="#" className="font-medium text-[#565d6d] text-xs leading-4 hover:text-slate-900 transition-colors" style={{ fontFamily: "'Inter', sans-serif" }}>{link}</a>
-              ))}
-            </nav>
           </div>
           <p className="font-medium text-[#565d6d] text-sm text-right" style={{ fontFamily: "'Inter', sans-serif" }}>
             © 2026 LearNYX. Всі права захищені. Зроблено з любов'ю в Україні 🇺🇦

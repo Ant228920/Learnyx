@@ -4,14 +4,27 @@ import { useTeacherStudents } from '../../features/teacher/students';
 import type { TeacherStudent } from '../../features/teacher/students';
 
 const PAGE_SIZE = 5;
+const AVATAR_COLORS = ['bg-[#e7eff9]', 'bg-[#dafdf8]', 'bg-[#ebe3ff]'];
+
+function avatarBg(id: number): string {
+  return AVATAR_COLORS[Math.abs(id) % AVATAR_COLORS.length];
+}
+
+function fullName(s: TeacherStudent): string {
+  return `${s.first_name} ${s.last_name}`.trim();
+}
+
+function isActive(s: TeacherStudent): boolean {
+  return (s.lessons_balance ?? 0) > 0;
+}
 
 export default function TeacherStudents() {
-  const { students, loading, error } = useTeacherStudents();
+  const { students, isLoading, errorMsg } = useTeacherStudents();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [profileStudent, setProfileStudent] = useState<TeacherStudent | null>(null);
 
-  if (loading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
-  if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
+  if (isLoading) return <div className="flex items-center justify-center h-screen font-inter text-[#565d6d]">Завантаження...</div>;
+  if (errorMsg) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {errorMsg}</div>;
 
   const visible = students.slice(0, visibleCount);
 
@@ -36,25 +49,25 @@ export default function TeacherStudents() {
         <div className="flex flex-col gap-5">
           <h2 className="font-poppins font-bold text-slate-900 text-xl">Ваші учні</h2>
           <div className="flex flex-col gap-3">
-            {visible.map(s => (
+            {visible.map((s: TeacherStudent) => (
               <div key={s.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-[#dee1e6]">
-                <div className={`w-11 h-11 rounded-full ${s.avatarBg} flex items-center justify-center flex-shrink-0`}>
-                  <span className="font-inter font-bold text-[#1f8cf9] text-base">{s.name[0]}</span>
+                <div className={`w-11 h-11 rounded-full ${avatarBg(s.id)} flex items-center justify-center flex-shrink-0`}>
+                  <span className="font-inter font-bold text-[#1f8cf9] text-base">{(s.first_name || s.last_name || '?')[0]}</span>
                 </div>
                 <div className="flex-1">
-                  <p className="font-poppins font-bold text-slate-900 text-base">{s.name}</p>
+                  <p className="font-poppins font-bold text-slate-900 text-base">{fullName(s)}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    {s.subject !== '—' && (
+                    {!!s.subject && (
                       <>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                         <span className="font-inter text-[#565d6d] text-xs">{s.subject}</span>
                       </>
                     )}
-                    {s.level !== '—' && (
+                    {!!s.level && (
                       <span className="px-2 py-0.5 bg-[#f4f4f6] rounded-full font-inter font-bold text-[#565d6d] text-[10px]">{s.level}</span>
                     )}
-                    <div className={`w-1.5 h-1.5 rounded-full ${s.status === 'Активний' ? 'bg-[#26d962]' : 'bg-[#9095a1]'}`} />
-                    <span className="font-inter text-[#565d6d] text-xs">{s.status}</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isActive(s) ? 'bg-[#26d962]' : 'bg-[#9095a1]'}`} />
+                    <span className="font-inter text-[#565d6d] text-xs">{isActive(s) ? 'Активний' : 'Неактивний'}</span>
                   </div>
                 </div>
                 <button type="button" onClick={() => setProfileStudent(s)}
@@ -76,7 +89,6 @@ export default function TeacherStudents() {
         </div>
       </div>
 
-      {/* Student Profile Modal */}
       {profileStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setProfileStudent(null); }}
@@ -87,23 +99,23 @@ export default function TeacherStudents() {
                 <p className="font-poppins font-bold text-slate-900 text-xl">Профіль учня</p>
                 <p className="font-inter font-bold text-[#1f8cf9] text-xs mt-0.5">Деталі студента</p>
               </div>
-              <div className={`w-14 h-14 rounded-full ${profileStudent.avatarBg} flex items-center justify-center`}>
-                <span className="font-inter font-bold text-[#1f8cf9] text-2xl">{profileStudent.name[0]}</span>
+              <div className={`w-14 h-14 rounded-full ${avatarBg(profileStudent.id)} flex items-center justify-center`}>
+                <span className="font-inter font-bold text-[#1f8cf9] text-2xl">{(profileStudent.first_name || profileStudent.last_name || '?')[0]}</span>
               </div>
             </div>
             <div className="p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-poppins font-bold text-slate-900 text-lg">{profileStudent.name}</h3>
-                <span className={`px-2.5 py-1 rounded-full font-inter font-bold text-xs ${profileStudent.status === 'Активний' ? 'bg-[#e0faea] text-[#1a7bd9]' : 'bg-gray-100 text-[#9095a1]'}`}>
-                  {profileStudent.status}
+                <h3 className="font-poppins font-bold text-slate-900 text-lg">{fullName(profileStudent)}</h3>
+                <span className={`px-2.5 py-1 rounded-full font-inter font-bold text-xs ${isActive(profileStudent) ? 'bg-[#e0faea] text-[#1a7bd9]' : 'bg-gray-100 text-[#9095a1]'}`}>
+                  {isActive(profileStudent) ? 'Активний' : 'Неактивний'}
                 </span>
               </div>
               {[
-                { label: 'ПРЕДМЕТ', value: profileStudent.subject !== '—' ? profileStudent.subject : null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg> },
-                { label: 'РІВЕНЬ', value: profileStudent.level !== '—' ? profileStudent.level : null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg> },
+                { label: 'ПРЕДМЕТ', value: profileStudent.subject || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg> },
+                { label: 'РІВЕНЬ', value: profileStudent.level || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg> },
                 { label: 'EMAIL', value: profileStudent.email, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg> },
-                { label: 'ТЕЛЕФОН', value: profileStudent.phone !== '—' ? profileStudent.phone : null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6.29 6.29l1.83-1.83a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg> },
-                { label: 'ЗАЛИШОК ЗАНЯТЬ', value: profileStudent.total_lessons > 0 ? `${profileStudent.lessons_balance} з ${profileStudent.total_lessons}` : String(profileStudent.lessons_balance), icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg> },
+                { label: 'ТЕЛЕФОН', value: profileStudent.phone || null, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6.29 6.29l1.83-1.83a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg> },
+                { label: 'ЗАЛИШОК ЗАНЯТЬ', value: (profileStudent.total_lessons ?? 0) > 0 ? `${profileStudent.lessons_balance} з ${profileStudent.total_lessons}` : String(profileStudent.lessons_balance ?? 0), icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg> },
               ].filter(f => f.value !== null).map(f => (
                 <div key={f.label} className="flex flex-col gap-1 pb-3 border-b border-[#f4f4f6] last:border-0 last:pb-0">
                   <span className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[1px] uppercase">{f.label}</span>

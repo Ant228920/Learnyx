@@ -6,6 +6,11 @@ import type { UpcomingLesson } from '../../features/student/schedule';
 const DAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 const MONTH_SHORT = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
 
+// Conducted/missed lessons only make sense for past days — hide them from the
+// current/upcoming view, show them dimmed when browsing a past week. Cancelled
+// lessons can be in the future too, so they stay visible (shown dimmed) everywhere.
+const HIDDEN_FROM_UPCOMING = ['conducted', 'student_missed', 'teacher_missed'];
+
 function getMonday(d: Date): Date {
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
@@ -29,7 +34,9 @@ export default function StudentSchedule() {
   const { allLessons, loading, error, cancelLesson } = useStudentSchedule();
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [cancelTarget, setCancelTarget] = useState<UpcomingLesson | null>(null);
+  const [cancellingLesson, setCancellingLesson] = useState<number | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -42,10 +49,17 @@ export default function StudentSchedule() {
 
   const weekLabel = `${weekDays[0].getDate()} ${MONTH_SHORT[weekDays[0].getMonth()]} — ${weekDays[6].getDate()} ${MONTH_SHORT[weekDays[6].getMonth()]} ${weekDays[6].getFullYear()}`;
 
-  const lessonsByWeekDay = weekDays.map(day => ({
-    date: day,
-    lessons: allLessons.filter(l => isSameDay(new Date(l.start_time), day)),
-  }));
+  const lessonsByWeekDay = weekDays.map(day => {
+    const isPast = day < today;
+    return {
+      date: day,
+      lessons: allLessons.filter(l => {
+        if (!isSameDay(new Date(l.start_time), day)) return false;
+        if (!isPast && HIDDEN_FROM_UPCOMING.includes(l.status ?? '')) return false;
+        return true;
+      }),
+    };
+  });
 
   const prevWeek = () => setWeekStart(d => { const n = new Date(d); n.setDate(d.getDate() - 7); return n; });
   const nextWeek = () => setWeekStart(d => { const n = new Date(d); n.setDate(d.getDate() + 7); return n; });
@@ -56,11 +70,15 @@ export default function StudentSchedule() {
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
+    setCancellingLesson(cancelTarget.id);
     try {
-      await cancelLesson(cancelTarget.id);
+      const result = await cancelLesson(cancelTarget.id);
       setCancelTarget(null);
+      setSuccessMessage(result.rescheduled ? result.message : null);
       setSuccess(true);
-    } catch { /* handled by hook */ }
+    } catch { /* handled by hook */ } finally {
+      setCancellingLesson(null);
+    }
   };
 
   return (
@@ -108,13 +126,22 @@ export default function StudentSchedule() {
                 {lessons.length > 0 && (
                   <span className="font-inter font-bold text-[#1f8cf9] text-[10px]">{lessons.length} {lessons.length === 1 ? 'заняття' : 'занять'}</span>
                 )}
-                {lessons.map(lesson => (
-                  <button key={lesson.id} type="button" onClick={() => setCancelTarget(lesson)}
-                    className="flex items-center gap-1 px-2 py-1 bg-[#1f8cf91a] rounded-lg hover:bg-[#1f8cf933] transition-colors text-left w-full">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    <span className="font-inter text-[#1f8cf9] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
-                  </button>
-                ))}
+                {lessons.map(lesson => {
+                  const past = ['conducted', 'student_missed', 'teacher_missed', 'canceled_advance'].includes(lesson.status ?? '');
+                  return past ? (
+                    <div key={lesson.id}
+                      className="flex flex-col px-2 py-1 bg-[#f0f0f0] rounded-lg opacity-60">
+                      <span className="font-inter text-[#9095a1] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
+                      <span className="font-inter text-[9px] text-[#9095a1] leading-tight">Проведено</span>
+                    </div>
+                  ) : (
+                    <button key={lesson.id} type="button" onClick={() => setCancelTarget(lesson)}
+                      className="flex items-center gap-1 px-2 py-1 bg-[#1f8cf91a] rounded-lg hover:bg-[#1f8cf933] transition-colors text-left w-full">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                      <span className="font-inter text-[#1f8cf9] text-[10px] font-medium truncate">{lesson.timeLabel}</span>
+                    </button>
+                  );
+                })}
                 {lessons.length === 0 && (
                   <span className="font-inter text-[#9095a1] text-[10px] mt-2">Занять немає</span>
                 )}
@@ -155,8 +182,10 @@ export default function StudentSchedule() {
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setCancelTarget(null)} className="flex-1 py-3 rounded-xl border border-[#dee1e6] font-inter font-medium text-sm text-[#565d6d] hover:bg-gray-50 transition-colors">Скасувати</button>
-              <button type="button" onClick={() => void handleCancel()}
-                className="flex-1 py-3 rounded-xl bg-red-500 font-inter font-medium text-sm text-white hover:bg-red-600 transition-colors">Підтвердити відміну</button>
+              <button type="button" onClick={() => void handleCancel()} disabled={cancellingLesson !== null}
+                className="flex-1 py-3 rounded-xl bg-red-500 font-inter font-medium text-sm text-white hover:bg-red-600 transition-colors disabled:opacity-50">
+                {cancellingLesson !== null ? 'Відміняємо...' : 'Підтвердити відміну'}
+              </button>
             </div>
           </div>
         </div>
@@ -169,7 +198,9 @@ export default function StudentSchedule() {
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             </div>
             <h2 className="font-poppins font-bold text-xl text-slate-900">Заняття відмінено</h2>
-            <p className="font-inter text-sm text-[#565d6d] text-center">Заняття успішно відмінено. Менеджер отримав повідомлення.</p>
+            <p className="font-inter text-sm text-[#565d6d] text-center">
+              {successMessage ?? 'Заняття успішно відмінено. Менеджер отримав повідомлення.'}
+            </p>
             <button onClick={() => setSuccess(false)} className="w-full py-3 rounded-xl bg-[#1f8cf9] text-white font-inter font-medium text-sm hover:bg-blue-600 transition-colors">OK</button>
           </div>
         </div>

@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../app/providers';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import MainLayout from '../components/layout/MainLayout';
 import HomePage from '../pages/HomePage';
+import NotFound from '../pages/NotFound';
 
 // Student
 import StudentDashboard from '../pages/student/StudentDashboard';
@@ -36,12 +38,6 @@ function roleDashboard(role: string): string {
   return '/';
 }
 
-function RoleRedirect() {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/" replace />;
-  return <Navigate to={roleDashboard(user.role)} replace />;
-}
-
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles: string[] }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/" replace />;
@@ -57,44 +53,45 @@ const M = ['manager', 'admin'];
 export default function AppRouter() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public — redirect to dashboard if already logged in */}
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
-        </Route>
+      <ErrorBoundary>
+        <Routes>
+          {/* Public — redirect to dashboard if already logged in */}
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<HomePage />} />
+          </Route>
 
-        {/* Student */}
-        <Route path="/dashboard">
-          <Route index element={<ProtectedRoute allowedRoles={S}><StudentDashboard /></ProtectedRoute>} />
-          <Route path="homework" element={<ProtectedRoute allowedRoles={S}><StudentHomework /></ProtectedRoute>} />
-          <Route path="schedule" element={<ProtectedRoute allowedRoles={S}><StudentSchedule /></ProtectedRoute>} />
-          <Route path="subscription" element={<ProtectedRoute allowedRoles={S}><StudentSubscription /></ProtectedRoute>} />
-          <Route path="grades" element={<ProtectedRoute allowedRoles={S}><StudentGrades /></ProtectedRoute>} />
-          <Route path="settings" element={<ProtectedRoute allowedRoles={S}><StudentSettings /></ProtectedRoute>} />
-        </Route>
+          {/* Student */}
+          <Route path="/dashboard">
+            <Route index element={<ProtectedRoute allowedRoles={S}><StudentDashboard /></ProtectedRoute>} />
+            <Route path="homework" element={<ProtectedRoute allowedRoles={S}><StudentHomework /></ProtectedRoute>} />
+            <Route path="schedule" element={<ProtectedRoute allowedRoles={S}><StudentSchedule /></ProtectedRoute>} />
+            <Route path="subscription" element={<ProtectedRoute allowedRoles={S}><StudentSubscription /></ProtectedRoute>} />
+            <Route path="grades" element={<ProtectedRoute allowedRoles={S}><StudentGrades /></ProtectedRoute>} />
+            <Route path="settings" element={<ProtectedRoute allowedRoles={S}><StudentSettings /></ProtectedRoute>} />
+          </Route>
 
-        {/* Teacher */}
-        <Route path="/teacher">
-          <Route index element={<ProtectedRoute allowedRoles={T}><TeacherDashboard /></ProtectedRoute>} />
-          <Route path="schedule" element={<ProtectedRoute allowedRoles={T}><TeacherSchedule /></ProtectedRoute>} />
-          <Route path="finances" element={<ProtectedRoute allowedRoles={T}><TeacherFinances /></ProtectedRoute>} />
-          <Route path="students" element={<ProtectedRoute allowedRoles={T}><TeacherStudents /></ProtectedRoute>} />
-          <Route path="homework" element={<ProtectedRoute allowedRoles={T}><TeacherHomework /></ProtectedRoute>} />
-          <Route path="settings" element={<ProtectedRoute allowedRoles={T}><TeacherSettings /></ProtectedRoute>} />
-        </Route>
+          {/* Teacher */}
+          <Route path="/teacher">
+            <Route index element={<ProtectedRoute allowedRoles={T}><TeacherDashboard /></ProtectedRoute>} />
+            <Route path="schedule" element={<ProtectedRoute allowedRoles={T}><TeacherSchedule /></ProtectedRoute>} />
+            <Route path="finances" element={<ProtectedRoute allowedRoles={T}><TeacherFinances /></ProtectedRoute>} />
+            <Route path="students" element={<ProtectedRoute allowedRoles={T}><TeacherStudents /></ProtectedRoute>} />
+            <Route path="homework" element={<ProtectedRoute allowedRoles={T}><TeacherHomework /></ProtectedRoute>} />
+            <Route path="settings" element={<ProtectedRoute allowedRoles={T}><TeacherSettings /></ProtectedRoute>} />
+          </Route>
 
-        {/* Manager */}
-        <Route path="/manager">
-          <Route index element={<ProtectedRoute allowedRoles={M}><ManagerDashboard /></ProtectedRoute>} />
-          <Route path="applications" element={<ProtectedRoute allowedRoles={M}><ManagerApplications /></ProtectedRoute>} />
-          <Route path="subscriptions" element={<ProtectedRoute allowedRoles={M}><ManagerSubscriptions /></ProtectedRoute>} />
-          <Route path="reports" element={<ProtectedRoute allowedRoles={M}><ManagerReports /></ProtectedRoute>} />
-          <Route path="matching" element={<ProtectedRoute allowedRoles={M}><ManagerMatching /></ProtectedRoute>} />
-          <Route path="settings" element={<ProtectedRoute allowedRoles={M}><ManagerSettings /></ProtectedRoute>} />
-        </Route>
+          {/* Manager */}
+          <Route path="/manager">
+            <Route index element={<ProtectedRoute allowedRoles={M}><ManagerDashboard /></ProtectedRoute>} />
+            <Route path="applications" element={<ProtectedRoute allowedRoles={M}><ManagerApplications /></ProtectedRoute>} />
+            <Route path="subscriptions" element={<ProtectedRoute allowedRoles={M}><ManagerSubscriptions /></ProtectedRoute>} />
+            <Route path="reports" element={<ProtectedRoute allowedRoles={M}><ManagerReports /></ProtectedRoute>} />
+            <Route path="matching" element={<ProtectedRoute allowedRoles={M}><ManagerMatching /></ProtectedRoute>} />
+            <Route path="settings" element={<ProtectedRoute allowedRoles={M}><ManagerSettings /></ProtectedRoute>} />
+          </Route>
 
-        {/* Fallback — authenticated users go to their dashboard, others to homepage */}
-        <Route path="*" element={<RoleRedirect />} />
+        {/* Fallback — unknown paths show 404 with smart "go home" navigation */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

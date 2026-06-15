@@ -2,6 +2,7 @@ import csv
 import logging
 import secrets
 import string
+from datetime import timedelta
 
 from django.core.mail import send_mail
 from django.conf import settings
@@ -52,8 +53,8 @@ from api.serializers import (
     HomeworkDetailSerializer,
     HomeworkSubmitSerializer,
 )
-from users.models import User, Role, Student, Manager, Review
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial
+from users.models import User, Role, Student, Manager, Review, TeacherLevel
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial, Discipline
 from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
@@ -164,7 +165,17 @@ class ApproveRegistrationRequestView(APIView):
                         ]:
                             Package.objects.create(student=student_obj, course=course, **pkg_data)
                 elif reg_request.role.lower() == 'teacher':
-                    Teacher.objects.get_or_create(user=user)
+                    teacher, _ = Teacher.objects.get_or_create(user=user)
+                    if reg_request.subject:
+                        discipline = Discipline.objects.filter(name__iexact=reg_request.subject).first()
+                        if discipline:
+                            teacher.discipline = discipline
+                    if reg_request.level:
+                        teacher_level = TeacherLevel.objects.filter(name__iexact=reg_request.level).first()
+                        if teacher_level:
+                            teacher.level = teacher_level
+                    if teacher.discipline_id or teacher.level_id:
+                        teacher.save()
                 elif reg_request.role.lower() == 'manager':
                     Manager.objects.create(user=user)
 
@@ -251,7 +262,7 @@ class SlotViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = Slot.objects.select_related('teacher__user').all()
+        qs = Slot.objects.select_related('teacher__user').order_by('start_time')
 
         user = self.request.user
         role = user.role_obj.name.lower() if user.role_obj else ''
@@ -316,8 +327,15 @@ class SlotViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='available')
     def available(self, request):
-        """LEAR-141: Available (unbooked) slots with nested teacher info."""
-        qs = Slot.objects.filter(status='available').select_related('teacher__user')
+        """LEAR-141: Available (unbooked) slots with nested teacher info.
+
+        Ordered chronologically and limited to future slots so callers (e.g.
+        ManagerMatching) pick the teacher's earliest free slot as the anchor
+        for /lessons/assign/ — keeping the resulting schedule gap-free.
+        """
+        qs = Slot.objects.filter(
+            status='available', start_time__gt=timezone.now(),
+        ).select_related('teacher__user').order_by('start_time')
         teacher_id = request.query_params.get('teacher_id')
         date = request.query_params.get('date')
         if teacher_id:
@@ -325,6 +343,41 @@ class SlotViewSet(viewsets.ModelViewSet):
         if date:
             qs = qs.filter(start_time__date=date)
         return Response(SlotAvailableSerializer(qs, many=True).data)
+
+
+# Maps the day names used by ManagerMatching.tsx to JS-style weekday numbers (Sunday=0).
+DAY_MAP = {
+    'Понеділок': 1, 'Вівторок': 2, 'Середа': 3,
+    'Четвер': 4, "П'ятниця": 5, 'Субота': 6, 'Неділя': 0,
+}
+
+
+def slot_matches_request(slot, student_slots):
+    """Check whether slot.start_time falls in one of the student's requested day/time windows.
+
+    Slot times are stored as naive wall-clock values (the UTC field's weekday/hour/minute
+    equal the Kyiv wall-clock values the teacher entered — see getKyivComponents in
+    ManagerMatching.tsx), so the UTC components are read directly without converting timezones.
+    """
+    slot_dt = slot.start_time
+    slot_day = slot_dt.weekday() + 1  # Python Monday=0 -> 1
+    if slot_day == 7:
+        slot_day = 0  # Sunday -> 0
+    slot_minutes = slot_dt.hour * 60 + slot_dt.minute
+
+    for req in student_slots:
+        req_day = DAY_MAP.get(req.get('day', ''))
+        if req_day is None or slot_day != req_day:
+            continue
+        try:
+            fh, fm = map(int, req.get('from', '00:00').split(':'))
+        except (ValueError, AttributeError):
+            continue
+        req_from = fh * 60 + fm
+        req_to = req_from + 60  # 1-hour window
+        if req_from <= slot_minutes < req_to:
+            return True
+    return False
 
 
 class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -337,7 +390,9 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             return [IsTeacher()]
         if self.action == 'assign':
             return [(IsTeacher | IsManager)()]
-        if self.action in ('upcoming', 'cancel', 'submit_homework'):
+        if self.action == 'cancel':
+            return [(IsStudent | IsTeacher)()]
+        if self.action in ('upcoming', 'submit_homework'):
             return [IsStudent()]
         return [IsAuthenticated()]
 
@@ -420,6 +475,8 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         terminal = {'conducted', 'canceled_advance', 'student_missed', 'teacher_missed'}
 
         low_balance_package = None
+        package_balance_remaining = None
+        cashback_earned = None
         with transaction.atomic():
             lesson = Lesson.objects.select_for_update().get(pk=pk)
 
@@ -429,36 +486,17 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            lesson.status = new_status
-            lesson.save()
-
-            if new_status in {'conducted', 'student_missed', 'teacher_missed'}:
-                Slot.objects.filter(pk=lesson.slot_id).update(status='available')
-
-            package_balance_remaining = None
-            cashback_earned = None
             if new_status == 'conducted':
-                package = Package.objects.select_for_update().get(pk=lesson.package_id)
-                package.balance = max(0, package.balance - 1)
-                if package.balance == 0:
-                    package.status = 'completed'
-                package.save()
-                package_balance_remaining = package.balance
-                logger.info(
-                    f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}'
-                )
+                result = mark_lesson_conducted(lesson)
+                package_balance_remaining = result['package_balance_remaining']
+                cashback_earned = result['cashback_earned_pct']
+                low_balance_package = result['low_balance_package']
+            else:
+                lesson.status = new_status
+                lesson.save()
 
-                if package.balance <= 2:
-                    low_balance_package = package
-
-                if package.status == 'completed':
-                    completion = calculate_cashback(package)
-                    if completion:
-                        cashback_earned = float(completion.earned_discount)
-                        logger.info(
-                            f'Package {package.id} completed: cashback {cashback_earned}% awarded '
-                            f'to student {package.student_id}'
-                        )
+                if new_status in {'student_missed', 'teacher_missed'}:
+                    Slot.objects.filter(pk=lesson.slot_id).update(status='available')
 
         if low_balance_package is not None:
             notify_manager_low_balance(low_balance_package)
@@ -475,7 +513,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         """US7: Teacher fills in a JournalRecord for a lesson (create or update)."""
         lesson = get_object_or_404(Lesson, pk=pk)
         existing = JournalRecord.objects.filter(lesson=lesson).first()
-        serializer = JournalRecordSerializer(existing, data=request.data, partial=bool(existing))
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        # Force activity_grade=0 when student/teacher missed — serializer only allows 0–10
+        if not data.get('is_present', True):
+            data['activity_grade'] = 0
+        serializer = JournalRecordSerializer(existing, data=data, partial=bool(existing))
         serializer.is_valid(raise_exception=True)
         journal = serializer.save(lesson=lesson)
 
@@ -502,19 +544,39 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             journal.teacher_homework_task = hw_task
             update_fields.append('teacher_homework_task')
 
+        # Teacher graded 0 for homework the student never submitted —
+        # close the submission window for good.
+        if journal.homework_grade == 0 and not journal.homework_answer_url:
+            journal.homework_overdue = True
+            update_fields.append('homework_overdue')
+
         if update_fields:
             journal.save(update_fields=update_fields)
+
+        # US7: a graded lesson is automatically considered conducted — apply
+        # the same side effects as PATCH /status (frees slot, deducts package
+        # balance, awards cashback on completion).
+        low_balance_package = None
+        if lesson.status == 'scheduled':
+            with transaction.atomic():
+                lesson = Lesson.objects.select_for_update().get(pk=lesson.pk)
+                if lesson.status == 'scheduled':
+                    result = mark_lesson_conducted(lesson)
+                    low_balance_package = result['low_balance_package']
+
+        if low_balance_package is not None:
+            notify_manager_low_balance(low_balance_package)
 
         code = status.HTTP_200_OK if existing else status.HTTP_201_CREATED
         return Response(JournalRecordSerializer(journal).data, status=code)
 
     @action(detail=False, methods=['get'], url_path='upcoming')
     def upcoming(self, request):
-        """US10: Return the authenticated student's future lessons ordered by start time."""
+        """US10: Return the authenticated student's future scheduled lessons."""
         student = get_object_or_404(Student, user=request.user)
         qs = (
             Lesson.objects
-            .filter(student=student, slot__start_time__gt=timezone.now())
+            .filter(student=student, status='scheduled', slot__start_time__gt=timezone.now())
             .select_related('slot')
             .order_by('slot__start_time')
         )
@@ -522,26 +584,36 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=True, methods=['patch'], url_path='cancel')
     def cancel(self, request, pk=None):
-        """US20: Student cancels their own scheduled lesson; slot freed atomically."""
+        """US20: Student or teacher cancels a scheduled lesson; slot freed atomically."""
         with transaction.atomic():
-            lesson = Lesson.objects.select_related('slot').select_for_update().get(pk=pk)
+            # of=('self',) scopes the row lock to the Lesson table only — curriculum_lesson
+            # is a nullable FK, and Postgres rejects FOR UPDATE on the nullable side of
+            # the resulting LEFT OUTER JOIN if the lock isn't scoped this way.
+            lesson = Lesson.objects.select_related(
+                'slot__teacher__user', 'package', 'curriculum_lesson', 'student'
+            ).select_for_update(of=('self',)).get(pk=pk)
 
-            student = get_object_or_404(Student, user=request.user)
-            if lesson.student_id != student.pk:
-                return Response(
-                    {'detail': 'You can only cancel your own lessons.'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+            role = request.user.role_obj.name.lower() if request.user.role_obj else ''
+            if role == 'teacher':
+                if lesson.slot.teacher.user != request.user:
+                    return Response(
+                        {'detail': 'You can only cancel your own lessons.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+            else:
+                student = get_object_or_404(Student, user=request.user)
+                if lesson.student_id != student.pk:
+                    return Response(
+                        {'detail': 'You can only cancel your own lessons.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+            if lesson.status == 'canceled_advance':
+                return Response({'message': 'Урок вже скасовано.'})
 
             if lesson.status != 'scheduled':
                 return Response(
                     {'detail': f'Cannot cancel a lesson with status "{lesson.status}".'},
-                    status=status.HTTP_409_CONFLICT,
-                )
-
-            if lesson.slot.start_time <= timezone.now():
-                return Response(
-                    {'detail': 'Cannot cancel a lesson that has already started.'},
                     status=status.HTTP_409_CONFLICT,
                 )
 
@@ -552,8 +624,66 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             slot.status = 'available'
             slot.save(update_fields=['status'])
 
-        logger.info(f'Lesson {lesson.pk} cancelled by student {student.pk}, slot {slot.pk} freed')
-        return Response(LessonSerializer(lesson).data)
+            # Whoever cancels (student or teacher), try to auto-reschedule the same
+            # student to the same weekday & time in one of the next 12 weeks, reusing
+            # the cancelled lesson's package so the student's balance is unaffected.
+            rescheduled = False
+            for weeks_ahead in range(1, 13):
+                target_start = slot.start_time + timedelta(weeks=weeks_ahead)
+                candidate = Slot.objects.filter(
+                    teacher=slot.teacher, status='available', start_time=target_start,
+                ).first()
+                if candidate is None:
+                    continue
+
+                candidate = Slot.objects.select_for_update().get(pk=candidate.pk)
+                if candidate.status != 'available':
+                    continue
+
+                conflict = Lesson.objects.filter(
+                    student=lesson.student,
+                    status='scheduled',
+                    slot__start_time__lt=candidate.end_time,
+                    slot__end_time__gt=candidate.start_time,
+                ).exists()
+                if conflict:
+                    continue
+
+                # Lesson.slot is a OneToOneField — a slot that previously held a
+                # cancelled/conducted lesson already owns a row, so recycle it
+                # instead of creating a new one (would violate the unique constraint).
+                stale = Lesson.objects.filter(slot=candidate).exclude(status='scheduled').first()
+                if stale:
+                    stale.student = lesson.student
+                    stale.package = lesson.package
+                    stale.curriculum_lesson = lesson.curriculum_lesson
+                    stale.status = 'scheduled'
+                    stale.meeting_link = None
+                    stale.save(update_fields=['student', 'package', 'curriculum_lesson', 'status', 'meeting_link'])
+                else:
+                    Lesson.objects.create(
+                        slot=candidate,
+                        student=lesson.student,
+                        package=lesson.package,
+                        curriculum_lesson=lesson.curriculum_lesson,
+                    )
+
+                candidate.status = 'booked'
+                candidate.save(update_fields=['status'])
+                rescheduled = True
+                break
+
+        logger.info(
+            f'Lesson {lesson.pk} cancelled by {role} {request.user.pk}, slot {slot.pk} freed'
+            + (', rescheduled to next available week' if rescheduled else '')
+        )
+        data = dict(LessonSerializer(lesson).data)
+        data['rescheduled'] = rescheduled
+        data['message'] = (
+            'Урок скасовано. Заняття перенесено на наступний тиждень.' if rescheduled
+            else 'Урок скасовано.'
+        )
+        return Response(data)
 
     @action(detail=True, methods=['patch'], url_path='meeting-link')
     def set_meeting_link(self, request, pk=None):
@@ -580,13 +710,47 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=False, methods=['post'], url_path='assign')
     def assign(self, request):
-        """LEAR-182: Teacher or Manager assigns a student to a slot (atomic)."""
+        """LEAR-182: Teacher or Manager assigns a student to a slot (atomic).
+
+        Books the requested slot, then fills the rest of the package's
+        remaining balance with the teacher's next available slots so the
+        whole package gets a schedule in one go.
+        """
         serializer = AssignLessonSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         slot = serializer.validated_data['slot']
         student = serializer.validated_data['student']
         curriculum_lesson = serializer.validated_data.get('curriculum_lesson')
+        student_slots = request.data.get('student_slots', [])
+
+        # Idempotency: a retried assign call (e.g. the frontend re-submitting
+        # after the first call already filled the package) should report what
+        # is already scheduled instead of failing on an already-booked slot.
+        existing = Lesson.objects.filter(
+            student=student,
+            slot__teacher_id=slot.teacher_id,
+            status='scheduled',
+        ).count()
+        if existing > 0:
+            return Response({
+                'message': f'Учню вже призначено {existing} занять з цим викладачем.',
+                'lessons_count': existing,
+            }, status=status.HTTP_200_OK)
+
+        # Idempotency: a retried assign call (e.g. the frontend re-submitting
+        # after the first call already filled the package) should report what
+        # is already scheduled instead of failing on an already-booked slot.
+        existing = Lesson.objects.filter(
+            student=student,
+            slot__teacher_id=slot.teacher_id,
+            status='scheduled',
+        ).count()
+        if existing > 0:
+            return Response({
+                'message': f'Учню вже призначено {existing} занять з цим викладачем.',
+                'lessons_count': existing,
+            }, status=status.HTTP_200_OK)
 
         # Teachers must own the slot; managers can assign any slot
         role = getattr(getattr(request.user, 'role_obj', None), 'name', '').lower()
@@ -614,6 +778,34 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if package.balance <= 0:
+            return Response({'detail': 'Package has no remaining lessons.'}, status=status.HTTP_409_CONFLICT)
+
+        def book_lesson(target_slot):
+            """Create a Lesson for target_slot, or recycle a stale one.
+
+            Lesson.slot is a OneToOneField, so a slot that previously held a
+            cancelled/conducted lesson already owns a row at that slot_id —
+            inserting a new Lesson would violate the unique constraint.
+            Reuse that row (re-scheduling it) instead of creating a new one.
+            """
+            stale = Lesson.objects.filter(slot=target_slot).exclude(status='scheduled').first()
+            if stale:
+                stale.student = student
+                stale.package = package
+                stale.curriculum_lesson = curriculum_lesson
+                stale.status = 'scheduled'
+                stale.meeting_link = None
+                stale.save(update_fields=['student', 'package', 'curriculum_lesson', 'status', 'meeting_link'])
+                return stale
+            return Lesson.objects.create(
+                slot=target_slot,
+                student=student,
+                package=package,
+                curriculum_lesson=curriculum_lesson,
+            )
+
+        created_lessons = []
         with transaction.atomic():
             slot = Slot.objects.select_for_update().get(pk=slot.pk)
             if slot.status == 'booked':
@@ -635,15 +827,45 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             slot.status = 'booked'
             slot.save(update_fields=['status'])
 
-            lesson = Lesson.objects.create(
-                slot=slot,
-                student=student,
-                package=package,
-                curriculum_lesson=curriculum_lesson,
-            )
+            created_lessons.append(book_lesson(slot))
 
-        logger.info(f'Lesson {lesson.id} assigned by user {request.user.id}: student {student.pk}, slot {slot.pk}')
-        return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
+            # Fill the rest of the package balance with the teacher's next available slots
+            remaining = package.balance - 1
+            if remaining > 0:
+                extra_slot_ids = (
+                    Slot.objects.filter(teacher_id=slot.teacher_id, status='available', start_time__gt=timezone.now())
+                    .exclude(pk=slot.pk)
+                    .order_by('start_time')
+                    .values_list('pk', flat=True)[:remaining]
+                )
+                for extra_slot_id in extra_slot_ids:
+                    extra_slot = Slot.objects.select_for_update().get(pk=extra_slot_id)
+                    if extra_slot.status != 'available':
+                        continue
+
+                    overlap = Lesson.objects.filter(
+                        student=student,
+                        status='scheduled',
+                        slot__start_time__lt=extra_slot.end_time,
+                        slot__end_time__gt=extra_slot.start_time,
+                    ).exists()
+                    if overlap:
+                        continue
+
+                    extra_slot.status = 'booked'
+                    extra_slot.save(update_fields=['status'])
+
+                    created_lessons.append(book_lesson(extra_slot))
+
+        logger.info(
+            f'{len(created_lessons)} lesson(s) assigned by user {request.user.id}: '
+            f'student {student.pk}, package {package.pk}'
+        )
+        return Response({
+            'message': f'Успішно призначено {len(created_lessons)} занять.',
+            'lessons_count': len(created_lessons),
+            'lessons': LessonSerializer(created_lessons, many=True).data,
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='homework')
     def homework(self, request, pk=None):
@@ -673,20 +895,13 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         if hw_file:
             record.homework_file_url = hw_file
 
-        # Student's answer file (base64 → Dropbox)
-        answer_url = data.get('homework_answer_url', '')
-        answer_filename = data.get('answer_filename', 'answer.pdf')
-        if answer_url and answer_url.startswith('data:'):
-            answer_url = storage.upload(answer_url, answer_filename, '/learnyx/homework')
-        if answer_url:
-            record.homework_answer_url = answer_url
-
         # Homework task text
         task = data.get('teacher_homework_task')
         if task:
             record.teacher_homework_task = task
 
         record.save()
+
 
         http_status = status.HTTP_201_CREATED if (created or homework_was_empty) else status.HTTP_200_OK
         return Response(JournalRecordSerializer(record).data, status=http_status)
@@ -707,10 +922,27 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         serializer.is_valid(raise_exception=True)
 
         record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
-        record.homework_grade = serializer.validated_data['homework_grade']
+        grade = serializer.validated_data['homework_grade']
+        record.homework_grade = grade
         record.homework_status = JournalRecord.HomeworkStatus.REVIEWED
         record.reviewed_at = timezone.now()
-        record.save(update_fields=['homework_grade', 'homework_status', 'reviewed_at'])
+        update_fields = ['homework_grade', 'homework_status', 'reviewed_at']
+
+        if grade == 0 and not record.homework_answer_url:
+            record.homework_overdue = True
+            update_fields.append('homework_overdue')
+
+        record.save(update_fields=update_fields)
+
+        # If the package already completed before this homework was graded,
+        # recompute cashback now that the grade is in (calculate_cashback is
+        # idempotent — it updates the existing CourseCompletion record).
+        package = lesson.package
+        if package.status == 'completed':
+            try:
+                calculate_cashback(package)
+            except Exception as e:
+                logger.error(f'Cashback recompute error for package {package.pk}: {e}')
 
         return Response(JournalRecordSerializer(record).data)
 
@@ -752,6 +984,13 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             return Response(
                 {'detail': 'You can only submit homework for your own lessons.'},
                 status=status.HTTP_403_FORBIDDEN,
+            )
+
+        record = JournalRecord.objects.filter(lesson=lesson).first()
+        if record and record.homework_overdue:
+            return Response(
+                {'detail': 'Термін здачі домашнього завдання минув. Оцінка вже виставлена.'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         answer_url = request.data.get('homework_answer_url', '')
@@ -979,28 +1218,14 @@ class StudentDashboardView(APIView):
         # --- bonus progress for the active package ---
         bonus_progress = None
         if active_pkg:
-            grades = list(
-                JournalRecord.objects
-                .filter(lesson__package=active_pkg, activity_grade__isnull=False)
-                .values_list('activity_grade', flat=True)
-            )
-            if grades:
-                from decimal import Decimal
-                avg = sum(grades) / len(grades)
-                current_pct = round(avg / 10 * 100, 1)
-                next_tier = None
-                for threshold, discount in CASHBACK_TIERS:
-                    if Decimal(str(current_pct)) < threshold:
-                        next_tier = {
-                            'threshold_pct': float(threshold),
-                            'cashback_pct': float(discount),
-                            'gap_pct': round(float(threshold) - current_pct, 1),
-                        }
-                        break
-                bonus_progress = {
-                    'success_pct': current_pct,
-                    'next_bonus_tier': next_tier,
-                }
+            bp = calculate_bonus_progress(active_pkg)
+            bonus_progress = {
+                'earned_points': bp['earned_points'],
+                'max_points': bp['max_points'],
+                'success_pct': bp['success_pct'],
+                'bonus_pct': bp['bonus_pct'],
+                'next_bonus_tier': bp['next_bonus_tier'],
+            }
 
         return Response({
             'balance': balance,
@@ -1041,6 +1266,11 @@ class TeacherDashboardView(APIView):
             # can_start: within the 10-minute window before start, or lesson already ongoing
             can_start = delta_seconds <= 600
 
+            has_rejected = (
+                Complaint.objects.filter(lesson=lesson, status='rejected').exists()
+                if lesson else False
+            )
+
             today_lessons.append({
                 'slot_id': slot.pk,
                 'lesson_id': lesson.pk if lesson else None,
@@ -1054,6 +1284,7 @@ class TeacherDashboardView(APIView):
                 'meeting_link': lesson.meeting_link if lesson else None,
                 'lesson_status': lesson.status if lesson else None,
                 'can_start': can_start,
+                'has_rejected_complaint': has_rejected,
             })
 
         # --- stats ---
@@ -1283,6 +1514,14 @@ class PackagePurchaseView(APIView):
             status='active',
         )
 
+        if bonus_pct > 0:
+            completion = CourseCompletion.objects.filter(
+                student=student, is_discount_used=False, earned_discount__gt=0,
+            ).order_by('-earned_discount').first()
+            if completion:
+                completion.is_discount_used = True
+                completion.save(update_fields=['is_discount_used'])
+
         logger.info(f'Package {package.pk} (plan {pk}) purchased by student {student.pk}')
 
         return Response({
@@ -1391,6 +1630,14 @@ class PackagePlanPurchaseView(APIView):
             status='active',
         )
 
+        if bonus_pct > 0:
+            completion = CourseCompletion.objects.filter(
+                student=student, is_discount_used=False, earned_discount__gt=0,
+            ).order_by('-earned_discount').first()
+            if completion:
+                completion.is_discount_used = True
+                completion.save(update_fields=['is_discount_used'])
+
         return Response({
             'message': f'Абонемент на {plan.total_lessons} уроків придбано!',
             'package_id': pkg.id,
@@ -1400,7 +1647,7 @@ class PackagePlanPurchaseView(APIView):
 
 
 class TeacherFinancesView(APIView):
-    """Teacher's conducted-lesson transaction history."""
+    """Teacher's conducted-lesson earnings and complaint-penalty history."""
     permission_classes = [IsTeacher]
 
     def get(self, request):
@@ -1415,7 +1662,7 @@ class TeacherFinancesView(APIView):
             st = lesson.slot.start_time
             et = lesson.slot.end_time
             transactions.append({
-                'id': lesson.id,
+                'id': f'lesson-{lesson.id}',
                 'date': st.strftime('%d.%m.%Y') if st else '—',
                 'time': (
                     f"{st.strftime('%H:%M')} - {et.strftime('%H:%M')}"
@@ -1425,16 +1672,56 @@ class TeacherFinancesView(APIView):
                     f"{lesson.student.user.first_name} {lesson.student.user.last_name}".strip()
                     or lesson.student.user.email
                 ),
+                'title': 'Проведений урок',
                 'amount': 250,
+                'is_penalty': False,
                 'status': 'paid',
                 'lesson_id': lesson.id,
+                'sort_at': st,
             })
 
-        total = len(transactions) * 250
+        penalties = Transaction.objects.filter(
+            teacher=teacher, is_penalty=True,
+        ).select_related('lesson__slot', 'lesson__student__user')
+
+        for txn in penalties:
+            penalty_lesson = txn.lesson
+            slot = penalty_lesson.slot if penalty_lesson else None
+            if penalty_lesson and penalty_lesson.student:
+                student_name = (
+                    f"{penalty_lesson.student.user.first_name} {penalty_lesson.student.user.last_name}".strip()
+                    or penalty_lesson.student.user.email
+                )
+            else:
+                student_name = '—'
+            transactions.append({
+                'id': f'penalty-{txn.id}',
+                'date': txn.created_at.strftime('%d.%m.%Y'),
+                'time': (
+                    f"{slot.start_time.strftime('%H:%M')} - {slot.end_time.strftime('%H:%M')}"
+                    if slot else '—'
+                ),
+                'student_name': student_name,
+                'title': txn.title,
+                'amount': float(txn.amount),
+                'is_penalty': True,
+                'status': 'penalty',
+                'lesson_id': penalty_lesson.id if penalty_lesson else None,
+                'sort_at': txn.created_at,
+            })
+
+        transactions.sort(key=lambda t: t['sort_at'], reverse=True)
+        for t in transactions:
+            del t['sort_at']
+
+        total_earned = len(lessons) * 250
+        total_penalties = sum(float(txn.amount) for txn in penalties)
         return Response({
             'transactions': transactions,
-            'total_earned': total,
-            'lessons_count': len(transactions),
+            'total_earned': total_earned,
+            'total_penalties': total_penalties,
+            'balance': total_earned - total_penalties,
+            'lessons_count': len(lessons),
         })
 
 
@@ -1594,51 +1881,197 @@ class LessonMaterialView(APIView):
 
 
 class ComplaintListCreateView(APIView):
-    """LEAR-266: Student submits a complaint; Manager lists all complaints."""
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsStudent()]
-        return [IsManager()]
+    """LEAR-266: Manager lists all complaints; others see their own. Student creates via LessonComplaintView."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = (
-            Complaint.objects
-            .select_related('student__user', 'lesson__slot__teacher__user')
-            .all()
-        )
+        role = getattr(getattr(request.user, 'role_obj', None), 'name', '').lower()
+
+        qs = Complaint.objects.select_related(
+            'student__user',
+            'lesson__slot__teacher__user',
+            'lesson__slot',
+        ).order_by('-created_at')
+
+        if role not in ('manager', 'admin'):
+            # Students and teachers only see their own filed complaints
+            try:
+                student = Student.objects.get(user=request.user)
+                qs = qs.filter(student=student)
+            except Student.DoesNotExist:
+                qs = qs.none()
+
         status_filter = request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
-        return Response(ComplaintListSerializer(qs, many=True).data)
 
-    def post(self, request):
-        serializer = ComplaintCreateSerializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        student = get_object_or_404(Student, user=request.user)
-        complaint = serializer.save(student=student)
-        return Response(
-            ComplaintListSerializer(complaint).data,
-            status=status.HTTP_201_CREATED,
-        )
+        data = []
+        for c in qs:
+            lesson = c.lesson
+            slot = lesson.slot if lesson else None
+
+            teacher_name = '—'
+            try:
+                if slot and slot.teacher and slot.teacher.user:
+                    u = slot.teacher.user
+                    teacher_name = f'{u.first_name} {u.last_name}'.strip() or u.email
+            except Exception:
+                pass
+
+            student_user = c.student.user
+            student_name = f'{student_user.first_name} {student_user.last_name}'.strip() or student_user.email
+
+            lesson_date = '—'
+            try:
+                if slot and slot.start_time:
+                    lesson_date = slot.start_time.strftime('%d.%m.%Y %H:%M')
+            except Exception:
+                pass
+
+            # Reason field stores "reason_key: description" or just "reason_key"
+            raw_reason = c.reason or ''
+            if ':' in raw_reason:
+                reason_key = raw_reason.split(':')[0].strip()
+                description = raw_reason.split(':', 1)[1].strip()
+            else:
+                reason_key = raw_reason
+                description = ''
+
+            data.append({
+                'id': c.id,
+                'lesson_id': lesson.pk if lesson else None,
+                'lesson_date': lesson_date,
+                'teacher_name': teacher_name,
+                'student_name': student_name,
+                'filed_by_name': student_name,
+                'reason': reason_key,
+                'description': description,
+                'status': c.status,
+                'created_at': c.created_at.isoformat(),
+                'reviewed_at': c.reviewed_at.isoformat() if c.reviewed_at else None,
+            })
+
+        return Response(data)
 
 
 class ComplaintDetailView(APIView):
-    """LEAR-266: Manager updates complaint status; sets reviewed_at automatically."""
+    """LEAR-266: Manager resolves a complaint — accept applies business logic, reject resets lesson."""
     permission_classes = [IsManager]
 
     def patch(self, request, pk):
         complaint = get_object_or_404(
-            Complaint.objects.select_related('student__user', 'lesson__slot__teacher__user'),
+            Complaint.objects.select_related('student__user', 'lesson__slot__teacher__user', 'lesson__student'),
             pk=pk,
         )
-        serializer = ComplaintStatusSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        complaint.status = serializer.validated_data['status']
-        if complaint.status == Complaint.Status.REVIEWED:
-            complaint.reviewed_at = timezone.now()
+
+        decision = request.data.get('status')
+        if decision not in ('accepted', 'rejected', 'reviewed'):
+            return Response({'detail': 'Невірний статус.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        complaint.status = decision
+        complaint.reviewed_at = timezone.now()
         complaint.save()
-        return Response(ComplaintListSerializer(complaint).data)
+
+        lesson = complaint.lesson
+        reason = (complaint.reason or '').split(':')[0].strip()
+
+        if decision == 'accepted':
+            if reason == 'teacher_missed':
+                # Teacher failed to appear — mark lesson, student keeps package balance
+                if lesson.status not in {'conducted', 'teacher_missed', 'canceled_advance'}:
+                    lesson.status = 'teacher_missed'
+                    lesson.save(update_fields=['status'])
+                # Record financial penalty transaction for teacher
+                try:
+                    from inventory.models import Transaction
+                    Transaction.objects.create(
+                        teacher=lesson.slot.teacher,
+                        lesson=lesson,
+                        title='Штраф за пропущений урок',
+                        amount=250,
+                        is_penalty=True,
+                    )
+                except Exception as e:
+                    logger.warning(f'Failed to create penalty transaction for complaint {pk}: {e}')
+                return Response({'message': 'Скаргу прийнято. Урок позначено як пропущений викладачем.'})
+
+            else:
+                # student_missed or other — deduct from student package
+                if lesson.status not in {'conducted', 'student_missed', 'canceled_advance', 'teacher_missed'}:
+                    lesson.status = 'student_missed'
+                    lesson.save(update_fields=['status'])
+                try:
+                    pkg = Package.objects.select_for_update().filter(
+                        student=lesson.student, status='active'
+                    ).first()
+                    if pkg and pkg.balance > 0:
+                        pkg.balance -= 1
+                        if pkg.balance == 0:
+                            pkg.status = 'completed'
+                        pkg.save()
+                        if pkg.balance <= 2:
+                            notify_manager_low_balance(pkg)
+                except Exception as e:
+                    logger.warning(f'Could not deduct lesson balance for complaint {pk}: {e}')
+                    pass
+                try:
+                    record, _ = JournalRecord.objects.get_or_create(lesson=lesson)
+                    if record.activity_grade is None:
+                        record.activity_grade = 0
+                        record.save(update_fields=['activity_grade'])
+                except Exception:
+                    pass
+                return Response({'message': 'Скаргу прийнято. Урок списано з балансу учня.'})
+
+        elif decision == 'rejected':
+            # Complaint invalid — reset lesson so teacher can grade it
+            if lesson.status not in {'conducted', 'canceled_advance'}:
+                lesson.status = 'scheduled'
+                lesson.save(update_fields=['status'])
+            # Clear any auto-set zero grade so teacher fills it properly
+            try:
+                record = JournalRecord.objects.filter(lesson=lesson).first()
+                if record and record.activity_grade == 0:
+                    record.activity_grade = None
+                    record.save(update_fields=['activity_grade'])
+            except Exception:
+                pass
+            return Response({
+                'message': 'Скаргу відхилено. Викладач має виставити оцінку за урок.',
+                'requires_teacher_action': True,
+            })
+
+        return Response({'message': 'Оновлено.'})
+
+
+class LessonComplaintView(APIView):
+    """Student files a complaint for a specific lesson via lesson ID."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        lesson = get_object_or_404(Lesson, pk=pk)
+        reason = request.data.get('reason', 'teacher_missed')
+        description = request.data.get('description', '')
+        full_reason = f'{reason}: {description}'.strip(': ') if description else reason
+
+        # Block duplicate pending complaints (allow re-filing after rejection/acceptance)
+        existing_pending = Complaint.objects.filter(lesson=lesson, status='pending').first()
+        if existing_pending:
+            return Response({'message': 'Скаргу вже подано. Очікуйте рішення менеджера.'})
+
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            # Teacher filing a complaint — associate with the lesson's student
+            student = lesson.student
+
+        Complaint.objects.create(
+            student=student,
+            lesson=lesson,
+            reason=full_reason,
+        )
+
+        return Response({'message': 'Скаргу подано успішно. Менеджер розгляне її найближчим часом.'})
 
 
 class HomeworkDetailView(APIView):

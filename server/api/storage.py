@@ -68,7 +68,7 @@ class DropboxStorage(Storage):
             else:
                 shared = self.client.sharing_create_shared_link_with_settings(full)
                 link = shared.url
-            return link.replace('&dl=0', '&dl=1').replace('?dl=0', '?dl=1')
+            return link  # keep ?dl=0 for preview; frontend converts as needed
         except ApiError:
             return ''
 
@@ -110,8 +110,15 @@ class DropboxStorage(Storage):
                 encoded = file_data
 
             file_bytes = base64.b64decode(encoded)
-            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'pdf'
-            unique_path = f"{folder}/{uuid.uuid4().hex}.{ext}"
+
+            allowed_extensions = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            if ext not in allowed_extensions:
+                ext = 'pdf'
+            # Dropbox sharing endpoints reject multi-segment folder paths for
+            # share-link creation — flatten to a single segment under root.
+            safe_folder = folder.strip('/').replace('/', '_')
+            unique_path = f"/{safe_folder}/{uuid.uuid4().hex}.{ext}"
 
             dbx.files_upload(file_bytes, unique_path, mode=WriteMode.overwrite)
 
@@ -122,7 +129,7 @@ class DropboxStorage(Storage):
                 links = dbx.sharing_list_shared_links(path=unique_path, direct_only=True)
                 url = links.links[0].url if links.links else ''
 
-            return url.replace('?dl=0', '?dl=1')
+            return url  # keep ?dl=0 — frontend converts to direct URL for viewing
 
         except Exception as e:
             logger.error(f'Dropbox upload error: {e}')

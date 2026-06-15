@@ -3,6 +3,7 @@ import TeacherLayout from './TeacherLayout';
 import { apiClient, teacherApi, extractErrorMessage } from '../../services/api';
 import type { JournalRecord } from '../../services/api';
 import { showError, showSuccess } from '../../utils/toast';
+import { formatDeadline } from '../../utils/date';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -40,18 +41,6 @@ function formatDate(iso?: string): string {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function getFilename(url: string): string {
-  if (url.startsWith('data:')) {
-    // base64 data URI — derive extension from mime type
-    const mime = url.split(';')[0].split(':')[1] ?? '';
-    const ext = mime.split('/')[1] ?? 'file';
-    return `homework_file.${ext}`;
-  }
-  const parts = url.split('/');
-  const last = parts[parts.length - 1];
-  return last && last.trim() !== '' ? last : 'Файл роботи';
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -101,16 +90,15 @@ export default function TeacherHomework() {
             : '';
         if (!task) return;
 
-        const jr = j as Record<string, unknown>;
         result.push({
           lessonId: lesson.id,
           journalId: j.id,
           student: lesson.student_name ?? `Студент #${lesson.student}`,
           studentId: lesson.student,
           topic: task,
-          subject: (jr.subject_name as string | null) ?? '—',
+          subject: j.subject_name ?? '—',
           deadline: formatDate(j.start_time),
-          nextLessonDate: formatDate((jr.next_lesson_date as string | null) ?? undefined),
+          nextLessonDate: formatDate(j.next_lesson_date ?? undefined),
           status: j.homework_grade != null ? 'ПЕРЕВІРЕНО' : 'НЕ ПЕРЕВІРЕНО',
           homeworkGrade: j.homework_grade,
           teacherNotes: j.teacher_notes,
@@ -354,7 +342,7 @@ export default function TeacherHomework() {
                         <line x1="3" y1="10" x2="21" y2="10" />
                       </svg>
                       <span className="font-inter text-[#565d6d] text-xs whitespace-nowrap">
-                        {row.nextLessonDate !== '—' ? row.nextLessonDate : row.deadline}
+                        {row.nextLessonDate !== 'Не визначено' ? row.nextLessonDate : row.deadline}
                       </span>
                     </div>
 
@@ -402,7 +390,7 @@ export default function TeacherHomework() {
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#565d6d" strokeWidth="2">
                       <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                     </svg>
-                    <span className="font-inter text-slate-800 text-sm">До {selected.nextLessonDate !== '—' ? selected.nextLessonDate : selected.deadline}</span>
+                    <span className="font-inter text-slate-800 text-sm">До {selected.nextLessonDate !== 'Не визначено' ? selected.nextLessonDate : selected.deadline}</span>
                   </div>
                 </div>
 
@@ -410,26 +398,30 @@ export default function TeacherHomework() {
                 <div>
                   <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-1.5">Файл учня</p>
                   {studentSubmitted && selected.fileUrl ? (
-                    <div className="flex items-center justify-between p-3 bg-[#f8f9fb] rounded-xl border border-[#dee1e6]">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e64c4c" strokeWidth="2" className="flex-shrink-0">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                        </svg>
-                        <span className="font-inter font-semibold text-slate-800 text-xs truncate">{getFilename(selected.fileUrl)}</span>
-                      </div>
-                      <a
-                        href={selected.fileUrl.startsWith('data:') ? selected.fileUrl : selected.fileUrl.replace('?dl=0', '?dl=1')}
-                        target={selected.fileUrl.startsWith('data:') ? undefined : '_blank'}
-                        download={selected.fileUrl.startsWith('data:') ? getFilename(selected.fileUrl) : undefined}
-                        rel="noopener noreferrer"
-                        aria-label="Завантажити файл учня"
-                        className="text-[#1f8cf9] hover:text-blue-700 flex-shrink-0 ml-2 transition-colors"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                      </a>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const raw = selected.fileUrl!;
+                        const viewUrl = raw
+                          .replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+                          .replace('?dl=0', '').replace('?dl=1', '');
+                        window.open(viewUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="flex items-center gap-3 p-3 bg-[#f4f4f6] rounded-2xl hover:bg-blue-50 transition-colors w-full text-left"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2" className="flex-shrink-0">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      <span className="font-inter text-[#1f8cf9] text-sm font-medium flex-1 truncate">
+                        {selected.student ? `Домашнє завдання — ${selected.student}` : 'Домашнє завдання учня'}
+                      </span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2" className="flex-shrink-0">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </button>
                   ) : (
                     <p className="font-inter text-red-500 text-xs italic">Учень не виконав вчасно</p>
                   )}

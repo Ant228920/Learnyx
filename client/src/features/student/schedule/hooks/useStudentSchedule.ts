@@ -18,50 +18,47 @@ export function useStudentSchedule() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadLessons = useCallback(async () => {
+    const raw = await studentApi.getUpcomingLessons();
+    const map: LessonsByDay = {};
+    const flat: UpcomingLesson[] = [];
+    for (const l of raw) {
+      const day = dayOf(l.slot.start_time);
+      const item: UpcomingLesson = {
+        id: l.id,
+        start_time: l.slot.start_time,
+        end_time: l.slot.end_time,
+        status: l.status,
+        meeting_link: l.meeting_link,
+        timeLabel: `${formatTime(l.slot.start_time)} - ${formatTime(l.slot.end_time)}`,
+      };
+      flat.push(item);
+      if (!map[day]) map[day] = [];
+      map[day].push(item);
+    }
+    setAllLessons(flat);
+    setLessonsByDay(map);
+  }, []);
+
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const raw = await studentApi.getUpcomingLessons();
-      const map: LessonsByDay = {};
-      const flat: UpcomingLesson[] = [];
-      for (const l of raw) {
-        const day = dayOf(l.slot.start_time);
-        const item: UpcomingLesson = {
-          id: l.id,
-          start_time: l.slot.start_time,
-          end_time: l.slot.end_time,
-          status: l.status,
-          meeting_link: l.meeting_link,
-          timeLabel: `${formatTime(l.slot.start_time)} - ${formatTime(l.slot.end_time)}`,
-        };
-        flat.push(item);
-        if (!map[day]) map[day] = [];
-        map[day].push(item);
-      }
-      setAllLessons(flat);
-      setLessonsByDay(map);
+      await loadLessons();
     } catch (e) {
       setError(extractErrorMessage(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadLessons]);
 
   useEffect(() => { void fetch(); }, [fetch]);
 
   const cancelLesson = useCallback(async (lessonId: number) => {
     try {
-      await studentApi.cancelLesson(lessonId);
-      setAllLessons(prev => prev.filter(l => l.id !== lessonId));
-      setLessonsByDay(prev => {
-        const next = { ...prev };
-        for (const day of Object.keys(next)) {
-          next[+day] = next[+day].filter(l => l.id !== lessonId);
-          if (next[+day].length === 0) delete next[+day];
-        }
-        return next;
-      });
+      const result = await studentApi.cancelLesson(lessonId);
+      await loadLessons();
+      return { message: result.message, rescheduled: result.rescheduled };
     } catch (e) {
       const errorMessages: Record<string, string> = {
         "Cannot cancel a lesson with status 'student_missed'": "Неможливо скасувати урок зі статусом 'пропущено'",
@@ -72,7 +69,7 @@ export function useStudentSchedule() {
       showError(errorMessages[msg ?? ''] || 'Не вдалось скасувати урок');
       throw e;
     }
-  }, []);
+  }, [loadLessons]);
 
   return { lessonsByDay, allLessons, loading, error, refetch: fetch, cancelLesson };
 }

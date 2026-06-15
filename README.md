@@ -30,6 +30,48 @@
 
 > **Ключові ролі:** `Student` · `Teacher` · `Manager`
 
+## 📸 Інтерфейс платформи
+
+### 👨‍🎓 Кабінет студента
+
+| Дашборд студента | Розклад занять |
+|:---:|:---:|
+| ![Student Dashboard](docs/screenshots/04-student-dashboard.png) | ![Student Schedule](docs/screenshots/05-student-schedule.png) |
+| *Уроки на сьогодні, баланс абонементу* | *Тижневий календар із запланованими заняттями* |
+
+| Домашні завдання | Абонемент |
+|:---:|:---:|
+| ![Student Homework](docs/screenshots/06-student-homework.png) | ![Student Subscription](docs/screenshots/07-student-subscription.png) |
+| *Завдання від вчителя та завантаження відповіді* | *Три плани з цінами та бонусна знижка* |
+
+---
+
+### 👨‍🏫 Кабінет викладача
+
+| Дашборд викладача | Розклад викладача |
+|:---:|:---:|
+| ![Teacher Dashboard](docs/screenshots/08-teacher-dashboard.png) | ![Teacher Schedule](docs/screenshots/09-teacher-schedule.png) |
+| *Уроки на сьогодні, кнопка виставлення оцінки* | *Тижневий вид із вільними та зайнятими слотами* |
+
+| Домашні завдання | Список учнів |
+|:---:|:---:|
+| ![Teacher Homework](docs/screenshots/10-teacher-homework.png) | ![Teacher Students](docs/screenshots/11-teacher-students.png) |
+| *Роботи учнів та виставлення оцінок* | *Картки учнів з профілем* |
+
+---
+
+### 👔 Кабінет менеджера
+
+| Заявки на реєстрацію | Підбір викладача |
+|:---:|:---:|
+| ![Manager Applications](docs/screenshots/12-manager-applications.png) | ![Manager Matching](docs/screenshots/13-manager-matching.png) |
+| *Підтвердження та відхилення заявок* | *Пошук за предметом, рівнем та часом* |
+
+| Звітність | Скарги |
+|:---:|:---:|
+| ![Manager Reports](docs/screenshots/14-manager-reports.png) | ![Manager Complaints](docs/screenshots/15-manager-reports-complaints.png) |
+| *Таблиця уроків зі статусами* | *Модальне вікно розгляду скарги* |
+
 ---
 
 ## ✨ Key Features
@@ -146,6 +188,18 @@ Learnyx/
 ├── .gitignore
 └── README.md
 ```
+
+---
+## 🗄️ Управління станом (Frontend)
+
+| Механізм | Файл | Призначення |
+|----------|------|------------|
+| **AuthContext** | `client/src/app/providers.tsx` | Глобальний стан авторизації, JWT токени в `localStorage` |
+| **useState / useEffect** | Кожна сторінка | Локальний стан даних, запит до API при монтуванні |
+| **Axios interceptor** | `client/src/services/api.ts` | Автоматичне оновлення access токена через refresh |
+| **extractErrorMessage** | `client/src/services/api.ts` | Переклад помилок API на українську мову |
+| **ErrorBoundary** | `client/src/components/ErrorBoundary.tsx` | Перехоплення помилок компонентів без падіння додатку |
+| **Status constants** | `client/src/constants/lessonStatuses.ts` | Типізовані константи статусів уроків і абонементів |
 
 ---
 

@@ -86,6 +86,11 @@ export interface Lesson {
   meeting_link: string | null;
 }
 
+export interface LessonCancelResponse extends Lesson {
+  rescheduled: boolean;
+  message: string;
+}
+
 export interface LessonWithSlot {
   id: number;
   slot: { id: number; start_time: string; end_time: string; };
@@ -118,11 +123,15 @@ export interface JournalRecord {
   grade: number | null;
   teacher_homework_task: unknown;
   homework_answer_url: string | null;
+  homework_file_url?: string | null;
   teacher_notes: string | null;
   start_time?: string;
   lesson_status?: string;
+  lesson_topic?: string | null;
   homework_status?: string;   // 'assigned' | 'submitted' | 'reviewed'
   student_name?: string;      // returned by JournalListSerializer
+  subject_name?: string | null;
+  next_lesson_date?: string | null;
 }
 
 export interface StudentDashboard {
@@ -143,7 +152,10 @@ export interface StudentDashboard {
     teacher: string;
   }>;
   bonus_progress: {
+    earned_points: number;
+    max_points: number;
     success_pct: number;
+    bonus_pct: number;
     next_bonus_tier: { threshold_pct: number; cashback_pct: number; gap_pct: number } | null;
   } | null;
 }
@@ -159,6 +171,7 @@ export interface TeacherDashboard {
     meeting_link: string | null;
     lesson_status: string | null;
     can_start: boolean;
+    has_rejected_complaint?: boolean;
   }>;
   stats: {
     total_students: number;
@@ -203,6 +216,12 @@ export function extractErrorMessage(error: unknown): string {
 
     if (!data) return 'Немає відповіді від сервера.';
 
+    // Strip Python ErrorDetail repr from any extracted string
+    const cleanMsg = (raw: string): string => {
+      const m = raw.match(/ErrorDetail\(string='([^']+)'/);
+      return m ? m[1] : raw.replace(/^ErrorDetail\(string="([^"]+)"/, '$1');
+    };
+
     const FIELD_TRANSLATIONS: Record<string, string> = {
       email: 'Email',
       password: 'Пароль',
@@ -220,7 +239,7 @@ export function extractErrorMessage(error: unknown): string {
     const ERROR_TRANSLATIONS: Record<string, string> = {
       'registration request with this email already exists.': 'Заявка з таким email вже існує.',
       'user with this email already exists.': 'Користувач з таким email вже існує.',
-      'This field may not be blank.': 'Це поле не може бути порожнім.',
+      'This field may not be blank.': 'Поле не може бути порожнім.',
       'This field is required.': 'Це поле є обовʼязковим.',
       'Enter a valid email address.': 'Введіть коректну email адресу.',
       'Enter a valid phone number.': 'Введіть коректний номер телефону.',
@@ -232,24 +251,27 @@ export function extractErrorMessage(error: unknown): string {
       'Slot overlaps with an existing slot.': 'Цей час вже зайнятий. Оберіть інший час.',
       'end_time must be after start_time.': 'Час завершення має бути пізніше часу початку.',
       'start_time must be in the future': 'Час початку має бути в майбутньому.',
-      'Enter a valid URL.': 'Невірний формат файлу.',
+      'Enter a valid URL.': 'Введіть коректне посилання (наприклад: https://meet.google.com/...).',
       'Expected a Response': 'Помилка сервера. Зверніться до адміністратора.',
       'NoneType': 'Помилка сервера. Спробуйте пізніше.',
       'AssertionError': 'Помилка сервера. Спробуйте пізніше.',
+      'activity_grade must be between 1 and 10.': 'Оцінка за урок має бути від 1 до 10.',
+      'activity_grade must be between 0 and 10.': 'Оцінка за урок має бути від 0 до 10.',
     };
 
     for (const key of ['message', 'detail', 'error']) {
       const val = data[key];
       if (typeof val === 'string' && val.length < 200) {
+        const cleaned = cleanMsg(val);
         for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
-          if (val.includes(eng)) return ukr;
+          if (cleaned.includes(eng)) return ukr;
         }
-        return val;
+        return cleaned;
       }
     }
 
     if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
-      const msg = String(data.non_field_errors[0]);
+      const msg = cleanMsg(String(data.non_field_errors[0]));
       for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
         if (msg.includes(eng)) return ukr;
       }
@@ -260,11 +282,13 @@ export function extractErrorMessage(error: unknown): string {
       if (field === 'non_field_errors') continue;
       const fieldName = FIELD_TRANSLATIONS[field] ?? field;
       const msgArr = Array.isArray(msgs) ? msgs : [msgs];
-      const rawMsg = String(msgArr[0]);
+      const rawMsg = cleanMsg(String(msgArr[0]));
       let translatedMsg = rawMsg;
       for (const [eng, ukr] of Object.entries(ERROR_TRANSLATIONS)) {
         if (rawMsg.includes(eng)) { translatedMsg = ukr; break; }
       }
+      // Already a complete Ukrainian sentence — return as-is (no "FieldName: " prefix)
+      if (/[а-яА-ЯіІїЇєЄ]/.test(translatedMsg) && translatedMsg.endsWith('.')) return translatedMsg;
       if (fieldName) return `${fieldName}: ${translatedMsg}`;
       return translatedMsg;
     }
@@ -335,9 +359,9 @@ export const studentApi = {
     return arr as LessonWithSlot[];
   },
 
-  cancelLesson: async (lessonId: number): Promise<Lesson> => {
+  cancelLesson: async (lessonId: number): Promise<LessonCancelResponse> => {
     const { data } = await apiClient.patch(`/lessons/${lessonId}/cancel/`, { status: 'canceled_advance' });
-    return data as Lesson;
+    return data as LessonCancelResponse;
   },
 
   getJournal: async (): Promise<JournalRecord[]> => {
@@ -489,8 +513,8 @@ export const teacherApi = {
   },
 
   getStudents: async (): Promise<Array<{
-    user_id: number; first_name: string; last_name: string; email: string;
-    phone: string | null; subject: string | null; level_name: string | null;
+    user_id: number; first_name: string; last_name: string; father_name: string | null; email: string;
+    phone: string | null; telegram_nickname: string | null; subject: string | null; level_name: string | null;
     lessons_balance: number; total_lessons: number;
   }>> => {
     const { data } = await apiClient.get('/students/');

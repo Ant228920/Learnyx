@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useProfile } from './hooks/useProfile';
 
 interface Props {
@@ -11,12 +11,17 @@ export default function ProfileContent({ onCancel }: Props) {
   const [fullName, setFullName] = useState('');
   const [telegram, setTelegram] = useState('');
   const [phone, setPhone] = useState('');
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (profile) {
-      setFullName(`${profile.first_name} ${profile.last_name}`.trim());
-      setTelegram(profile.telegram_nickname);
-      setPhone(profile.phone);
+    if (profile && !initializedRef.current) {
+      initializedRef.current = true;
+      const name = `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim();
+      Promise.resolve().then(() => {
+        setFullName(name);
+        setTelegram(profile.telegram_nickname ?? '');
+        setPhone(profile.phone ?? '');
+      });
     }
   }, [profile]);
 
@@ -38,7 +43,7 @@ export default function ProfileContent({ onCancel }: Props) {
       <div>
         <h1 className="font-poppins font-bold text-slate-900 text-4xl leading-10">Мій профіль</h1>
         <p className="font-inter text-[#565d6d] text-lg mt-2">
-          Керуйте вашою персональною інформацією та налаштовуйте відображення аватару.
+          Керуйте вашою персональною інформацією.
         </p>
       </div>
 
@@ -70,37 +75,17 @@ export default function ProfileContent({ onCancel }: Props) {
 
         <div className="p-6 flex flex-col gap-8">
           {/* Avatar section */}
-          <div>
-            <p className="font-inter font-bold text-[#565d6d] text-[10px] tracking-[0.60px] uppercase mb-4">
-              Фото профілю
-            </p>
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-full bg-[#e7eff9] flex items-center justify-center flex-shrink-0">
-                <span className="font-inter font-bold text-[#1f8cf9] text-2xl">
-                  {profile?.first_name?.[0]?.toUpperCase() ?? '?'}
-                </span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled
-                    className="px-4 py-2 bg-[#1f8cf9] rounded-xl font-inter font-medium text-white text-sm opacity-40 cursor-not-allowed"
-                  >
-                    Завантажити нове
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="px-4 py-2 border border-red-300 rounded-xl font-inter font-medium text-red-500 text-sm opacity-40 cursor-not-allowed"
-                  >
-                    Видалити
-                  </button>
-                </div>
-                <p className="font-inter text-[#9095a1] text-xs">
-                  Дозволені формати: JPG, PNG. Максимальний розмір файлу — 5MB
-                </p>
-              </div>
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-[#1f8cf9] flex items-center justify-center flex-shrink-0">
+              <span className="font-inter font-bold text-white text-2xl">
+                {profile?.first_name?.[0]?.toUpperCase() ?? '?'}
+              </span>
+            </div>
+            <div>
+              <p className="font-poppins font-bold text-slate-900 text-base">
+                {profile ? `${profile.first_name} ${profile.last_name}`.trim() : '—'}
+              </p>
+              <p className="font-inter text-[#565d6d] text-sm mt-0.5">{profile?.email ?? ''}</p>
             </div>
           </div>
 

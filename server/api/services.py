@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from api.models import RegistrationRequest
 from users.models import User, Role, Student, Manager
-from inventory.models import Package, JournalRecord, CourseCompletion
+from inventory.models import Package, JournalRecord, CourseCompletion, Slot
 
 logger = logging.getLogger(__name__)
 
@@ -189,17 +189,60 @@ class PackageService:
 
 # Ordered highest → lowest so the first match gives the best tier.
 CASHBACK_TIERS = [
-    (Decimal('95'), Decimal('15')),  # 95-100% → 15%
-    (Decimal('90'), Decimal('10')),  # 90-94%  → 10%
-    (Decimal('85'), Decimal('5')),   # 85-89%  → 5%
+    (Decimal('90'), Decimal('15')),  # 90-100% → 15%
+    (Decimal('70'), Decimal('10')),  # 70-89%  → 10%
+    (Decimal('50'), Decimal('5')),   # 50-69%  → 5%
 ]
+
+
+def calculate_bonus_progress(package) -> dict:
+    """
+    US15: success scale for a package based on JournalRecords.
+    Each lesson is worth up to 20 points (activity_grade + homework_grade,
+    both 0-10), so max_points = package.total_lessons * 20. success_pct is
+    earned_points / max_points, mapped to a tier via CASHBACK_TIERS.
+    """
+    records = list(
+        JournalRecord.objects
+        .filter(lesson__package=package)
+        .values_list('activity_grade', 'homework_grade')
+    )
+
+    max_points = package.total_lessons * 20
+    earned_points = sum((a or 0) + (h or 0) for a, h in records)
+    success_pct = Decimal(str(round(earned_points / max_points * 100, 4))) if max_points else Decimal('0')
+
+    bonus_pct = Decimal('0')
+    for threshold, discount in CASHBACK_TIERS:
+        if success_pct >= threshold:
+            bonus_pct = discount
+            break
+
+    next_bonus_tier = None
+    for threshold, discount in reversed(CASHBACK_TIERS):
+        if success_pct < threshold:
+            next_bonus_tier = {
+                'threshold_pct': float(threshold),
+                'cashback_pct': float(discount),
+                'gap_pct': float(threshold - success_pct),
+            }
+            break
+
+    return {
+        'graded_lessons': len(records),
+        'earned_points': earned_points,
+        'max_points': max_points,
+        'success_pct': float(success_pct),
+        'bonus_pct': float(bonus_pct),
+        'next_bonus_tier': next_bonus_tier,
+    }
 
 
 @transaction.atomic
 def calculate_cashback(package) -> 'CourseCompletion | None':
     """
     US15: called inside an atomic block when package.status → 'completed'.
-    Reads activity_grade from JournalRecords, calculates success % and the
+    Uses calculate_bonus_progress() to find the success % and the
     corresponding cashback tier, then creates / updates CourseCompletion.
     Returns the completion record, or None when the threshold isn't reached.
     Max cashback is capped at 15 % by the tier table.
@@ -209,28 +252,16 @@ def calculate_cashback(package) -> 'CourseCompletion | None':
     cashback writes — the outer transaction then decides whether to commit
     or roll back the entire set_status chain.
     """
-    grades = list(
-        JournalRecord.objects
-        .filter(lesson__package=package, activity_grade__isnull=False)
-        .values_list('activity_grade', flat=True)
-    )
+    progress = calculate_bonus_progress(package)
 
-    if not grades:
+    if progress['graded_lessons'] == 0:
         logger.info(f'Package {package.pk}: no graded lessons, skipping cashback.')
         return None
 
-    total_points = sum(grades)
-    avg = total_points / len(grades)
-    success_pct = Decimal(str(round(avg / 10 * 100, 4)))
-
-    earned_discount = Decimal('0')
-    for threshold, discount in CASHBACK_TIERS:
-        if success_pct >= threshold:
-            earned_discount = discount
-            break
+    earned_discount = Decimal(str(progress['bonus_pct']))
 
     logger.info(
-        f'Package {package.pk}: success_pct={success_pct:.1f}%, '
+        f"Package {package.pk}: success_pct={progress['success_pct']:.1f}%, "
         f'earned_discount={earned_discount}%'
     )
 
@@ -241,8 +272,8 @@ def calculate_cashback(package) -> 'CourseCompletion | None':
         student=package.student,
         course=package.course,
         defaults={
-            'completed_lessons_count': len(grades),
-            'total_points': total_points,
+            'completed_lessons_count': progress['graded_lessons'],
+            'total_points': progress['earned_points'],
             'earned_discount': earned_discount,
             'is_discount_used': False,
             'completed_at': timezone.now(),
@@ -254,6 +285,49 @@ def calculate_cashback(package) -> 'CourseCompletion | None':
     package.save(update_fields=['completed'])
 
     return completion
+
+
+def mark_lesson_conducted(lesson) -> dict:
+    """
+    US6/US7: Transition `lesson` to 'conducted' — frees its slot, deducts one
+    lesson from the package balance, and (if the package thereby completes)
+    awards cashback via calculate_cashback().
+
+    Caller must hold a row lock on `lesson` (select_for_update) inside an
+    atomic block; this function locks and updates the related Package itself.
+
+    Returns a dict with:
+      - 'package_balance_remaining': int
+      - 'cashback_earned_pct': float | None
+      - 'low_balance_package': Package | None (set when balance <= 2)
+    """
+    lesson.status = 'conducted'
+    lesson.save(update_fields=['status'])
+
+    Slot.objects.filter(pk=lesson.slot_id).update(status='available')
+
+    package = Package.objects.select_for_update().get(pk=lesson.package_id)
+    package.balance = max(0, package.balance - 1)
+    if package.balance == 0:
+        package.status = 'completed'
+    package.save()
+    logger.info(f'Lesson {lesson.id} conducted: package {package.id} balance → {package.balance}')
+
+    cashback_earned = None
+    if package.status == 'completed':
+        completion = calculate_cashback(package)
+        if completion:
+            cashback_earned = float(completion.earned_discount)
+            logger.info(
+                f'Package {package.id} completed: cashback {cashback_earned}% awarded '
+                f'to student {package.student_id}'
+            )
+
+    return {
+        'package_balance_remaining': package.balance,
+        'cashback_earned_pct': cashback_earned,
+        'low_balance_package': package if package.balance <= 2 else None,
+    }
 
 
 def purchase_package(package, student) -> dict:
@@ -317,32 +391,15 @@ def get_bonus_balance(student) -> dict:
     active_package = Package.objects.filter(student=student, status='active').first()
     progress = None
     if active_package:
-        grades = list(
-            JournalRecord.objects
-            .filter(lesson__package=active_package, activity_grade__isnull=False)
-            .values_list('activity_grade', flat=True)
-        )
-        if grades:
-            avg = sum(grades) / len(grades)
-            current_pct = round(avg / 10 * 100, 1)
-
-            next_tier = None
-            for threshold, discount in CASHBACK_TIERS:
-                if Decimal(str(current_pct)) < threshold:
-                    next_tier = {
-                        'threshold_pct': float(threshold),
-                        'cashback_pct': float(discount),
-                        'gap_pct': round(float(threshold) - current_pct, 1),
-                    }
-            # next_tier stays None when student already qualifies for the top tier
-
-            progress = {
-                'package_id': active_package.pk,
-                'conducted_lessons': len(grades),
-                'average_grade': round(avg, 2),
-                'success_pct': current_pct,
-                'next_bonus_tier': next_tier,
-            }
+        bp = calculate_bonus_progress(active_package)
+        progress = {
+            'package_id': active_package.pk,
+            'earned_points': bp['earned_points'],
+            'max_points': bp['max_points'],
+            'success_pct': bp['success_pct'],
+            'bonus_pct': bp['bonus_pct'],
+            'next_bonus_tier': bp['next_bonus_tier'],
+        }
 
     return {
         'available_cashback_pct': float(total_available),

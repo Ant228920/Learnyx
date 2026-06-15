@@ -8,6 +8,7 @@ export default function TeacherFinances() {
 
   const transactions = data?.transactions ?? [];
   const totalEarned = data?.total_earned ?? 0;
+  const balance = data?.balance ?? 0;
   const displayed = showAll ? transactions : transactions.slice(0, 5);
 
   return (
@@ -19,7 +20,7 @@ export default function TeacherFinances() {
         </div>
 
         {/* Stats */}
-        <section aria-label="Фінансова статистика" className="grid grid-cols-2 gap-6">
+        <section aria-label="Фінансова статистика" className="grid grid-cols-3 gap-6">
           <article className="flex items-center gap-5 p-6 bg-white rounded-2xl border border-[#dee1e6] shadow-[0px_1px_2.5px_#171a1f12]">
             <div className="w-14 h-14 bg-[#1f8cf91a] rounded-2xl flex items-center justify-center flex-shrink-0">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
@@ -36,6 +37,15 @@ export default function TeacherFinances() {
             <div>
               <p className="font-inter font-medium text-[#565d6d] text-sm tracking-[0.60px] uppercase">Проведено занять</p>
               <p className="font-inter font-black text-slate-900 text-4xl mt-1">{data?.lessons_count ?? 0}</p>
+            </div>
+          </article>
+          <article className="flex items-center gap-5 p-6 bg-white rounded-2xl border border-[#dee1e6] shadow-[0px_1px_2.5px_#171a1f12]">
+            <div className="w-14 h-14 bg-[#1f8cf91a] rounded-2xl flex items-center justify-center flex-shrink-0">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+            </div>
+            <div>
+              <p className="font-inter font-medium text-[#565d6d] text-sm tracking-[0.60px] uppercase">Баланс після штрафів</p>
+              <p className="font-inter font-black text-slate-900 text-4xl mt-1">{balance.toLocaleString('uk')} ₴</p>
             </div>
           </article>
         </section>
@@ -71,11 +81,17 @@ export default function TeacherFinances() {
                   <span className="font-inter text-[#565d6d] text-sm">{t.time}</span>
                 </div>
                 <span className="font-inter text-slate-800 text-sm">{t.student_name}</span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full font-inter font-bold text-xs w-fit bg-[#e0f0ff] text-[#1f8cf9]">
-                  Нараховано
-                </span>
-                <span className="font-inter font-bold text-sm text-slate-900">
-                  +{t.amount.toLocaleString('uk')} ₴
+                {t.is_penalty ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full font-inter font-bold text-xs w-fit bg-[#fde8e8] text-[#e64c4c]">
+                    Штраф
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full font-inter font-bold text-xs w-fit bg-[#e0f0ff] text-[#1f8cf9]">
+                    Нараховано
+                  </span>
+                )}
+                <span className={`font-inter font-bold text-sm ${t.is_penalty ? 'text-[#e64c4c]' : 'text-slate-900'}`}>
+                  {t.is_penalty ? '-' : '+'}{t.amount.toLocaleString('uk')} ₴
                 </span>
               </div>
             ))}
