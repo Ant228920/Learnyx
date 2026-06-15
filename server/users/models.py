@@ -148,6 +148,10 @@ class StudentDisciplineLevel(models.Model):
     class Meta:
         # Data Integrity: Студент може мати лише один рівень з конкретної дисципліни
         unique_together = ('student', 'discipline')
+        indexes = [
+            models.Index(fields=['discipline', 'level']),
+            models.Index(fields=['student', 'level']),
+        ]
         verbose_name = "Рівень студента з дисципліни"
         verbose_name_plural = "Рівні студентів з дисциплін"
 

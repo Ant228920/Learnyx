@@ -105,6 +105,11 @@ class Topic(models.Model):
     level_topics = models.CharField(max_length=50, blank=True, null=True)
     order_index = models.IntegerField()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['course', 'order_index']),
+        ]
+
     def __str__(self):
         return self.title
 
@@ -115,6 +120,11 @@ class CurriculumLesson(models.Model):
     theory_material_url = models.CharField(max_length=255, blank=True, null=True)
     default_homework = models.TextField(blank=True, null=True)
     order_index = models.IntegerField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['topic', 'order_index']),
+        ]
 
     def __str__(self):
         return f'{self.topic} #{self.order_index}'
@@ -259,6 +269,9 @@ class LearningRequest(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['created_at']),
+        ]
 
     def __str__(self):
         return f"{self.student.user.email} — {self.subject} ({self.status})"
@@ -350,6 +363,9 @@ class LessonMaterial(models.Model):
 
     class Meta:
         ordering = ['-uploaded_at']
+        indexes = [
+            models.Index(fields=['uploaded_at']),
+        ]
 
     def __str__(self):
         return f'{self.title} (lesson {self.lesson_id})'
@@ -371,6 +387,7 @@ class Complaint(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        unique_together = ('student', 'lesson')
 
     def __str__(self):
         return f'Complaint #{self.pk}: {self.student} on lesson {self.lesson_id} ({self.status})'
