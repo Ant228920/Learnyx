@@ -310,7 +310,7 @@ export default function StudentSubscription() {
               </button>
             </div>
 
-            <p className="font-inter text-[#565d6d] text-sm text-center">Емуляція платежу (тестовий режим)</p>
+            <p className="font-inter text-[#565d6d] text-sm text-center">Поповнення балансу</p>
 
             {/* Quick amounts */}
             <div className="grid grid-cols-2 gap-2">

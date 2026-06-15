@@ -298,6 +298,7 @@ export default function ManagerMatching() {
             slot: slotToBook.id,
             student: selectedStudentObj.id,
             package: studentPackage.id,
+            student_slots: slots.map(s => ({ day: s.day, from: s.from })),
           });
           const data = res.data as { lessons_count?: number };
           lessonsCount = data.lessons_count ?? 1;
