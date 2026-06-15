@@ -8,6 +8,20 @@ from rest_framework import status
 logger = logging.getLogger(__name__)
 
 
+def format_detail(detail):
+    """Extract a plain user-facing string from DRF error data, avoiding
+    repr-formatted output like "{'email': [ErrorDetail(string='...', code='...')]}"."""
+    if isinstance(detail, dict):
+        for value in detail.values():
+            if isinstance(value, list) and value:
+                return str(value[0])
+            return str(value)
+        return str(detail)
+    if isinstance(detail, list) and detail:
+        return str(detail[0])
+    return str(detail)
+
+
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
 
@@ -26,12 +40,7 @@ def custom_exception_handler(exc, context):
 
         error_code = error_map.get(response.status_code, "API_ERROR")
 
-        if isinstance(response.data, dict):
-            message = response.data.get("detail", str(response.data))
-        elif isinstance(response.data, list):
-            message = response.data[0] if response.data else "Validation error"
-        else:
-            message = str(response.data)
+        message = format_detail(response.data)
 
         response.data = {
             "timestamp": timestamp,

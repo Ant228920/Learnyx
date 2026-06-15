@@ -93,6 +93,7 @@ export default function AppRouter() {
         {/* Fallback — unknown paths show 404 with smart "go home" navigation */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }
