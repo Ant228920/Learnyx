@@ -348,6 +348,41 @@ class SlotViewSet(viewsets.ModelViewSet):
         return Response(SlotAvailableSerializer(qs, many=True).data)
 
 
+# Maps the day names used by ManagerMatching.tsx to JS-style weekday numbers (Sunday=0).
+DAY_MAP = {
+    'Понеділок': 1, 'Вівторок': 2, 'Середа': 3,
+    'Четвер': 4, "П'ятниця": 5, 'Субота': 6, 'Неділя': 0,
+}
+
+
+def slot_matches_request(slot, student_slots):
+    """Check whether slot.start_time falls in one of the student's requested day/time windows.
+
+    Slot times are stored as naive wall-clock values (the UTC field's weekday/hour/minute
+    equal the Kyiv wall-clock values the teacher entered — see getKyivComponents in
+    ManagerMatching.tsx), so the UTC components are read directly without converting timezones.
+    """
+    slot_dt = slot.start_time
+    slot_day = slot_dt.weekday() + 1  # Python Monday=0 -> 1
+    if slot_day == 7:
+        slot_day = 0  # Sunday -> 0
+    slot_minutes = slot_dt.hour * 60 + slot_dt.minute
+
+    for req in student_slots:
+        req_day = DAY_MAP.get(req.get('day', ''))
+        if req_day is None or slot_day != req_day:
+            continue
+        try:
+            fh, fm = map(int, req.get('from', '00:00').split(':'))
+        except (ValueError, AttributeError):
+            continue
+        req_from = fh * 60 + fm
+        req_to = req_from + 60  # 1-hour window
+        if req_from <= slot_minutes < req_to:
+            return True
+    return False
+
+
 class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     """US4 + US6: Lesson booking (atomic) and status update (atomic)."""
 
@@ -682,7 +717,8 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         """LEAR-182: Teacher or Manager assigns a student to a slot (atomic).
 
         Books the requested slot, then fills the rest of the package's
-        remaining balance with the teacher's next available slots so the
+        remaining balance with the teacher's next available slots that match
+        the student's requested day/time windows (student_slots), so the
         whole package gets a schedule in one go.
         """
         serializer = AssignLessonSerializer(data=request.data)
@@ -691,6 +727,7 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
         slot = serializer.validated_data['slot']
         student = serializer.validated_data['student']
         curriculum_lesson = serializer.validated_data.get('curriculum_lesson')
+        student_slots = request.data.get('student_slots', [])
 
         # Idempotency: a retried assign call (e.g. the frontend re-submitting
         # after the first call already filled the package) should report what
@@ -784,14 +821,17 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             created_lessons.append(book_lesson(slot))
 
             # Fill the rest of the package balance with the teacher's next available slots
+            # that match the student's requested day/time windows (if provided).
             remaining = package.balance - 1
             if remaining > 0:
-                extra_slot_ids = (
-                    Slot.objects.filter(teacher_id=slot.teacher_id, status='available', start_time__gt=timezone.now())
-                    .exclude(pk=slot.pk)
-                    .order_by('start_time')
-                    .values_list('pk', flat=True)[:remaining]
-                )
+                candidate_slots = Slot.objects.filter(
+                    teacher_id=slot.teacher_id, status='available', start_time__gt=timezone.now(),
+                ).exclude(pk=slot.pk).order_by('start_time')
+
+                if student_slots:
+                    candidate_slots = [s for s in candidate_slots if slot_matches_request(s, student_slots)]
+
+                extra_slot_ids = [s.pk for s in candidate_slots][:remaining]
                 for extra_slot_id in extra_slot_ids:
                     extra_slot = Slot.objects.select_for_update().get(pk=extra_slot_id)
                     if extra_slot.status != 'available':
