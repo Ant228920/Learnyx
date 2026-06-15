@@ -28,6 +28,7 @@ export function useTeacherSchedule() {
         end_time: s.end_time,
         lesson_status: (r.lesson_status as string | null) ?? null,
         lesson_student_name: (r.lesson_student_name as string | null) ?? null,
+        lesson_id: (r.lesson_id as number | null) ?? null,
       };
     });
     const map: SlotsByDay = {};

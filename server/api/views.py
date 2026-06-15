@@ -55,7 +55,7 @@ from api.serializers import (
 )
 from users.models import User, Role, Student, Manager, Review, TeacherLevel
 from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial, Discipline, Transaction
-from api.services import calculate_cashback, calculate_bonus_progress, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
+from api.services import calculate_cashback, calculate_bonus_progress, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance, mark_lesson_conducted
 
 logger = logging.getLogger(__name__)
 
@@ -481,6 +481,10 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
             lesson = Lesson.objects.select_for_update().get(pk=pk)
 
             if lesson.status in terminal:
+                if lesson.status == new_status:
+                    # Idempotent re-request (e.g. evaluate() already moved the
+                    # lesson to 'conducted' before this call arrives) — not a conflict.
+                    return Response({'message': f'Урок вже має статус {new_status}.'}, status=status.HTTP_200_OK)
                 return Response(
                     {'status': f'Lesson already has a terminal status "{lesson.status}".'},
                     status=status.HTTP_409_CONFLICT,
