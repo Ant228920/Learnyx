@@ -54,11 +54,8 @@ from api.serializers import (
     HomeworkSubmitSerializer,
 )
 from users.models import User, Role, Student, Manager, Review, TeacherLevel
-from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial, Discipline, Transaction
-from api.services import (
-    calculate_cashback, calculate_bonus_progress, get_bonus_balance,
-    notify_manager_low_balance, mark_lesson_conducted,
-)
+from inventory.models import Package, Slot, Teacher, Lesson, JournalRecord, CourseCompletion, PackagePlan, Course, LearningRequest, Complaint, LessonMaterial, Discipline
+from api.services import calculate_cashback, get_bonus_balance, CASHBACK_TIERS, notify_manager_low_balance
 
 logger = logging.getLogger(__name__)
 
@@ -575,12 +572,11 @@ class LessonViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.Gen
 
     @action(detail=False, methods=['get'], url_path='upcoming')
     def upcoming(self, request):
-        """US10: Return all of the authenticated student's lessons (past,
-        cancelled and future) so the calendar can show their full history."""
+        """US10: Return the authenticated student's future scheduled lessons."""
         student = get_object_or_404(Student, user=request.user)
         qs = (
             Lesson.objects
-            .filter(student=student)
+            .filter(student=student, status='scheduled', slot__start_time__gt=timezone.now())
             .select_related('slot')
             .order_by('slot__start_time')
         )
@@ -1977,6 +1973,7 @@ class ComplaintDetailView(APIView):
                     lesson.save(update_fields=['status'])
                 # Record financial penalty transaction for teacher
                 try:
+                    from inventory.models import Transaction
                     Transaction.objects.create(
                         teacher=lesson.slot.teacher,
                         lesson=lesson,
@@ -1986,63 +1983,7 @@ class ComplaintDetailView(APIView):
                     )
                 except Exception as e:
                     logger.warning(f'Failed to create penalty transaction for complaint {pk}: {e}')
-
-                # Auto-reschedule the student to the same weekday & time in one
-                # of the next 12 weeks, reusing the lesson's package so the
-                # student's balance is unaffected (mirrors LessonViewSet.cancel()).
-                rescheduled = False
-                with transaction.atomic():
-                    slot = lesson.slot
-                    for weeks_ahead in range(1, 13):
-                        target_start = slot.start_time + timedelta(weeks=weeks_ahead)
-                        candidate = Slot.objects.filter(
-                            teacher=slot.teacher, status='available', start_time=target_start,
-                        ).first()
-                        if candidate is None:
-                            continue
-
-                        candidate = Slot.objects.select_for_update().get(pk=candidate.pk)
-                        if candidate.status != 'available':
-                            continue
-
-                        conflict = Lesson.objects.filter(
-                            student=lesson.student,
-                            status='scheduled',
-                            slot__start_time__lt=candidate.end_time,
-                            slot__end_time__gt=candidate.start_time,
-                        ).exists()
-                        if conflict:
-                            continue
-
-                        # Lesson.slot is a OneToOneField — recycle a stale row on
-                        # the candidate slot instead of creating a new one.
-                        stale = Lesson.objects.filter(slot=candidate).exclude(status='scheduled').first()
-                        if stale:
-                            stale.student = lesson.student
-                            stale.package = lesson.package
-                            stale.curriculum_lesson = lesson.curriculum_lesson
-                            stale.status = 'scheduled'
-                            stale.meeting_link = None
-                            stale.save(update_fields=['student', 'package', 'curriculum_lesson', 'status', 'meeting_link'])
-                        else:
-                            Lesson.objects.create(
-                                slot=candidate,
-                                student=lesson.student,
-                                package=lesson.package,
-                                curriculum_lesson=lesson.curriculum_lesson,
-                            )
-
-                        candidate.status = 'booked'
-                        candidate.save(update_fields=['status'])
-                        rescheduled = True
-                        break
-
-                msg = 'Скаргу прийнято. Урок позначено як пропущений викладачем.'
-                msg += (
-                    ' Заняття автоматично перенесено на наступний вільний тиждень.' if rescheduled
-                    else ' Вільних слотів для перенесення не знайдено — зверніться до менеджера.'
-                )
-                return Response({'message': msg, 'rescheduled': rescheduled})
+                return Response({'message': 'Скаргу прийнято. Урок позначено як пропущений викладачем.'})
 
             else:
                 # student_missed or other — deduct from student package
@@ -2050,19 +1991,16 @@ class ComplaintDetailView(APIView):
                     lesson.status = 'student_missed'
                     lesson.save(update_fields=['status'])
                 try:
-                    with transaction.atomic():
-                        pkg = Package.objects.select_for_update().filter(
-                            student=lesson.student, status='active'
-                        ).first()
-                        if pkg and pkg.balance > 0:
-                            pkg.balance -= 1
-                            if pkg.balance == 0:
-                                pkg.status = 'completed'
-                            pkg.save()
-                            if pkg.status == 'completed':
-                                calculate_cashback(pkg)
-                            if pkg.balance <= 2:
-                                notify_manager_low_balance(pkg)
+                    pkg = Package.objects.select_for_update().filter(
+                        student=lesson.student, status='active'
+                    ).first()
+                    if pkg and pkg.balance > 0:
+                        pkg.balance -= 1
+                        if pkg.balance == 0:
+                            pkg.status = 'completed'
+                        pkg.save()
+                        if pkg.balance <= 2:
+                            notify_manager_low_balance(pkg)
                 except Exception as e:
                     logger.warning(f'Could not deduct lesson balance for complaint {pk}: {e}')
                     pass

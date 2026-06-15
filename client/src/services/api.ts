@@ -132,8 +132,6 @@ export interface JournalRecord {
   student_name?: string;      // returned by JournalListSerializer
   subject_name?: string | null;
   next_lesson_date?: string | null;
-  homework_overdue?: boolean;
-  package_status?: string | null;
 }
 
 export interface StudentDashboard {
@@ -259,8 +257,6 @@ export function extractErrorMessage(error: unknown): string {
       'AssertionError': 'Помилка сервера. Спробуйте пізніше.',
       'activity_grade must be between 1 and 10.': 'Оцінка за урок має бути від 1 до 10.',
       'activity_grade must be between 0 and 10.': 'Оцінка за урок має бути від 0 до 10.',
-      'Користувач з таким номером телефону вже зареєстрований.': 'Цей номер телефону вже використовується.',
-      'Цей номер телефону вже використовується.': 'Цей номер телефону вже використовується.',
     };
 
     for (const key of ['message', 'detail', 'error']) {

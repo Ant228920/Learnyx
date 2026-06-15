@@ -1,16 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { teacherApi, extractErrorMessage } from '../../../../services/api';
+import { apiClient, extractErrorMessage } from '../../../../services/api';
 
 export interface TeacherStudent {
   id: number;
   first_name: string;
   last_name: string;
-  father_name?: string | null;
   email: string;
   subject?: string;
   level?: string;
-  phone?: string | null;
-  telegram_nickname?: string | null;
+  phone?: string;
   lessons_balance?: number;
   total_lessons?: number;
   avatarBg?: string;
@@ -37,22 +35,31 @@ export function useTeacherStudents() {
       setIsLoading(true);
       setErrorMsg('');
       try {
-        const data = await teacherApi.getStudents();
+        const res = await apiClient.get<{ results?: Record<string, unknown>[] } | Record<string, unknown>[]>('/lessons/');
         if (cancelled) return;
-        setStudents(data.map(s => ({
-          id: s.user_id,
-          first_name: s.first_name,
-          last_name: s.last_name,
-          father_name: s.father_name,
-          email: s.email,
-          subject: s.subject ?? undefined,
-          level: s.level_name ?? undefined,
-          phone: s.phone,
-          telegram_nickname: s.telegram_nickname,
-          lessons_balance: s.lessons_balance,
-          total_lessons: s.total_lessons,
-          avatarBg: getAvatarBg(s.user_id),
-        })));
+        const data = res.data;
+        const lessons: Record<string, unknown>[] = Array.isArray(data)
+          ? data
+          : ((data as { results?: Record<string, unknown>[] }).results ?? []);
+        const map = new Map<number, TeacherStudent>();
+        lessons.forEach((lesson: Record<string, unknown>) => {
+          const s = lesson.student as Record<string, unknown> | null | undefined;
+          if (s && typeof s.id === 'number' && !map.has(s.id)) {
+            map.set(s.id, {
+              id: s.id,
+              first_name: String(s.first_name ?? ''),
+              last_name: String(s.last_name ?? ''),
+              email: String(s.email ?? ''),
+              subject: String(s.subject ?? (lesson.subject as string) ?? ''),
+              level: String(s.level_name ?? (lesson.level as string) ?? ''),
+              phone: String(s.phone ?? ''),
+              lessons_balance: Number(s.lessons_balance ?? 0),
+              total_lessons: Number(s.total_lessons ?? 0),
+              avatarBg: getAvatarBg(s.id),
+            });
+          }
+        });
+        if (!cancelled) setStudents(Array.from(map.values()));
       } catch (err: unknown) {
         if (!cancelled) setErrorMsg(extractErrorMessage(err));
       } finally {

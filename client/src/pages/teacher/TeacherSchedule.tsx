@@ -174,7 +174,7 @@ export default function TeacherSchedule() {
                   <span className="text-[10px] font-inter font-bold text-[#1f8cf9] bg-[#1f8cf91a] rounded-full px-1.5 w-fit">{slots.length}</span>
                 )}
                 {slots.map(s => {
-                  const conducted = HIDDEN_FROM_UPCOMING.includes(s.lesson_status ?? '');
+                  const conducted = ['conducted', 'student_missed', 'teacher_missed'].includes(s.lesson_status ?? '');
                   return (
                     <div key={s.id} className={`flex flex-col px-2 py-1 rounded-lg ${conducted ? 'bg-[#f0f0f0] opacity-60' : s.is_booked ? 'bg-[#e8f4fd]' : 'bg-[#e0faea]'}`}>
                       <span className={`font-inter text-[10px] font-semibold truncate ${conducted ? 'text-[#9095a1]' : s.is_booked ? 'text-[#1f8cf9]' : 'text-[#1a7bd9]'}`}>{s.time}</span>
@@ -215,7 +215,7 @@ export default function TeacherSchedule() {
                 <span className="w-6 h-6 bg-[#1f8cf9] rounded-full flex items-center justify-center font-inter font-bold text-white text-[10px]">{dayModalSlots.length}</span>
               </div>
               {dayModalSlots.map(slot => {
-                const conducted = HIDDEN_FROM_UPCOMING.includes(slot.lesson_status ?? '');
+                const conducted = ['conducted', 'student_missed', 'teacher_missed'].includes(slot.lesson_status ?? '');
                 return (
                 <div key={slot.id} className={`flex items-center justify-between p-3 rounded-xl border ${conducted ? 'bg-[#f8f9fb] border-[#dee1e6] opacity-60' : slot.is_booked ? 'bg-[#e8f4fd] border-[#1f8cf9]/30' : 'bg-[#f8f9fb] border-[#dee1e6]'}`}>
                   <div className="flex flex-col gap-0.5">
@@ -228,13 +228,8 @@ export default function TeacherSchedule() {
                     </span>
                   </div>
                   {!conducted && (slot.is_booked ? (
-                    slot.lesson_id != null && (
-                      <button type="button" onClick={() => void handleCancelLesson(slot.lesson_id as number)}
-                        disabled={cancellingLesson === slot.lesson_id}
-                        className="font-inter text-red-500 hover:text-red-600 text-xs underline disabled:opacity-50">
-                        {cancellingLesson === slot.lesson_id ? 'Скасування...' : 'Скасувати'}
-                      </button>
-                    )
+                    <button type="button" onClick={() => void handleCancelLesson(slot)}
+                      className="font-inter text-red-500 hover:text-red-600 text-xs underline">Скасувати</button>
                   ) : (
                     <button type="button" onClick={() => { setCancelSlot(slot); setDayModal(null); }}
                       className="font-inter text-[#e64c4c] text-xs hover:underline">Видалити</button>

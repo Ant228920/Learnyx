@@ -204,16 +204,17 @@ export default function TeacherDashboard() {
       }
 
       // ── Conducted lesson ──
-      // 1. Evaluate — record attendance + activity grade.
-      //    The backend auto-transitions the lesson to 'conducted' (frees the
-      //    slot, deducts package balance, awards cashback on completion).
+      // 1. Evaluate — record attendance + activity grade
       await apiClient.post(`/lessons/${lessonId}/evaluate/`, {
         is_present: true,
         activity_grade: gradeForm.activityGrade,
         lesson_topic: gradeForm.lessonTopic.trim() || undefined,
       });
 
-      // 2. Upload homework task + optional file (converted to base64 → Dropbox)
+      // 2. Set lesson status to conducted
+      await teacherApi.setLessonStatus(lessonId, 'conducted');
+
+      // 3. Upload homework task + optional file (converted to base64 → Dropbox)
       if (gradeForm.homeworkTopic.trim() || gradeForm.homeworkFile) {
         let fileData = '';
         let filename = '';

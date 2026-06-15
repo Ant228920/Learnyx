@@ -44,12 +44,6 @@ function reasonLabel(reason: string): string {
   return reason;
 }
 
-function getComplaintTitle(reason: string, filedByName: string): string {
-  if (reason === 'teacher_missed') return 'Скарга від учня — вчитель не з\'явився на урок';
-  if (reason === 'student_missed') return 'Скарга від вчителя — учень не з\'явився на урок';
-  return `Скарга від ${filedByName}`;
-}
-
 const IconBook = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1f8cf9" strokeWidth="2" aria-hidden="true">
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
@@ -267,7 +261,8 @@ export default function ManagerReports() {
 
             <div className="flex flex-col gap-3 mb-6">
               {[
-                { label: 'Скарга', value: getComplaintTitle(complaintModal.reason, complaintModal.filed_by_name) },
+                { label: 'Подав', value: complaintModal.filed_by_name },
+                { label: 'Причина', value: reasonLabel(complaintModal.reason) },
                 { label: 'Дата уроку', value: complaintModal.lesson_date },
                 { label: 'Викладач', value: complaintModal.teacher_name },
                 { label: 'Учень', value: complaintModal.student_name },
