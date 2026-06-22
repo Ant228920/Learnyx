@@ -86,8 +86,17 @@ class Command(BaseCommand):
         # Manager
         mgr, _ = User.objects.get_or_create(
             email='manager@learnyx.com',
-            defaults={'username': 'manager', 'first_name': 'Олена', 'last_name': 'Петрівна',
-                      'role_obj': mr, 'is_approved': True},
+            defaults={
+                'username': 'manager',
+                'first_name': 'Олена',
+                'last_name': 'Петрівна',
+                'father_name': 'Олександрівна',
+                'phone': '+380501112233',
+                'nickname': 'olena_manager',
+                'photo': 'avatars/default.jpg',
+                'role_obj': mr,
+                'is_approved': True,
+            },
         )
         mgr.set_password('Manager1234!')
         mgr.save()
@@ -96,16 +105,26 @@ class Command(BaseCommand):
 
         # Teachers
         teachers_spec = [
-            ('teacher1@learnyx.com', 'teacher1', 'Іван',  'Коваль',     self.discs[0]),
-            ('teacher2@learnyx.com', 'teacher2', 'Марія', 'Шевченко',   self.discs[1]),
-            ('teacher3@learnyx.com', 'teacher3', 'Олег',  'Бондаренко', self.discs[2]),
+            # email, username, first_name, last_name, father_name, phone, nickname, discipline
+            ('teacher1@learnyx.com', 'teacher1', 'Іван',  'Коваль',     'Олександрович', '+380501112201', 'ivan_teacher',  self.discs[0]),
+            ('teacher2@learnyx.com', 'teacher2', 'Марія', 'Шевченко',   'Сергіївна',     '+380501112202', 'maria_teacher', self.discs[1]),
+            ('teacher3@learnyx.com', 'teacher3', 'Олег',  'Бондаренко', 'Миколайович',   '+380501112203', 'oleg_teacher',  self.discs[2]),
         ]
         self.teachers = []
-        for email, uname, fn, ln, disc in teachers_spec:
+        for email, uname, fn, ln, father_name, phone, nickname, disc in teachers_spec:
             u, _ = User.objects.get_or_create(
                 email=email,
-                defaults={'username': uname, 'first_name': fn, 'last_name': ln,
-                          'role_obj': tr, 'is_approved': True},
+                defaults={
+                    'username': uname,
+                    'first_name': fn,
+                    'last_name': ln,
+                    'father_name': father_name,
+                    'phone': phone,
+                    'nickname': nickname,
+                    'photo': 'avatars/default.jpg',
+                    'role_obj': tr,
+                    'is_approved': True,
+                },
             )
             u.set_password('Teacher1234!')
             u.save()
@@ -116,33 +135,55 @@ class Command(BaseCommand):
             self.teachers.append(t)
 
         # Students
+        #
+        # IMPORTANT: Student no longer carries a single `level` field.
+        # Level is tracked per-discipline via the StudentDisciplineLevel
+        # through model (student, discipline, level). We can't create that
+        # record here yet because we don't know which discipline each
+        # student is enrolled in until packages are assigned — so we just
+        # remember the intended level in `self.student_levels` (parallel
+        # to `self.students`) and create the junction record later, inside
+        # _create_packages.
         students_spec = [
-            ('student1@learnyx.com', 'student1', 'Андрій',   'Мельник',   lv_mid, Decimal('5000')),
-            ('student2@learnyx.com', 'student2', 'Катерина', 'Іванова',   lv_mid, Decimal('8000')),
-            ('student3@learnyx.com', 'student3', 'Дмитро',   'Сидоренко', lv_beg, Decimal('3000')),
-            ('student4@learnyx.com', 'student4', 'Оксана',   'Ткаченко',  lv_beg, Decimal('6000')),
-            ('student5@learnyx.com', 'student5', 'Максим',   'Лисенко',   lv_mid, Decimal('2000')),
+            # email, username, first_name, last_name, father_name, phone, nickname, level, balance
+            ('student1@learnyx.com', 'student1', 'Андрій',   'Мельник',   'Олексійович',  '+380501112301', 'andrii_student',   lv_mid, Decimal('5000')),
+            ('student2@learnyx.com', 'student2', 'Катерина', 'Іванова',   'Василівна',    '+380501112302', 'kateryna_student', lv_mid, Decimal('8000')),
+            ('student3@learnyx.com', 'student3', 'Дмитро',   'Сидоренко', 'Петрович',     '+380501112303', 'dmytro_student',   lv_beg, Decimal('3000')),
+            ('student4@learnyx.com', 'student4', 'Оксана',   'Ткаченко',  'Григорівна',   '+380501112304', 'oksana_student',   lv_beg, Decimal('6000')),
+            ('student5@learnyx.com', 'student5', 'Максим',   'Лисенко',   'Анатолійович', '+380501112305', 'maksym_student',   lv_mid, Decimal('2000')),
         ]
         self.students = []
-        for email, uname, fn, ln, level, balance in students_spec:
+        self.student_levels = []  # parallel list to self.students, used in _create_packages
+        for email, uname, fn, ln, father_name, phone, nickname, level, balance in students_spec:
             u, _ = User.objects.get_or_create(
                 email=email,
-                defaults={'username': uname, 'first_name': fn, 'last_name': ln,
-                          'role_obj': sr, 'is_approved': True},
+                defaults={
+                    'username': uname,
+                    'first_name': fn,
+                    'last_name': ln,
+                    'father_name': father_name,
+                    'phone': phone,
+                    'nickname': nickname,
+                    'photo': 'avatars/default.jpg',
+                    'role_obj': sr,
+                    'is_approved': True,
+                },
             )
             u.set_password('Student1234!')
             u.save()
             s, _ = Student.objects.get_or_create(
                 user=u,
-                defaults={'level': level, 'money_balance': balance},
+                defaults={'money_balance': balance},
             )
             self.students.append(s)
+            self.student_levels.append(level)
 
         self.stdout.write('  Users: 1 manager, 3 teachers, 5 students')
 
     # ---------------------------------------------------------------- packages
     def _create_packages(self):
         from inventory.models import Package
+        from users.models import StudentDisciplineLevel
 
         cfg = [
             # (student_idx, course_idx, total, balance, price, status)
@@ -168,6 +209,16 @@ class Command(BaseCommand):
                 },
             )
             self.packages.append(pkg)
+
+            # Create the (student, discipline) -> level junction record
+            # explicitly. Using `.add()` on a reverse FK related manager
+            # silently drops the `level` value, so we go through the
+            # through-model manager directly instead.
+            StudentDisciplineLevel.objects.get_or_create(
+                student=self.students[si],
+                discipline=course.discipline,
+                defaults={'level': self.student_levels[si]},
+            )
 
         self.stdout.write('  Packages: 4 active, 1 available')
 
@@ -382,3 +433,4 @@ class Command(BaseCommand):
         self.stdout.write('          student4@learnyx.com / Student1234!')
         self.stdout.write('          student5@learnyx.com / Student1234!')
         self.stdout.write(sep)
+        
