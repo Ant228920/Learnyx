@@ -285,6 +285,19 @@ python manage.py runserver
 
 ---
 
+## 🔑 Demo Credentials
+
+> Доступні після запуску `docker compose up` та застосування seed-даних.
+
+| Роль | Email                          | Пароль           |
+|------|--------------------------------|------------------|
+| Manager | manager@learnyx.com            | Manager1234!     |
+| Teacher | teacher(1,2,3)@learnyx.com     | Teacher1234!     |
+| Student | student(1,2,3,4,5)@learnyx.com | Student1234!     |
+| Admin (Django) | admin@learnyx.com              | adminpassword123 |
+
+---
+
 ## 📖 API Documentation
 
 Повна документація доступна через Swagger UI після запуску:
