@@ -290,6 +290,48 @@ python manage.py runserver
 > 🌐 Сервер запуститься на **`http://127.0.0.1:8000/`**
 
 ---
+```
+### 🗄️ Database
+```bash
+# 1. Запустити базу даних (PostgreSQL) у Docker
+docker-compose up -d
+
+# 2. Перейти в папку сервера (якщо ви ще не там)
+cd server
+
+# 3. Переконатися, що віртуальне середовище активоване
+# Windows: venv\Scripts\activate | macOS/Linux: source venv/bin/activate
+
+# 4. Створити таблиці в базі даних (Міграції)
+python manage.py migrate
+
+# 5. Наповнити базу демонстраційними даними (Seed Data)
+python manage.py loaddata seed_data.json
+```
+> 🌐 Сервер запуститься на **````
+### 🗄️ Database
+```bash
+# 1. Запустити базу даних (PostgreSQL) у Docker
+docker-compose up -d
+
+# 2. Перейти в папку сервера (якщо ви ще не там)
+cd server
+
+# 3. Переконатися, що віртуальне середовище активоване
+# Windows: venv\Scripts\activate | macOS/Linux: source venv/bin/activate
+
+# 4. Створити таблиці в базі даних (Міграції)
+python manage.py migrate
+
+# 5. Наповнити базу демонстраційними даними (Seed Data)
+python manage.py loaddata seed_data.json
+```
+> 🌐 Сервер запуститься на **`http://localhost:5050`**
+
+---
+`**
+
+---
 
 ## 📖 API Documentation
 
@@ -321,13 +363,26 @@ OpenAPI-специфікація: [`server/openapi.yaml`](./server/openapi.yaml)
 
 ---
 
+## 🔑 Demo Credentials
+
+> Доступні після запуску `docker compose up` та застосування seed-даних.
+
+| Роль | Email                          | Пароль           |
+|------|--------------------------------|------------------|
+| Manager | manager@learnyx.com            | Manager1234!     |
+| Teacher | teacher(1,2,3)@learnyx.com     | Teacher1234!     |
+| Student | student(1,2,3,4,5)@learnyx.com | Student1234!     |
+| Admin (Django) | admin@learnyx.com              | adminpassword123 |
+
+---
+
 ## 📚 Documentation & Links
 
 | Ресурс | Посилання |
 |--------|-----------|
 | 💻 **GitHub** | [Learnyx Repository](https://github.com/Ant228920/Learnyx) |
 | 📌 **Jira Board** | [Learnyx Backlog](https://learnyx123.atlassian.net/jira/software/projects/LEAR/boards/2/backlog) |
-| 📝 **Business Requirements** | [Notion — BRL](https://www.notion.so/Business-Requirements-List-328cc7cf61f3806f9db5c414bcaa5cef) |
+| 📝 **Business Requirements** | [Google Docks](https://docs.google.com/document/d/156hzkywOMmj2DV-t_Y9IxotbV4WmyXWk4K-uR5uZiSw/edit?tab=t.0#heading=h.uim9pwm6f6f3) |
 | 📡 **API Docs (Swagger)** | [OpenAPI Specification](https://www.notion.so/Swagger-OpenAPI-Specification-33acc7cf61f380a19b25f5235443bb35) |
 | 🎨 **UI/UX Prototype** | [Figma Wireframes](https://www.figma.com/design/JX3mRS5rRtxMKETHkzbDSf/Wireframes-first-etap?node-id=2034-3&t=tE9YoIxzsK0ciPc1-0) |
 
