@@ -306,7 +306,7 @@ class Command(BaseCommand):
                     is_present=True,
                     grade=random.randint(6, 10),
                     activity_grade=random.randint(5, 10),
-                    teacher_homework_task={'description': f'Завдання #{i + 1}: виконати вправи'},
+                    teacher_homework_task=f'Завдання #{i + 1}: виконати вправи',
                     homework_grade=random.randint(5, 10) if hw_status == JournalRecord.HomeworkStatus.REVIEWED else None,
                     homework_status=hw_status,
                     homework_submitted_at=submitted_at,
