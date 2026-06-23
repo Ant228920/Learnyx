@@ -7,7 +7,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
+from inventory.models import Course, Discipline, PackagePlan
+from users.models import Role, StudentLevel, Student, TeacherLevel, User
 
 
 class Command(BaseCommand):
@@ -399,20 +400,114 @@ class Command(BaseCommand):
 
         self.stdout.write('  Learning requests: 2 pending')
 
-    # ------------------------------------------------------------ credentials
-    def _print_credentials(self):
-        sep = '=' * 50
-        self.stdout.write(f'\n{sep}')
-        self.stdout.write('DEMO CREDENTIALS')
-        self.stdout.write(sep)
-        self.stdout.write('MANAGER:  manager@learnyx.com  / Manager1234!')
-        self.stdout.write('TEACHERS: teacher1@learnyx.com / Teacher1234!')
-        self.stdout.write('          teacher2@learnyx.com / Teacher1234!')
-        self.stdout.write('          teacher3@learnyx.com / Teacher1234!')
-        self.stdout.write('STUDENTS: student1@learnyx.com / Student1234!')
-        self.stdout.write('          student2@learnyx.com / Student1234!')
-        self.stdout.write('          student3@learnyx.com / Student1234!')
-        self.stdout.write('          student4@learnyx.com / Student1234!')
-        self.stdout.write('          student5@learnyx.com / Student1234!')
-        self.stdout.write(sep)
-        
+        self.stdout.write(self.style.SUCCESS('База даних успішно просідована!'))
+
+        # Demo student with completed history and 15% bonus ready to use
+        self.stdout.write(self.style.WARNING('Створюємо демо студента з бонусом...'))
+        try:
+            from inventory.models import (
+                Package, Slot, Lesson, JournalRecord, CourseCompletion, Teacher,
+            )
+            from decimal import Decimal
+            import datetime
+            from django.utils import timezone
+
+            # 1. Demo user
+            demo_user, created = User.objects.get_or_create(
+                email='demo_bonus@learnyx.com',
+                defaults={
+                    'username': 'demo_bonus',
+                    'first_name': 'Демо',
+                    'last_name': 'Студент',
+                    'phone': '+380991111222',
+                    'nickname': '@demo_bonus',
+                    'is_approved': True,
+                    'role_obj': roles_objs['Student'],
+                }
+            )
+            if created:
+                demo_user.set_password('Demo1234!')
+                demo_user.save()
+
+            # 2. Student profile
+            demo_student, _ = Student.objects.get_or_create(user=demo_user)
+
+            # 3. Money balance
+            demo_student.money_balance = Decimal('3000.00')
+            demo_student.save(update_fields=['money_balance'])
+
+            # 4. Completed package (10 lessons, balance=0)
+            plan_10 = PackagePlan.objects.filter(total_lessons=10).first()
+            completed_pkg, pkg_created = Package.objects.get_or_create(
+                student=demo_student,
+                status='completed',
+                defaults={
+                    'total_lessons': 10,
+                    'balance': 0,
+                    'final_price': plan_10.price if plan_10 else Decimal('2000.00'),
+                    'discount': Decimal('0.00'),
+                }
+            )
+
+            # 5. First available teacher
+            demo_teacher = Teacher.objects.first()
+
+            if demo_teacher and pkg_created:
+                # 6. 10 conducted lessons with good grades
+                for i in range(10):
+                    lesson_date = timezone.now() - datetime.timedelta(days=70 - i * 7)
+                    slot, _ = Slot.objects.get_or_create(
+                        teacher=demo_teacher,
+                        start_time=lesson_date,
+                        defaults={
+                            'end_time': lesson_date + datetime.timedelta(hours=1),
+                            'status': 'booked',
+                        }
+                    )
+                    lesson, _ = Lesson.objects.get_or_create(
+                        slot=slot,
+                        student=demo_student,
+                        defaults={
+                            'status': 'conducted',
+                            'package': completed_pkg,
+                        }
+                    )
+                    JournalRecord.objects.get_or_create(
+                        lesson=lesson,
+                        defaults={
+                            'activity_grade': 9,
+                            'homework_grade': 8,
+                            'lesson_topic': f'Урок {i + 1} — Граматика',
+                            'teacher_homework_task': {'task': f'Домашнє завдання {i + 1}'},
+                            'homework_answer_url': '',
+                        }
+                    )
+
+            # 7. CourseCompletion with 15% bonus; link back to package
+            base_course = Course.objects.filter(title='Загальний курс').first()
+            if base_course:
+                completion, _ = CourseCompletion.objects.get_or_create(
+                    student=demo_student,
+                    course=base_course,
+                    defaults={
+                        'earned_discount': 15,
+                        'is_discount_used': False,
+                        'completed_lessons_count': 10,
+                        'total_points': 170,
+                    }
+                )
+                if completed_pkg.completed_id != completion.pk:
+                    completed_pkg.completed = completion
+                    completed_pkg.save(update_fields=['completed'])
+
+            self.stdout.write(self.style.SUCCESS('✅ Демо студент з бонусом створений:'))
+            self.stdout.write(self.style.SUCCESS('   Email: demo_bonus@learnyx.com'))
+            self.stdout.write(self.style.SUCCESS('   Пароль: Demo1234!'))
+            self.stdout.write(self.style.SUCCESS('   Бонус: 15% знижка на наступний абонемент'))
+            self.stdout.write(self.style.SUCCESS('   Баланс: 3000 UAH'))
+            self.stdout.write(self.style.SUCCESS('   Статус: немає активного абонементу — готовий до покупки з бонусом'))
+
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'❌ Помилка створення демо студента: {e}'))
+            import traceback
+            traceback.print_exc()

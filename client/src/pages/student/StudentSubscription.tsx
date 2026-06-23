@@ -71,6 +71,7 @@ export default function StudentSubscription() {
   if (error) return <div className="flex items-center justify-center h-screen font-inter text-red-500">Помилка: {error}</div>;
 
   const activePackage = subData?.activePackage ?? null;
+  const availableBonus = Math.min(bonusDiscountPct, 15);
 
   const handlePurchase = async (plan: typeof displayPlans[0]) => {
     setPurchasing(plan.id);
@@ -159,29 +160,80 @@ export default function StudentSubscription() {
             <p className="font-inter text-[#565d6d] text-base mt-1">Змінюйте план у будь-який час. Ми підберемо найкраще рішення для вашого темпу.</p>
           </div>
 
-          {/* Bonus selector */}
-          <div className="p-4 bg-white rounded-2xl border border-[#dee1e6]">
-            {bonusDiscountPct > 0 ? (
-              <div className="flex items-center justify-between gap-4">
-                <span className="font-inter font-medium text-sm text-[#1a7bd9]">
-                  У вас є бонус {Math.min(bonusDiscountPct, 15)}% знижки!
-                </span>
-                <label className="flex items-center gap-2 font-inter text-sm text-slate-800 cursor-pointer">
+          {/* Bonus info card */}
+          {availableBonus > 0 ? (
+            <div className="p-5 bg-gradient-to-r from-[#1f8cf9]/10 to-[#00c896]/10 border border-[#1f8cf9]/30 rounded-2xl">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-[#1f8cf9] rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-inter font-bold text-[#171a1f] text-base">
+                    У вас є бонус {availableBonus}% 🎉
+                  </p>
+                  <p className="font-inter text-[#565d6d] text-sm">
+                    Застосуйте знижку при покупці наступного абонементу
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 font-inter text-sm text-slate-800 cursor-pointer whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={selectedBonus > 0}
-                    onChange={e => setSelectedBonus(e.target.checked ? Math.min(bonusDiscountPct, 15) : 0)}
+                    onChange={e => setSelectedBonus(e.target.checked ? availableBonus : 0)}
                     className="w-4 h-4 accent-[#1f8cf9]"
                   />
-                  Застосувати бонус {Math.min(bonusDiscountPct, 15)}%
+                  Застосувати {availableBonus}%
                 </label>
               </div>
-            ) : (
-              <p className="font-inter text-[#9095a1] text-sm">
-                У вас немає бонусів. Виконуйте домашні завдання вчасно для отримання знижки.
-              </p>
-            )}
-          </div>
+              <div className="grid grid-cols-3 gap-3">
+                {displayPlans.map(plan => {
+                  const originalPrice = Number(plan.final_price);
+                  const discount = Math.round(originalPrice * availableBonus / 100);
+                  const discountedPrice = originalPrice - discount;
+                  return (
+                    <div key={plan.id} className="bg-white rounded-xl p-3 border border-[#1f8cf9]/20">
+                      <p className="font-inter font-semibold text-[#171a1f] text-sm">{plan.total_lessons} занять</p>
+                      <p className="font-inter text-[#9095a1] text-xs line-through mt-1">₴{originalPrice}</p>
+                      <p className="font-inter font-bold text-[#1f8cf9] text-lg">₴{discountedPrice}</p>
+                      <p className="font-inter text-[#00c896] text-xs font-semibold">Економія ₴{discount}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-[#f4f4f6] border border-[#dee1e6] rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-[#dee1e6] rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9095a1" strokeWidth="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-inter font-semibold text-[#565d6d] text-sm">Бонусів поки немає</p>
+                  <p className="font-inter text-[#9095a1] text-xs">
+                    Виконуйте домашні завдання вчасно і отримуйте оцінки 8-10 щоб заробити знижку 5-15% на наступний абонемент
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-4 mt-3">
+                <div className="flex-1 text-center p-2 bg-white rounded-xl border border-[#dee1e6]">
+                  <p className="font-inter font-bold text-[#1f8cf9] text-sm">5%</p>
+                  <p className="font-inter text-[#9095a1] text-xs">від 50% балів</p>
+                </div>
+                <div className="flex-1 text-center p-2 bg-white rounded-xl border border-[#dee1e6]">
+                  <p className="font-inter font-bold text-[#1f8cf9] text-sm">10%</p>
+                  <p className="font-inter text-[#9095a1] text-xs">від 70% балів</p>
+                </div>
+                <div className="flex-1 text-center p-2 bg-white rounded-xl border border-[#dee1e6]">
+                  <p className="font-inter font-bold text-[#1f8cf9] text-sm">15%</p>
+                  <p className="font-inter text-[#9095a1] text-xs">від 90% балів</p>
+                </div>
+              </div>
+            </div>
+          )}
           </div>
           <div className="grid grid-cols-3 gap-6">
             {displayPlans.map(plan => (
