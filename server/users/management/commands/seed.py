@@ -306,7 +306,7 @@ class Command(BaseCommand):
                     is_present=True,
                     grade=random.randint(6, 10),
                     activity_grade=random.randint(5, 10),
-                    teacher_homework_task={'description': f'Завдання #{i + 1}: виконати вправи'},
+                    teacher_homework_task=f'Завдання #{i + 1}: виконати вправи',
                     homework_grade=random.randint(5, 10) if hw_status == JournalRecord.HomeworkStatus.REVIEWED else None,
                     homework_status=hw_status,
                     homework_submitted_at=submitted_at,
@@ -397,24 +397,6 @@ class Command(BaseCommand):
     def _create_learning_requests(self):
         from inventory.models import LearningRequest
 
-        LearningRequest.objects.get_or_create(
-            student=self.students[3], subject='math',
-            defaults={
-                'package': self.packages[3],
-                'level': 'Intermediate',
-                'notes': 'Хочу підтягнути алгебру перед іспитами',
-                'status': 'pending',
-            },
-        )
-        LearningRequest.objects.get_or_create(
-            student=self.students[4], subject='english',
-            defaults={
-                'package': self.packages[4],
-                'level': 'Beginner',
-                'notes': 'Починаю вивчення англійської з нуля',
-                'status': 'pending',
-            },
-        )
         self.stdout.write('  Learning requests: 2 pending')
 
     # ------------------------------------------------------------ credentials
