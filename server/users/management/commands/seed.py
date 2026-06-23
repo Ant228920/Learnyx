@@ -397,24 +397,6 @@ class Command(BaseCommand):
     def _create_learning_requests(self):
         from inventory.models import LearningRequest
 
-        LearningRequest.objects.get_or_create(
-            student=self.students[3], subject='math',
-            defaults={
-                'package': self.packages[3],
-                'level': 'Intermediate',
-                'notes': 'Хочу підтягнути алгебру перед іспитами',
-                'status': 'pending',
-            },
-        )
-        LearningRequest.objects.get_or_create(
-            student=self.students[4], subject='english',
-            defaults={
-                'package': self.packages[4],
-                'level': 'Beginner',
-                'notes': 'Починаю вивчення англійської з нуля',
-                'status': 'pending',
-            },
-        )
         self.stdout.write('  Learning requests: 2 pending')
 
     # ------------------------------------------------------------ credentials
